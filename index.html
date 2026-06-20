@@ -93,6 +93,20 @@
   .ach .ad{font-size:12px;color:#b9aee0;margin-top:2px}
   .ach .tick{margin-left:auto;color:#ffd86b;font-weight:800;font-size:15px}
   #achProg{font-size:13px;color:#cbb8ff;font-weight:700}
+  #charSelect{position:absolute;inset:0;background:rgba(6,4,14,.85);backdrop-filter:blur(6px);
+    display:none;align-items:center;justify-content:center;pointer-events:auto;z-index:30;padding:18px}
+  #charSelect.open{display:flex}
+  #charCard{width:100%;max-width:460px;text-align:center}
+  .ch-title{font-weight:800;font-size:22px;color:#fff;margin-bottom:4px}
+  .ch-sub{font-size:13px;color:#cbb8ff;margin-bottom:16px}
+  #charRow{display:flex;flex-direction:column;gap:12px}
+  .ch-card{display:flex;align-items:center;gap:14px;text-align:left;cursor:pointer;padding:12px;border-radius:16px;
+    background:linear-gradient(180deg,rgba(40,28,70,.92),rgba(26,18,46,.94));border:2px solid #3a2a63}
+  .ch-card:active{transform:scale(.98)} .ch-card:hover{border-color:#a05bff}
+  .ch-portrait{width:84px;height:84px;flex:0 0 auto;image-rendering:pixelated;border-radius:12px;object-fit:contain;
+    background-color:rgba(0,0,0,.3);box-shadow:inset 0 0 0 1px rgba(160,91,255,.35);padding:6px}
+  .ch-name{font-weight:800;font-size:18px;color:#fff}
+  .ch-abil{font-size:13px;color:#c2b6e6;margin-top:3px;line-height:1.3}
   #say{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom) + 14px);transform:translateX(-50%);
     max-width:88vw;text-align:center;color:#ffb0ec;font-size:13.5px;background:rgba(10,8,18,.62);
     backdrop-filter:blur(6px);border-radius:12px;padding:7px 13px;border:1px solid rgba(160,91,255,.25);
@@ -120,6 +134,11 @@
   <div id="achOverlay"><div id="achCard">
     <div id="achHead"><span>🏆 Erfolge</span><button id="achClose" title="Schliessen"></button></div>
     <div id="achList"></div>
+  </div></div>
+  <div id="charSelect"><div id="charCard">
+    <div class="ch-title">Willkommen, Fremder.</div>
+    <div class="ch-sub">Der Älteste: „Wähle, wer du sein willst — jede Wahl bleibt dein ganzes Leben."</div>
+    <div id="charRow"></div>
   </div></div>
   <div id="panel">
     <div class="grab"></div>
@@ -196,6 +215,53 @@ function updateFreeWalkers(s,dt){
     moveToward(w,w.tx,w.ty,onSand(s,w.x,w.y)?66:120,dt);  // Sand bremst auch die Helfer ()
   } }
 
+/* ---------- Kampf (Tag-Phase, Test-Bett fürs spätere Nacht-TD) ---------- */
+const ENEMY_R=14, HERO_RANGE=72, HERO_ATK_CD=0.55, ENEMY_ATK_CD=1.0;
+// Zwei Gegner-Tiers: Grunt = leicht (klein), Brute = schwer (groß, stark) — fürs Era-gating
+const ETYPES={
+  grunt:{name:'Grunt', unit:'pawn_black',    hp:20, hpEra:7,  atk:5,  speed:58, size:74, atkRange:38, aggro:230, leash:560, bounty:2},
+  brute:{name:'Brute', unit:'warrior_black', hp:60, hpEra:20, atk:13, speed:42, size:104, atkRange:54, aggro:280, leash:660, bounty:7},
+};
+// Gegner spawnt an ZUFÄLLIGER, gültiger Position (nicht Wasser/Fels/Dorf), bleibt dort stationär bis Aggro.
+function spawnEnemy(s,kind){ const T=ETYPES[kind], R=areaRadius(s);
+  for(let t=0;t<40;t++){ const a=rnd(0,6.2832), d=rnd(VILLAGE_R+90, R-40), x=BASE.x+Math.cos(a)*d, y=BASE.y+Math.sin(a)*d;
+    if(blocked(s,x,y,18)) continue;
+    const hp=T.hp+T.hpEra*s.era;
+    s.enemies.push({kind,x,y,home:{x,y},hp,max:hp,face:-1,animT:rnd(0,2),atkT:rnd(0,1),hurtT:0,state:'idle',moving:false,life:rnd(32,48)}); return true; }
+  return false; }
+function updateCombat(s,dt){ const P=s.player; P.attacking=false;
+  if(P.hurtT>0)P.hurtT-=dt; P.atkT=(P.atkT||0)-dt;
+  // Bestände skalieren mit der MAP-Größe (areas): Grunts ab Start (auch era0), Brutes erst ab Dorf-Era ()
+  { s.spawnT+=dt;
+    const wantG=1+(s.areas||1), wantB=s.era>=1?(s.areas||1):0;
+    const ng=s.enemies.filter(e=>e.kind==='grunt').length, nb=s.enemies.filter(e=>e.kind==='brute').length;
+    if(s.spawnT>3.5){ s.spawnT=0; if(nb<wantB) spawnEnemy(s,'brute'); else if(ng<wantG) spawnEnemy(s,'grunt'); } }
+  for(const e of s.enemies){ const T=ETYPES[e.kind]; e.animT+=dt; if(e.hurtT>0)e.hurtT-=dt; e.life-=dt;
+    const dP=dist(e.x,e.y,P.x,P.y);
+    if(e.state==='idle'){ e.moving=false; if(dP<T.aggro) e.state='chase';                         // stationär bis Aggro
+      else if(e.life<=0){ e.dead=true; e.poof=true; } }                                            // nicht besiegt → verschwindet ()
+    else if(e.state==='chase'){
+      if(dP>T.leash) e.state='return';
+      else if(dP>T.atkRange){ const dx=P.x-e.x; if(Math.abs(dx)>2)e.face=dx<0?-1:1; e.moving=true;
+        moveToward(e,P.x,P.y, onSand(s,e.x,e.y)?T.speed*0.55:T.speed, dt); collide(s,e,ENEMY_R); }   // Terrain gilt für Gegner ()
+      else { e.moving=false; e.atkT-=dt; if(e.atkT<=0){ e.atkT=ENEMY_ATK_CD;
+        const dmg=Math.max(1,Math.round(T.atk-(s.def||0))); P.hp-=dmg; P.hurtT=0.25; addPop(s,P.x,P.y-62,'#ff6a6a','-'+dmg); } } }
+    else { const dx=e.home.x-e.x; if(Math.abs(dx)>2)e.face=dx<0?-1:1; e.moving=true;                // zurück zum Spawn-Punkt
+      moveToward(e,e.home.x,e.home.y, onSand(s,e.x,e.y)?T.speed*0.55:T.speed, dt); collide(s,e,ENEMY_R);
+      if(dP<T.aggro) e.state='chase'; else if(dist(e.x,e.y,e.home.x,e.home.y)<10) e.state='idle'; } }
+  // Held greift automatisch den nächsten Gegner in Reichweite an
+  let near=null,nd=HERO_RANGE; for(const e of s.enemies){ if(e.dead)continue; const dd=dist(e.x,e.y,P.x,P.y); if(dd<nd){nd=dd;near=e;} }
+  if(near){ P.attacking=true; const dx=near.x-P.x; if(Math.abs(dx)>2)P.face=dx<0?-1:1;
+    if(P.atkT<=0){ P.atkT=HERO_ATK_CD; const dmg=Math.round(8*(s.atk||1)); near.hp-=dmg; near.hurtT=0.18;
+      addPop(s,near.x,near.y-42,'#ffe08a','-'+dmg); burst(s,near.x,near.y-10,'#ffd86b',5); SFX.harvest(); } }
+  // Tod: besiegt → Effekt + Gold-Beute; abgelaufen (poof) → leise verschwinden
+  for(const e of s.enemies){ if(e.hp<=0 && !e.dead){ e.dead=true; const T=ETYPES[e.kind]; burst(s,e.x,e.y-10,'#c0392b',16);
+      const bounty=T.bounty+Math.floor(s.era/2); s.store.gold=(s.store.gold||0)+bounty; addPop(s,e.x,e.y-34,'#e8c34a','+'+bounty+' Gold'); SFX.deposit(); }  // moderat + je Gegner-Typ ()
+    else if(e.poof){ burst(s,e.x,e.y-10,'rgba(150,150,170,.8)',8); } }
+  s.enemies=s.enemies.filter(e=>!e.dead);
+  if(P.hp<=0){ P.hp=P.hpmax; P.x=P.tx=BASE.x; P.y=P.ty=BASE.y+BASE_SOLID+30; s.enemies=[]; s.spawnT=-2;
+    burst(s,BASE.x,BASE.y-20,'#ff5a5a',24); say('Niedergeschlagen! Zurück an der Basis — sammel dich neu.'); } }
+
 const VILLAGE_R=280;  // kleiner Dorf-KERN (passt mit Start-Zoom ganz aufs Bild = spätere Turm-Grenze)
 // Ressourcen/Wasser liegen DRAUSSEN im Land; der erschlossene Land-Radius wächst mit s.areas
 const areaRadius=s=>600+(((s.areas||1)-1)*230);  // areas 1..4 -> 600,830,1060,1290
@@ -223,6 +289,28 @@ const A={};  // alle fertigen Sprites
  'holz','stein','korn','pilze','gold','beeren','kristall',
  'deco_mushroom','deco_rock','deco_bush','deco_pumpkin','sheep'
 ].forEach(k=>{ const i=new Image(); i.src='ts/'+k+'.png'; A[k]=i; });
+// Animierte Held-Sheets (Tiny Swords Warrior, 192px-Frames, 6 Spalten × 8 Reihen). Pro Startcharakter eine Farbe.
+// Animierte Einheiten (Tiny Swords v2 Free Pack): pro (Unit,Farbe) je Anim-Strip (idle/run/atk), 192px-Frames horizontal.
+const U={}, UFRAME=192;
+['warrior_red','warrior_black','pawn_blue','pawn_black','archer_purple'].forEach(p=>{
+  ['idle','run','atk'].forEach(a=>{ const k=p+'_'+a, i=new Image(); i.src='ts/u/'+k+'.png'; U[k]=i; }); });
+// Charakter ~ Mitte-x 98 / Füße-y 137 / Höhe ~88 im 192-Frame (Pawn kleiner → erscheint natürlich kleiner)
+function drawUnit(unit,anim,t,x,y,dispH,flip){ const im=U[unit+'_'+anim]||U[unit+'_idle']; if(!im||!im.complete||!im.naturalWidth) return;
+  const frames=Math.max(1,Math.round(im.naturalWidth/UFRAME)), col=Math.floor(t*8)%frames, sc=dispH/90, fw=UFRAME*sc;
+  ctx.save(); if(flip){ ctx.translate(x,0); ctx.scale(-1,1); ctx.translate(-x,0); }
+  ctx.drawImage(im, col*UFRAME,0,UFRAME,UFRAME, x-98*sc, y-137*sc, fw, fw);
+  ctx.restore(); }
+// 3 Startcharaktere mit je EIGENER Einheit/Sprite + Basis-Fähigkeit ( — 3 unterschiedliche Sprites)
+const CHARS={
+  krieger: {name:'Krieger', unit:'warrior_red',   desc:'Kampf-Spezialist: +50% Angriff & deutlich mehr HP', icon:'stein',
+            apply:s=>{ s.atk=(s.atk||1)*1.5; s.def=(s.def||0)+1; s.player.hpmax=160; s.player.hp=160; }},
+  sammler: {name:'Sammler', unit:'pawn_blue',     desc:'Wirtschafts-Profi: sammelt 25% schneller', icon:'holz',
+            apply:s=>{ s.gather*=1.25; }},
+  spaeher: {name:'Späher',  unit:'archer_purple', desc:'Flink: 20% schneller über die Karte', icon:'korn',
+            apply:s=>{ s.speed*=1.2; }},
+};
+// In-Game-Erzähler/Mentor ( — nicht „der Erzähler")
+const GUIDE='Der Älteste';
 // Boden-Texturen (für Pattern-Fill); Terrain neu bauen sobald geladen
 const GROUND={ grass:new Image(), sand:new Image(), water:new Image() };
 GROUND.grass.src='ts/grass.png'; GROUND.sand.src='ts/sand.png'; GROUND.water.src='ts/water.png';
@@ -294,7 +382,7 @@ function spawnNode(s,type,ringMin){ const R=areaRadius(s), lo=ringMin||(VILLAGE_
     if(type){ if(!bt.res[type]) continue; chosen=type; }       // Knoten nur in ein Biom legen, das diesen Typ führt
     else { chosen=weightedFromTable(bt.res, allowed); if(!chosen) continue; }
     if(s.nodes.every(n=>dist(x,y,n.x,n.y)>104) && !blocked(s,x,y,40)){
-      const amt=Math.round(rnd(7,12)); s.nodes.push({id:++nodeId,type:chosen,x,y,amount:amt,max:amt,scale:0}); return; }
+      const amt=Math.round(rnd(12,18)); s.nodes.push({id:++nodeId,type:chosen,x,y,amount:amt,max:amt,scale:0}); return; }  // langlebiger ()
   } }
 
 function resolve(o,cx,cy,R){ const d=dist(o.x,o.y,cx,cy); if(d<R){ if(d<0.01){o.x=cx+R;return;} o.x=cx+(o.x-cx)/d*R; o.y=cy+(o.y-cy)/d*R; } }
@@ -393,10 +481,11 @@ function buildLevel(s){
 }
 
 function freshState(){ const store={},carry={}; ALL.forEach(k=>{store[k]=0;carry[k]=0;});
-  const s={ store, player:{x:BASE.x,y:BASE.y+BASE_SOLID+30,tx:BASE.x,ty:BASE.y+BASE_SOLID+30,carry},
+  const s={ store, char:'krieger', charChosen:false, atk:1, def:0, enemies:[], spawnT:0,
+    player:{x:BASE.x,y:BASE.y+BASE_SOLID+30,tx:BASE.x,ty:BASE.y+BASE_SOLID+30,carry,face:1,hp:100,hpmax:100,atkT:0,hurtT:0},
     cap:10, speed:190, gather:BAL.heroGatherBase, capLvl:0,speedLvl:0,gatherLvl:0,steamLvl:0, wboost:1,
     workerPool:0, builds:[], freeWalkers:[], autoAcc:0, areas:1, areaLvl:0,
-    era:0, nodes:[], pops:[], particles:[], respawns:[], cam:{x:BASE.x,y:BASE.y}, paused:false, firstDeposit:false,
+    era:0, nodes:[], pops:[], particles:[], loot:[], respawns:[], cam:{x:BASE.x,y:BASE.y}, paused:false, firstDeposit:false,
     phase:'day', day:1, baseHP:100, baseHPmax:100, towers:[],  // Naht fuer spaetere Tag/Nacht-TD-Phase
     questIdx:0, achieved:[], lifetime:0, playSec:0 };
   buildLevel(s);
@@ -408,6 +497,9 @@ function addParticle(s,x,y,color){ if(s.particles.length>140) return;
   const a=rnd(0,6.2832), sp=rnd(40,130);
   s.particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-rnd(40,90),color,age:0,max:rnd(0.5,0.9),sz:rnd(3,6)}); }
 function burst(s,x,y,color,n){ for(let i=0;i<n;i++) addParticle(s,x,y,color); }
+// Loot-Pop beim Sammeln: das Ressourcen-Icon springt aus dem Knoten, fliegt hoch + verblasst ()
+function addLoot(s,x,y,type){ if(!s.loot)s.loot=[]; if(s.loot.length>60) return;
+  s.loot.push({x:x+rnd(-8,8), y:y-8, type, age:0, max:0.8, vx:rnd(-22,22), vy:rnd(-95,-62), sz:rnd(22,28)}); }
 /* ---------- Juice: Sound (synthetisiert, keine Dateien) ---------- */
 let actx=null, muted=false;
 function audioInit(){ try{ if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)(); if(actx.state==='suspended') actx.resume(); }catch(e){} }
@@ -428,7 +520,7 @@ const SAVE_KEY='ausdemnichts_save', SAVE_VERSION=2, OFFLINE_CAP=8*3600; // v2: G
 function serialize(s){ return { // nur Fortschritt (Welt/Knoten/Deko werden neu erzeugt)
   store:s.store, cap:s.cap, speed:s.speed, gather:s.gather, wboost:s.wboost,
   capLvl:s.capLvl, speedLvl:s.speedLvl, gatherLvl:s.gatherLvl, steamLvl:s.steamLvl,
-  workerPool:s.workerPool, builds:s.builds,
+  workerPool:s.workerPool, builds:s.builds, char:s.char, charChosen:s.charChosen, atk:s.atk, def:s.def, hpmax:s.player.hpmax,
   areas:s.areas, areaLvl:s.areaLvl, era:s.era, firstDeposit:s.firstDeposit,
   phase:s.phase, day:s.day, baseHP:s.baseHP, towers:s.towers, questIdx:s.questIdx,
   achieved:s.achieved, lifetime:s.lifetime, playSec:s.playSec }; }
@@ -440,12 +532,17 @@ function stateFromSave(d){ const s=freshState();  // frische Welt, dann Fortschr
   ALL.forEach(k=>{ if(typeof d.store[k]==='number') s.store[k]=d.store[k]; });
   ['cap','speed','gather','wboost','capLvl','speedLvl','gatherLvl','steamLvl','workerPool','areas','areaLvl','era','firstDeposit','phase','day','baseHP','questIdx'].forEach(k=>{ if(d[k]!==undefined) s[k]=d[k]; });
   if(Array.isArray(d.towers)) s.towers=d.towers;
+  if(d.char && CHARS[d.char]) s.char=d.char;
+  if(typeof d.charChosen==='boolean') s.charChosen=d.charChosen;
+  if(typeof d.atk==='number') s.atk=d.atk;
+  if(typeof d.def==='number') s.def=d.def;
+  if(typeof d.hpmax==='number'){ s.player.hpmax=d.hpmax; s.player.hp=d.hpmax; }
   if(Array.isArray(d.achieved)) s.achieved=d.achieved.slice();
   if(typeof d.lifetime==='number') s.lifetime=d.lifetime;
   if(typeof d.playSec==='number') s.playSec=d.playSec;
   if(Array.isArray(d.builds)) s.builds=d.builds.map(b=>({type:b.type,seg:b.seg,tempo:b.tempo||0,menge:b.menge||0,workers:b.workers||0}));
   setRing(s);
-  s.nodes=[]; const n=10+s.areas*4; for(let i=0;i<n;i++) spawnNode(s);  // Knoten passend zu Era/Gebieten
+  s.nodes=[]; const n=16+s.areas*6; for(let i=0;i<n;i++) spawnNode(s);  // mehr Knoten gegen Scarcity ()
   return s; }
 // Offline-Ertrag: Auto-Producer voll, Helfer grob geschätzt (reduziert), gedeckelt
 function applyOffline(s, elapsedSec){ const t=Math.min(Math.max(0,elapsedSec), OFFLINE_CAP); if(t<30) return null;
@@ -583,11 +680,13 @@ const game={
     else { cb.style.display='none'; }
     this.loop=this.loop.bind(this); requestAnimationFrame(this.loop);
     if(welcome) say('Willkommen zurück! In '+humanDur(welcome.mins)+' abwesend: '+welcome.txt+'.');
-    else if(!this.s.firstDeposit) say(ERAS[0].say); },
+    else if(!this.s.firstDeposit) say(ERAS[0].say);
+    if(!this.s.charChosen) this.showCharSelect();  // neues Spiel → erst Held wählen
+  },
   resize(){ this.dpr=Math.min(window.devicePixelRatio||1,2); this.vw=window.innerWidth; this.vh=window.innerHeight;
     cv.style.width=this.vw+'px'; cv.style.height=this.vh+'px'; cv.width=Math.round(this.vw*this.dpr); cv.height=Math.round(this.vh*this.dpr); },
   rebuildTerrain(){ if(this.s) buildTerrain(this.s); },
-  reset(){ if(!confirm('Wirklich neu anfangen? Aller Fortschritt weg.'))return; clearSave(); this.s=freshState(); say(ERAS[0].say); this.buildShop(); },
+  reset(){ if(!confirm('Wirklich neu anfangen? Aller Fortschritt weg.'))return; clearSave(); this.s=freshState(); this.buildShop(); this.showCharSelect(); },
   toggle(){ this.s.paused=!this.s.paused; document.getElementById('pauseBtn').innerHTML=svg(this.s.paused?'play':'pause'); },
   setTab(t){ this.tab=t; for(const b of document.querySelectorAll('#tabs button')) b.classList.toggle('on',b.dataset.tab===t); this.buildShop(); },
   toggleAch(force){ this.achOpen=(force===undefined)?!this.achOpen:force;
@@ -599,6 +698,15 @@ const game={
       el.className='ach '+(has?'got':'locked');
       el.innerHTML='<img src="ts/icons/'+a.icon+'.png"><div><div class="an">'+a.name+'</div><div class="ad">'+a.desc+'</div></div>'+(has?'<span class="tick">✓</span>':'');
       list.appendChild(el); } },
+  showCharSelect(){ const row=document.getElementById('charRow'); row.innerHTML='';
+    for(const key of Object.keys(CHARS)){ const c=CHARS[key]; const card=document.createElement('div'); card.className='ch-card';
+      card.innerHTML='<img class="ch-portrait" src="ts/u/portrait_'+key+'.png">'
+        +'<div><div class="ch-name">'+c.name+'</div><div class="ch-abil">'+c.desc+'</div></div>';
+      card.onclick=()=>this.pickChar(key); row.appendChild(card); }
+    document.getElementById('charSelect').classList.add('open'); },
+  pickChar(key){ const s=this.s; audioInit(); s.char=key; CHARS[key].apply(s); s.charChosen=true;
+    document.getElementById('charSelect').classList.remove('open'); this.renderRes(); saveGame(s);
+    SFX.era(); say(CHARS[key].name+' gewählt — '+CHARS[key].desc+'. Auf geht\'s!'); },
   buy(id){ const s=this.s,up=ALLUP.find(u=>u.id===id); if(!up)return;
     if(up.lvl && up.lvl(s)>=heroMaxLvl(s)){ say('Max für dieses Zeitalter erreicht — steig erst auf.'); return; }
     const c=up.cost(s);
@@ -615,14 +723,21 @@ const game={
   step(dt){ const s=this.s; s.playSec+=dt;
     const psp=onSand(s,s.player.x,s.player.y)?s.speed*0.55:s.speed;  // Sand bremst ()
     moveToward(s.player,s.player.tx,s.player.ty,psp,dt); collide(s,s.player,PR);
+    // Animation: Laufen vs Idle + Blickrichtung (fürs animierte Warrior-Sheet)
+    s.player.moving = dist(s.player.x,s.player.y,s.player.tx,s.player.ty)>4;
+    if(s.player.moving){ const dx=s.player.tx-s.player.x; if(Math.abs(dx)>2) s.player.face=dx<0?-1:1; }
+    this.animT=(this.animT||0)+dt;
     if(carryTotal(s.player.carry)<s.cap){ for(const n of s.nodes){ if(n.amount>0.4 && dist(s.player.x,s.player.y,n.x,n.y)<HARVEST_R){
       const amt=Math.min(s.gather*dt,n.amount,s.cap-carryTotal(s.player.carry)); if(amt>0){ n.amount-=amt; s.player.carry[n.type]+=amt;
-        s.harvAcc=(s.harvAcc||0)+dt; if(s.harvAcc>0.16){ s.harvAcc=0; addParticle(s,n.x,n.y-6,COL[n.type]); SFX.harvest(); } } break; } } }
+        s.harvAcc=(s.harvAcc||0)+dt; if(s.harvAcc>0.18){ s.harvAcc=0; addParticle(s,n.x,n.y-6,COL[n.type]); addLoot(s,n.x,n.y,n.type); SFX.harvest(); } } break; } } }
     for(const n of s.nodes){ if(n.amount<=0.4&&!n.dead){ n.dead=true; addPop(s,n.x,n.y,COL[n.type]); burst(s,n.x,n.y-6,COL[n.type],7); s.respawns.push({type:n.type,t:rnd(3,5)}); } }
     s.nodes=s.nodes.filter(n=>!n.dead);
     for(const r of s.respawns) r.t-=dt;
     for(const r of s.respawns.filter(r=>r.t<=0)) spawnNode(s, Math.random()<0.5?r.type:null);
     s.respawns=s.respawns.filter(r=>r.t>0);
+    // Nachwachsen bis zu einem hohen Gesamt-Cap, damit die Map nicht verarmt (v.a. höhere Zeitalter, )
+    s.topupT=(s.topupT||0)+dt; const nodeCap=16+s.areas*6+s.era*3;
+    if(s.topupT>1.5){ s.topupT=0; if(s.nodes.length<nodeCap) spawnNode(s); }
     for(const n of s.nodes){ if(n.scale<1) n.scale=Math.min(1,n.scale+dt*3); }
     // Produktionsgebäude (passives Einkommen, skaliert mit Tempo/Menge/Arbeitern); Konverter ziehen Input ab
     for(const b of s.builds){ produce(s,b,dt); }
@@ -635,10 +750,13 @@ const game={
         addPop(s,s.player.x,s.player.y-30,'#fff','+'+Math.floor(had)); burst(s,s.player.x,s.player.y-12,'#ffe9a8',Math.min(18,4+Math.floor(had/2))); SFX.deposit();
         if(!s.firstDeposit){ s.firstDeposit=true; say('Erste Lieferung! Der Sack leert sich automatisch, sobald du das Dorf betrittst.'); } } }
     updateFreeWalkers(s,dt);  // freie Arbeiter farmen selbstständig in Dorfnähe; zugewiesene sind Boost-Pawns an den Hütten
+    updateCombat(s,dt);       // Overworld-Gegner (Tag-Phase) + Held-Auto-Angriff + HP/Tod
     for(const p of s.pops) p.age+=dt; s.pops=s.pops.filter(p=>p.age<p.max);
     // Partikel (Juice): bewegen, Schwerkraft, altern
     for(const q of s.particles){ q.age+=dt; q.x+=q.vx*dt; q.y+=q.vy*dt; q.vy+=260*dt; q.vx*=0.92; }
     s.particles=s.particles.filter(q=>q.age<q.max);
+    // Loot-Pops (Ressourcen-Icons fliegen beim Sammeln hoch)
+    for(const L of s.loot){ L.age+=dt; L.x+=L.vx*dt; L.y+=L.vy*dt; L.vy+=70*dt; } s.loot=s.loot.filter(L=>L.age<L.max);
     if(this.flash>0) this.flash=Math.max(0,this.flash-dt*1.6);  // Era-Aufstieg-Blitz klingt ab
     // Panel schliesst sich, sobald der Held das Dorf verlässt (Burg + Hütten liegen im Kern)
     const panel=document.getElementById('panel');
@@ -680,15 +798,34 @@ const game={
     for(const n of s.nodes){ if(!vis(n.x,n.y))continue; const sc=0.7+0.3*(n.scale||1);
       ctx.fillStyle='rgba(255,238,150,.20)'; ctx.beginPath(); ctx.ellipse(n.x,n.y+2,25,12,0,0,7); ctx.fill();
       ctx.strokeStyle='rgba(255,238,150,.6)'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.ellipse(n.x,n.y+2,25,12,0,0,7); ctx.stroke();
-      shadow(n.x,n.y,15,5); worldSprite(n.type, n.x, n.y+6, 50*sc, true); amountBar(n); }
+      shadow(n.x,n.y,16,6); worldSprite(n.type, n.x, n.y+6, 58*sc, true); amountBar(n); }  // etwas größer ()
     // freie Arbeiter (laufender Schwarm, farmen selbstständig) + ggf. das was sie gerade tragen
     for(const w of s.freeWalkers){ if(!vis(w.x,w.y))continue; shadow(w.x,w.y,11,4); worldSprite('worker',w.x,w.y+2,32,true);
       if(w.carry>0.4&&w.type) worldSprite(w.type,w.x+12,w.y-26,18,true); }
     for(const q of s.particles){ const f=1-q.age/q.max; ctx.globalAlpha=f; ctx.fillStyle=q.color;
       ctx.beginPath(); ctx.arc(q.x,q.y,q.sz*f+1,0,7); ctx.fill(); } ctx.globalAlpha=1;
+    // Loot-Icons (fliegen beim Sammeln hoch + verblassen)
+    for(const L of s.loot){ if(!vis(L.x,L.y))continue; const f=L.age/L.max; ctx.globalAlpha=Math.max(0,1-f*f);
+      worldSprite(L.type, L.x, L.y, L.sz*(1+f*0.35), false); } ctx.globalAlpha=1;
     for(const p of s.pops) pop(p);
     if(dist(s.player.x,s.player.y,s.player.tx,s.player.ty)>5){ ctx.strokeStyle='rgba(255,79,216,.75)';ctx.lineWidth=3; ctx.beginPath();ctx.arc(s.player.tx,s.player.ty,12,0,7);ctx.stroke(); }
-    shadow(s.player.x,s.player.y,24,9); worldSprite('hero'+heroTier(s), s.player.x, s.player.y+6, 74, true);
+    // Gegner: Grunt (kleiner Pawn) / Brute (großer Warrior), dunkle „Black"-Faktion; gelber Ring = schläft, roter Ring = aggro
+    for(const e of s.enemies){ if(!vis(e.x,e.y))continue; const T=ETYPES[e.kind];
+      ctx.fillStyle = e.state==='idle'?'rgba(228,182,44,.42)':'rgba(214,40,40,.5)';
+      ctx.beginPath(); ctx.ellipse(e.x,e.y,T.size*0.26,T.size*0.1,0,0,7); ctx.fill();
+      shadow(e.x,e.y,T.size*0.19,T.size*0.075);
+      const anim=e.moving?'run':'idle';
+      drawUnit(T.unit, anim, e.animT, e.x, e.y+4, T.size, e.face>0);   // Gegner schauen per Default nach links → face>0 spiegelt
+      const w=Math.max(28,T.size*0.4),f=Math.max(0,e.hp/e.max); ctx.fillStyle='rgba(0,0,0,.55)'; rr(e.x-w/2,e.y-T.size*0.62,w,5,2.5); ctx.fill();
+      ctx.fillStyle='#e0432f'; rr(e.x-w/2,e.y-T.size*0.62,w*f,5,2.5); ctx.fill(); }
+    // Held (animiert): Angriff > Laufen > Idle
+    shadow(s.player.x,s.player.y,24,9);
+    { const anim = s.player.attacking?'atk' : (s.player.moving?'run':'idle');
+      drawUnit(CHARS[s.char].unit, anim, this.animT, s.player.x, s.player.y+6, 88, s.player.face<0); }
+    // Held-HP-Balken (im Kampf oder wenn verletzt)
+    if(s.player.hp<s.player.hpmax || s.enemies.length){ const w=46,f=Math.max(0,s.player.hp/s.player.hpmax);
+      ctx.fillStyle='rgba(0,0,0,.6)'; rr(s.player.x-w/2,s.player.y-66,w,6,3); ctx.fill();
+      ctx.fillStyle=f>0.3?'#5ad65a':'#e0432f'; rr(s.player.x-w/2,s.player.y-66,w*f,6,3); ctx.fill(); }
     if(carryTotal(s.player.carry)>0.4){ const c=s.player.carry, tk=ALL.find(k=>c[k]>0.4)||'holz'; worldSprite(tk, s.player.x+22, s.player.y-58, 28, true); }
     // overlay edge arrows
     ctx.setTransform(dpr,0,0,dpr,0,0); ctx.imageSmoothingEnabled=false;
@@ -786,7 +923,7 @@ function edgeArrow(key,wx,wy,offx,offy,VW,VH,z,color){ let sx=wx*z+offx, sy=wy*z
 
 let sayT=null;
 function say(msg){ const el=document.getElementById('say'); el.style.opacity=0;
-  setTimeout(()=>{ el.innerHTML='<b>Lucy:</b> '+msg; el.style.opacity=1; },120);
+  setTimeout(()=>{ el.innerHTML='<b>'+GUIDE+':</b> '+msg; el.style.opacity=1; },120);
   if(sayT)clearTimeout(sayT); sayT=setTimeout(()=>{ el.style.opacity=0; },6000); }
 function worldFromEvent(e){ const r=cv.getBoundingClientRect(), z=game.zoom;
   const cx=(e.touches?e.touches[0].clientX:e.clientX), cy=(e.touches?e.touches[0].clientY:e.clientY);
