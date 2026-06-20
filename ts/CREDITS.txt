@@ -1,0 +1,7 @@
+Grafik-Assets: "Tiny Swords" von Pixel Frog
+https://pixelfrog-assets.itch.io/tiny-swords
+Frei nutzbar (auch kommerziell). Credit an Pixel Frog.
+
+Verwendet im Spiel "Aus dem Nichts" (basebuilder.html):
+Gebäude (Haus/Turm/Burgen), Einheiten (Ritter/Pawn), Ressourcen
+(Baum/Goldmine), Deko (Pilze/Felsen/Büsche/Kürbisse), Terrain-Farben.

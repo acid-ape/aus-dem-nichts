@@ -1,0 +1,17 @@
+# dependencies
+node_modules/
+tools/gametest/node_modules/
+
+# test outputs
+tools/gametest/shots/
+
+# scratch / temp
+_tmp*
+_kenney_dl/
+*.log
+*.bak
+*.bak.html
+
+# os
+.DS_Store
+Thumbs.db

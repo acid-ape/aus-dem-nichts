@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Aus dem Nichts</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+  html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#10241a}
+  #cv{position:fixed;inset:0;display:block;touch-action:none;image-rendering:pixelated}
+  #ui{position:fixed;inset:0;pointer-events:none;font:14px/1.4 "Segoe UI",system-ui,-apple-system,sans-serif;color:#ece7ff}
+  #resbar{position:absolute;top:calc(env(safe-area-inset-top) + 10px);left:calc(env(safe-area-inset-left) + 8px);
+    display:flex;flex-direction:column;gap:5px;align-items:flex-start}
+  #resbar .r{display:flex;align-items:center;gap:5px;font-weight:800;font-size:16px;color:#fff;
+    text-shadow:0 1px 2px #000,0 0 4px rgba(0,0,0,.75)}
+  #resbar .r img{height:28px;width:28px;image-rendering:pixelated;filter:drop-shadow(0 1px 1px rgba(0,0,0,.6))}
+  #resbar .r .rn{font-size:11px;font-weight:700;color:#cdbfe8;min-width:48px;text-shadow:0 1px 2px #000}
+  #resbar .r b{min-width:30px}
+  #resbar .sack{display:flex;align-items:center;gap:6px;color:#ffe08a;font-weight:800;font-size:19px;
+    text-shadow:0 1px 2px #000,0 0 4px rgba(0,0,0,.85)}
+  #resbar .sack .bag{font-size:26px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.7))}
+  #resbar .rdiv{width:62px;height:2px;border-radius:2px;background:rgba(255,255,255,.4);margin:5px 0 6px;
+    box-shadow:0 1px 1px rgba(0,0,0,.5)}
+  /* zwischen Resbar (links) und Burger (rechts) gespannt → überlappt die Inventar-Zahl nicht mehr () */
+  #quest{position:absolute;top:calc(env(safe-area-inset-top) + 8px);
+    left:calc(env(safe-area-inset-left) + 138px);right:calc(env(safe-area-inset-right) + 64px);
+    text-align:center;font-size:13.5px;font-weight:600;color:#fff;background:rgba(12,9,22,.7);backdrop-filter:blur(6px);
+    border:1px solid rgba(255,224,138,.55);border-radius:13px;padding:6px 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    box-shadow:0 2px 10px rgba(0,0,0,.35)}
+  #quest .qt{color:#ffe08a;font-weight:800;margin-right:6px}
+  #quest .qp{color:#9fe0b0;font-weight:700;margin-left:6px}
+  #topbtns{position:absolute;top:calc(env(safe-area-inset-top) + 8px);right:calc(env(safe-area-inset-right) + 10px);
+    display:flex;flex-direction:column;gap:8px;pointer-events:auto;align-items:flex-end}
+  #topbtns button{width:46px;height:46px;border-radius:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    background:rgba(22,14,43,.72);backdrop-filter:blur(6px);border:1px solid rgba(160,91,255,.4);color:#ece7ff}
+  #topbtns button svg{width:23px;height:23px}
+  #topbtns button:active{transform:scale(.93)}
+  #menuBtn{border-color:rgba(160,91,255,.7)!important}
+  #menuItems{display:none;flex-direction:column;gap:8px;align-items:flex-end}
+  #menuItems.open{display:flex}
+  #panel{position:absolute;left:0;right:0;bottom:0;max-height:62vh;
+    padding:14px 14px calc(env(safe-area-inset-bottom) + 16px);
+    background:linear-gradient(180deg,rgba(12,9,22,.82),rgba(12,9,22,.96));backdrop-filter:blur(10px);
+    border-top:1px solid rgba(160,91,255,.35);border-radius:20px 20px 0 0;box-shadow:0 -8px 30px rgba(0,0,0,.4);
+    transform:translateY(104%);transition:transform .26s cubic-bezier(.22,1,.36,1);
+    overflow-y:auto;pointer-events:none}
+  #panel.open{transform:translateY(0);pointer-events:auto}
+  #panel .grab{width:42px;height:4px;border-radius:3px;background:rgba(203,184,255,.4);margin:-4px auto 12px;cursor:pointer}
+  #closeShop{position:absolute;top:12px;right:12px;width:38px;height:38px;border-radius:11px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;color:#e7deff;background:rgba(40,28,70,.85);border:1px solid #3a2a63}
+  #closeShop:active{transform:scale(.93)} #closeShop svg{width:20px;height:20px}
+  #tabs{display:flex;gap:6px;margin:0 0 10px}
+  #tabs button{flex:1;cursor:pointer;color:#cbb8ff;background:rgba(22,14,43,.7);border:1px solid #2f2152;
+    border-radius:10px;padding:8px 4px;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:5px}
+  #tabs button svg{width:16px;height:16px}
+  #tabs button.on{color:#fff;background:linear-gradient(90deg,rgba(160,91,255,.4),rgba(255,79,216,.22));border-color:#a05bff}
+  #shop{display:flex;flex-direction:column;gap:9px}
+  button.up{text-align:left;cursor:pointer;color:#f3eeff;background:linear-gradient(180deg,rgba(40,28,70,.9),rgba(26,18,46,.92));
+    border:1px solid #3a2a63;border-radius:14px;padding:12px 13px;font-size:14px;line-height:1.3;display:flex;gap:12px;align-items:center;
+    box-shadow:0 2px 8px rgba(0,0,0,.25)}
+  button.up img{height:38px;width:38px;flex:0 0 auto;image-rendering:pixelated;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+  button.up .tx{flex:1;min-width:0}
+  button.up:not(:disabled):active{transform:scale(.98);border-color:#a05bff}
+  button.up:disabled{opacity:.45;filter:saturate(.6)}
+  button.up .t{font-weight:800;display:block;font-size:14.5px}
+  button.up .d{color:#b9aee0;font-size:12px;margin-top:1px;display:block}
+  button.up .k{color:#ffd98a;font-size:12px;margin-top:4px;display:block;font-weight:700}
+  button.up.era{border-color:#a05bff;background:linear-gradient(180deg,rgba(160,91,255,.32),rgba(255,79,216,.18));margin-top:2px}
+  #panel .ph{font-weight:800;font-size:16px;color:#fff;margin:0 2px 10px;letter-spacing:.3px}
+  #cheatBtn{margin-top:14px;width:100%;cursor:pointer;color:#8fe3b0;background:rgba(18,30,22,.7);
+    border:1px dashed #3f7a55;border-radius:10px;padding:9px;font-size:12.5px;font-weight:700}
+  #cheatBtn:active{transform:scale(.98)}
+  #achOverlay{position:absolute;inset:0;background:rgba(6,4,14,.62);backdrop-filter:blur(4px);
+    display:none;align-items:center;justify-content:center;pointer-events:auto;z-index:20;padding:18px}
+  #achOverlay.open{display:flex}
+  #achCard{width:100%;max-width:440px;max-height:80vh;display:flex;flex-direction:column;
+    background:linear-gradient(180deg,rgba(18,12,34,.97),rgba(12,9,22,.99));border:1px solid rgba(160,91,255,.4);
+    border-radius:18px;box-shadow:0 12px 40px rgba(0,0,0,.5);overflow:hidden}
+  #achHead{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;
+    font-weight:800;font-size:17px;color:#fff;border-bottom:1px solid rgba(160,91,255,.22)}
+  #achClose{width:34px;height:34px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    color:#e7deff;background:rgba(40,28,70,.85);border:1px solid #3a2a63} #achClose svg{width:18px;height:18px}
+  #achList{overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
+  .ach{display:flex;gap:12px;align-items:center;padding:10px 12px;border-radius:13px;
+    background:linear-gradient(180deg,rgba(40,28,70,.7),rgba(26,18,46,.7));border:1px solid #2f2152}
+  .ach.got{border-color:#ffd86b;background:linear-gradient(180deg,rgba(70,56,20,.55),rgba(40,30,12,.5))}
+  .ach img{height:36px;width:36px;flex:0 0 auto;image-rendering:pixelated}
+  .ach.locked img{filter:grayscale(1) brightness(.5)}
+  .ach .an{font-weight:800;font-size:14px;color:#fff;display:flex;align-items:center;gap:6px}
+  .ach.locked .an{color:#9b90c4}
+  .ach .ad{font-size:12px;color:#b9aee0;margin-top:2px}
+  .ach .tick{margin-left:auto;color:#ffd86b;font-weight:800;font-size:15px}
+  #achProg{font-size:13px;color:#cbb8ff;font-weight:700}
+  #say{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom) + 14px);transform:translateX(-50%);
+    max-width:88vw;text-align:center;color:#ffb0ec;font-size:13.5px;background:rgba(10,8,18,.62);
+    backdrop-filter:blur(6px);border-radius:12px;padding:7px 13px;border:1px solid rgba(160,91,255,.25);
+    transition:opacity .3s;opacity:0}
+  #hint{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom) + 56px);transform:translateX(-50%);
+    color:#cfc6e6;font-size:12px;opacity:.85;text-shadow:0 1px 3px #000;text-align:center}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div id="ui">
+  <div id="resbar"></div>
+  <div id="quest"></div>
+  <div id="topbtns">
+    <button id="menuBtn" title="Menü"></button>
+    <div id="menuItems">
+      <button id="zoomInBtn" title="Reinzoomen"></button>
+      <button id="zoomOutBtn" title="Rauszoomen"></button>
+      <button id="soundBtn" title="Ton"></button>
+      <button id="achBtn" title="Erfolge"></button>
+      <button id="pauseBtn" title="Pause"></button>
+      <button id="resetBtn" title="Neu"></button>
+    </div>
+  </div>
+  <div id="achOverlay"><div id="achCard">
+    <div id="achHead"><span>🏆 Erfolge</span><button id="achClose" title="Schliessen"></button></div>
+    <div id="achList"></div>
+  </div></div>
+  <div id="panel">
+    <div class="grab"></div>
+    <button id="closeShop" title="Schliessen"></button>
+    <div class="ph">Aufbau &amp; Upgrades</div>
+    <div id="tabs"><button data-tab="held" class="on"></button><button data-tab="dorf"></button></div>
+    <div id="shop"></div>
+    <button id="cheatBtn" title="Test-Cheat">+50 auf alle Ressourcen (Test)</button>
+  </div>
+  <div id="say"></div>
+</div>
+
+<script>
+"use strict";
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+const WORLD=2800, BASE={x:WORLD/2,y:WORLD/2}, HARVEST_R=58, BASE_R=96, BASE_SOLID=40;
+const PR=13, WR=11;
+/* ---------- Balance (zentral, leicht tunebar) ----------
+   Ziel: aktives Sammeln bleibt lange der STÄRKSTE Weg; Auto/Idle ist langsamer Bonus
+   (v.a. offline). Auto-Producer schwächer+teurer+erst ab Dorf-Era. */
+const BAL={
+  heroGatherBase:5.0, gatherPerLvl:2,   // Held aktiv: Basis-Rate + pro Werkzeug-Level
+  workerEff:0.4,                          // Helfer sammeln mit 40% der Held-Rate (war 0.5)
+  sawmillRate:0.3, quarryRate:0.2,        // pro Gebäude-Level/Sekunde (war 0.5 / 0.35)
+  autoFromEra:1,                          // Sägewerk/Steinbruch erst ab Zeitalter 1 (Dorf)
+};
+// Produktionsgebäude: je 1 pro Zeitalter, steht in einem Kuchenstück. Arbeiter werden ihnen zugewiesen.
+const BUILD_TYPES={
+  holz:    {name:'Holzfäller', res:'holz', sprite:'sawmill', base:0.45, era:1, cost:{holz:50,korn:30}},
+  stein:   {name:'Steinbruch', res:'stein', sprite:'era1',   base:0.38, era:2, cost:{holz:120,stein:50}},
+  // Produktionskette (Phase B): Schmiede VERBRAUCHT Holz+Stein und veredelt sie zu Gold (verzahnte Wirtschaft)
+  schmiede:{name:'Schmiede',   res:'gold', sprite:'quarry',  base:0.20, era:2, cost:{holz:140,stein:90}, consumes:{holz:1.4,stein:0.9}},
+  korn:    {name:'Kürbisfeld', res:'korn', sprite:'era0',    base:0.40, era:3, cost:{holz:180,stein:110}},
+  // 2. Veredelungs-Stufe (Phase B): Juwelier wandelt Gold+Stein → Kristall → ergibt die Kette Holz+Stein→Gold→Kristall
+  juwelier:{name:'Juwelier',   res:'kristall', sprite:'era3', base:0.12, era:3, cost:{holz:200,stein:150,gold:60}, consumes:{gold:1.0,stein:1.3}},
+  gold:    {name:'Goldmine',   res:'gold', sprite:'gold',    base:0.30, era:4, cost:{holz:260,stein:160,korn:120}},
+};
+const BUILD_ORDER=['holz','stein','schmiede','korn','juwelier','gold'];  // 6 Gebäude = 6 Kuchenstücke; 2 davon sind Veredelungs-Ketten
+// Produktionsrate eines Gebäudes: Basis × Tempo × Menge × Arbeiter-Boost × Dampf-Boost
+function buildRate(s,b){ return BUILD_TYPES[b.type].base*(1+0.25*b.tempo)*(1+0.35*b.menge)*(1+0.5*b.workers)*s.wboost; }
+// Ein Produktions-Tick: Konverter (mit consumes) ziehen Input ab und sind durch Input-Mangel gedeckelt; sonst reine Produktion.
+function produce(s,b,dt){ const T=BUILD_TYPES[b.type]; let out=buildRate(s,b)*dt;
+  if(T.consumes){ for(const k in T.consumes){ out=Math.min(out, (s.store[k]||0)/T.consumes[k]); } out=Math.max(0,out);
+    for(const k in T.consumes) s.store[k]-=out*T.consumes[k]; }
+  s.store[T.res]+=out; return out; }
+function assignedWorkers(s){ return s.builds.reduce((a,b)=>a+b.workers,0); }
+function freeWorkers(s){ return s.workerPool-assignedWorkers(s); }
+function nextBuildType(s){ return BUILD_ORDER.find(t=>BUILD_TYPES[t].era<=s.era && !s.builds.some(b=>b.type===t)); }
+// Freie (nicht zugewiesene) Arbeiter laufen selbstständig los und farmen zufällige Knoten in Dorfnähe ().
+// Zugewiesene Arbeiter bleiben Boost-Pawns an ihrer Hütte; nur der freie Pool wird als laufende Pawns abgebildet.
+function makeWalker(){ const a=rnd(0,6.2832), d=rnd(BASE_SOLID+24,BASE_SOLID+80);
+  return {x:BASE.x+Math.cos(a)*d, y:BASE.y+Math.sin(a)*d, tx:BASE.x, ty:BASE.y, carry:0, type:null, state:'seek', target:null}; }
+function updateFreeWalkers(s,dt){
+  const want=Math.max(0,freeWorkers(s));
+  while(s.freeWalkers.length<want) s.freeWalkers.push(makeWalker());
+  if(s.freeWalkers.length>want) s.freeWalkers.length=want;          // gerade zugewiesene verschwinden aus dem freien Schwarm
+  const range=areaRadius(s)+150, rate=BAL.heroGatherBase*BAL.workerEff, CAP=5;
+  for(const w of s.freeWalkers){
+    if(w.state==='seek'){
+      if(!w.target || w.target.amount<=0.4){                         // ziellos/leer → neuen zufälligen Knoten in Reichweite picken
+        const cand=s.nodes.filter(n=>n.amount>0.4 && dist(n.x,n.y,BASE.x,BASE.y)<range);
+        w.target = cand.length? cand[Math.floor(rnd(0,cand.length))] : null; }
+      if(w.target){ w.tx=w.target.x; w.ty=w.target.y;
+        if(dist(w.x,w.y,w.target.x,w.target.y)<HARVEST_R){
+          const amt=Math.min(rate*dt, w.target.amount, CAP-w.carry);
+          if(amt>0){ w.target.amount-=amt; w.carry+=amt; w.type=w.target.type; }
+          if(w.carry>=CAP || w.target.amount<=0.4) w.state='return'; }
+      } else { w.tx=BASE.x+(w.x<BASE.x?-50:50); w.ty=BASE.y; }       // nichts in Reichweite → bei der Basis tigern
+    } else {                                                          // return: zur Basis, abliefern beim Übertreten der Dorfgrenze
+      w.tx=BASE.x; w.ty=BASE.y;
+      if(dist(w.x,w.y,BASE.x,BASE.y)<VILLAGE_R){
+        if(w.carry>0&&w.type){ s.store[w.type]=(s.store[w.type]||0)+w.carry; addPop(s,w.x,w.y-18,COL[w.type]||'#fff','+'+Math.floor(w.carry)); }
+        w.carry=0; w.type=null; w.state='seek'; w.target=null; } }
+    moveToward(w,w.tx,w.ty,onSand(s,w.x,w.y)?66:120,dt);  // Sand bremst auch die Helfer ()
+  } }
+
+const VILLAGE_R=280;  // kleiner Dorf-KERN (passt mit Start-Zoom ganz aufs Bild = spätere Turm-Grenze)
+// Ressourcen/Wasser liegen DRAUSSEN im Land; der erschlossene Land-Radius wächst mit s.areas
+const areaRadius=s=>600+(((s.areas||1)-1)*230);  // areas 1..4 -> 600,830,1060,1290
+
+/* ---------- UI line-icons (statt Smartphone-Emojis, Dashboard-Stil) ---------- */
+const ICO={
+  build:'<path d="M14.5 5.5a3.6 3.6 0 0 0-4.9 4.7l-5.2 5.2 2.5 2.5 5.2-5.2a3.6 3.6 0 0 0 4.7-4.9l-2.4 2.4-2.3-2.3z"/>',
+  plus:'<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+  minus:'<line x1="5" y1="12" x2="19" y2="12"/>',
+  pause:'<rect x="6.5" y="5" width="3.5" height="14" rx="1" fill="currentColor" stroke="none"/><rect x="14" y="5" width="3.5" height="14" rx="1" fill="currentColor" stroke="none"/>',
+  play:'<path d="M7 5l12 7-12 7z" fill="currentColor" stroke="none"/>',
+  reset:'<path d="M4 12a8 8 0 1 0 2.5-5.8"/><polyline points="3.5 3 4 8 9 7.5"/>',
+  person:'<circle cx="12" cy="8" r="3.3"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/>',
+  house:'<path d="M4 11.5l8-6 8 6"/><path d="M6 10.5V19h12v-8.5"/>',
+  close:'<line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/>',
+  soundOn:'<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 8.5a4 4 0 0 1 0 7"/>',
+  soundOff:'<path d="M4 9v6h4l5 4V5L8 9z"/><line x1="16" y1="9.5" x2="21" y2="14.5"/><line x1="21" y1="9.5" x2="16" y2="14.5"/>',
+};
+const svg=n=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+ICO[n]+'</svg>';
+
+/* ---------- Sprites (Tiny Swords by Pixel Frog — frei nutzbar, Credit in ts/CREDITS.txt) ---------- */
+const A={};  // alle fertigen Sprites
+['era0','era1','era2','era3','era4','sawmill','quarry','worker',
+ 'hero0','hero1','hero2','hero3','hero4',
+ 'holz','stein','korn','pilze','gold','beeren','kristall',
+ 'deco_mushroom','deco_rock','deco_bush','deco_pumpkin','sheep'
+].forEach(k=>{ const i=new Image(); i.src='ts/'+k+'.png'; A[k]=i; });
+// Boden-Texturen (für Pattern-Fill); Terrain neu bauen sobald geladen
+const GROUND={ grass:new Image(), sand:new Image(), water:new Image() };
+GROUND.grass.src='ts/grass.png'; GROUND.sand.src='ts/sand.png'; GROUND.water.src='ts/water.png';
+GROUND.grass.onload=()=>{ if(game.s) game.rebuildTerrain(); };
+GROUND.water.onload=()=>{ if(game.s) game.rebuildTerrain(); };
+
+/* Ressourcen — jede mit eigenem Tiny-Swords-Sprite (siehe A-Loader oben). unlock = ab welchem Zeitalter sichtbar. */
+const RES=[
+  {key:'holz',    unlock:0, col:'#4a8f3c', name:'Holz'},
+  {key:'stein',   unlock:0, col:'#9fb0bd', name:'Stein'},
+  {key:'korn',    unlock:0, col:'#e0892a', name:'Kürbis'},
+  {key:'pilze',   unlock:1, col:'#d0413f', name:'Pilze'},
+  {key:'gold',    unlock:2, col:'#e8c34a', name:'Gold'},
+  {key:'beeren',  unlock:3, col:'#3f7a4a', name:'Beeren'},
+  {key:'kristall',unlock:4, col:'#5ad6e0', name:'Kristall'},
+];
+const ALL=RES.map(r=>r.key);
+const COL=Object.fromEntries(RES.map(r=>[r.key,r.col]));
+const NAME=Object.fromEntries(RES.map(r=>[r.key,r.name]));
+const activeKeys=era=>RES.filter(r=>r.unlock<=era).map(r=>r.key);
+// ★ Ökonomie-Fix: Holz ist die häufigste Ressource (am meisten gebraucht -> am häufigsten)
+const WEIGHT={holz:4.0,stein:2.2,korn:2.0,pilze:1.3,gold:1.0,beeren:1.0,kristall:0.8};
+function weightedKey(keys){ let tot=0; for(const k of keys) tot+=WEIGHT[k]||1; let r=Math.random()*tot;
+  for(const k of keys){ r-=(WEIGHT[k]||1); if(r<=0) return k; } return keys[keys.length-1]; }
+/* ---------- Biome (Level-Design, ): die Welt in sinnvolle Regionen statt random verstreut ----------
+   Jede Region führt typische Ressourcen + passende Deko. Vorbereitung für gezielte Gegner-Platzierung im Day-Cycle. */
+const BIOMES={
+  // ground = klar unterscheidbare Boden-Grundfarbe je Region (über die Gras-Textur gelegt), damit Biome auf einen Blick lesbar sind ()
+  wald:    {name:'Wald',    ground:'rgba(34,84,42,0.46)',    res:{holz:6, pilze:2.5},          tree:0.62, rock:0.04, small:['deco_mushroom','deco_bush']},
+  gebirge: {name:'Gebirge', ground:'rgba(126,130,138,0.50)', res:{stein:5, gold:2, kristall:1.3}, tree:0.04, rock:0.58, small:['deco_rock','deco_bush']},
+  felder:  {name:'Felder',  ground:'rgba(206,188,84,0.42)',  res:{korn:5, beeren:2.5},          tree:0.12, rock:0.03, small:['deco_pumpkin','deco_bush']},
+};
+const BIOME_CYCLE=['wald','gebirge','felder'];
+// Biom an einer Weltposition: 6 Sektoren um die Basis, mit leicht organisch gewellten Grenzen
+function biomeAt(s,x,y){ const N=(s.biomes&&s.biomes.length)||6, dx=x-BASE.x, dy=y-BASE.y;
+  let a=Math.atan2(dy,dx)-(s.biomeRot||0)+0.22*Math.sin(Math.hypot(dx,dy)/300+(s.biomeWarp||0));
+  a=((a%(2*Math.PI))+2*Math.PI)%(2*Math.PI);
+  return s.biomes? s.biomes[Math.floor(a/(2*Math.PI)*N)%N] : 'wald'; }
+// gewichtete Ressourcen-Wahl aus der Biom-Tabelle, gefiltert nach freigeschalteten Zeitaltern
+function weightedFromTable(table, allowed){ const keys=Object.keys(table).filter(k=>allowed.includes(k));
+  if(!keys.length) return null; let tot=0; for(const k of keys) tot+=table[k]; let r=Math.random()*tot;
+  for(const k of keys){ r-=table[k]; if(r<=0) return k; } return keys[keys.length-1]; }
+
+
+const ERAS=[
+  {name:'Bäuerliches Gut', say:'Ein Stück Acker, ein Traum. Fangen wir klein an.'},
+  {name:'Dorf', say:'Ein Dorf! Vom Bauern zum Bürger — und im Wald wachsen jetzt Pilze.', gather:1.0, unlocks:'Pilze'},
+  {name:'Burg', say:'Eine Burg! Die Schatzkammer füllt sich mit Gold.', gather:1.4, wspeed:1.15, unlocks:'Gold'},
+  {name:'Manufaktur', say:'Manufaktur! Die Höfe tragen reife Beeren, der Handel brummt.', gather:1.8, wspeed:1.25, unlocks:'Beeren'},
+  {name:'Dampfzeit', say:'DAMPFZEIT. Aus den Minen glitzern Kristalle. Aus dem Nichts ein Imperium.', gather:2.4, wspeed:1.4, unlocks:'Kristall'},
+];
+
+let nodeId=0;
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const dist=(ax,ay,bx,by)=>Math.hypot(ax-bx,ay-by);
+const carryTotal=c=>ALL.reduce((s,k)=>s+c[k],0);
+function moveToward(o,tx,ty,sp,dt){ const d=dist(o.x,o.y,tx,ty); if(d<1)return true;
+  const s=Math.min(d,sp*dt); o.x+=(tx-o.x)/d*s; o.y+=(ty-o.y)/d*s; return d<=sp*dt; }
+function nearestNode(x,y,nodes){ let b=null,bd=1e9; for(const n of nodes){ if(n.amount<=0.4)continue;
+  const d=dist(x,y,n.x,n.y); if(d<bd){bd=d;b=n;} } return b; }
+function blocked(s,x,y,r){ if(dist(x,y,BASE.x,BASE.y)<BASE_SOLID+r) return true;
+  for(const o of s.obstacles){ if(dist(x,y,o.x,o.y)<o.r+r) return true; } return false; }
+// Knoten landen jetzt in ihrem passenden Biom (Wald=Holz/Pilze, Gebirge=Stein/Gold/Kristall, Felder=Kürbis/Beeren).
+// type vorgegeben → per Rejection-Sampling in ein Biom legen, das ihn führt; sonst Typ nach Biom an der Position wählen.
+function spawnNode(s,type,ringMin){ const R=areaRadius(s), lo=ringMin||(VILLAGE_R+30), allowed=activeKeys(s.era);
+  for(let t=0;t<60;t++){
+    const a=rnd(0,6.2832), d=rnd(lo,R-40), x=BASE.x+Math.cos(a)*d, y=BASE.y+Math.sin(a)*d, bt=BIOMES[biomeAt(s,x,y)];
+    let chosen;
+    if(type){ if(!bt.res[type]) continue; chosen=type; }       // Knoten nur in ein Biom legen, das diesen Typ führt
+    else { chosen=weightedFromTable(bt.res, allowed); if(!chosen) continue; }
+    if(s.nodes.every(n=>dist(x,y,n.x,n.y)>104) && !blocked(s,x,y,40)){
+      const amt=Math.round(rnd(7,12)); s.nodes.push({id:++nodeId,type:chosen,x,y,amount:amt,max:amt,scale:0}); return; }
+  } }
+
+function resolve(o,cx,cy,R){ const d=dist(o.x,o.y,cx,cy); if(d<R){ if(d<0.01){o.x=cx+R;return;} o.x=cx+(o.x-cx)/d*R; o.y=cy+(o.y-cy)/d*R; } }
+function collide(s,o,r){ resolve(o,BASE.x,BASE.y,BASE_SOLID+r); for(const ob of s.obstacles) resolve(o,ob.x,ob.y,ob.r+r);
+  o.x=Math.max(8,Math.min(WORLD-8,o.x)); o.y=Math.max(8,Math.min(WORLD-8,o.y)); }
+// Terrain-Bedeutung (): auf Sand läuft man langsamer; Wasser ist via obstacles ohnehin unbetretbar, Rasen normal.
+function onSand(s,x,y){ if(!s.sand)return false; for(const B of s.sand){ if(dist(x,y,B.x,B.y)<B.r*0.92) return true; } return false; }
+
+function buildTerrain(s){ const c=document.createElement('canvas'); c.width=WORLD; c.height=WORLD; const t=c.getContext('2d');
+  t.imageSmoothingEnabled=false;
+  // Boden: echte Tiny-Swords-Gras-Textur als Pattern (Fallback solides Grün)
+  const gReady=GROUND.grass.complete&&GROUND.grass.naturalWidth>0;
+  if(gReady){ const pat=t.createPattern(GROUND.grass,'repeat'); t.fillStyle=pat; t.fillRect(0,0,WORLD,WORLD); }
+  else { t.fillStyle='#5fa148'; t.fillRect(0,0,WORLD,WORLD); }
+  // sanfte Schattierungs-Flecken für Tiefe
+  for(let i=0;i<Math.round(WORLD*WORLD/16000);i++){ const x=rnd(0,WORLD),y=rnd(0,WORLD),r=rnd(20,64);
+    t.fillStyle=Math.random()<0.5?'rgba(60,110,48,.13)':'rgba(150,196,110,.10)';
+    t.beginPath(); t.ellipse(x,y,r,r*rnd(.6,1),0,0,7); t.fill(); }
+  // Biom-Boden: jede Region kriegt eine deutlich andere Grundfarbe (über die Gras-Textur), Grenzen organisch via biomeAt-Raster.
+  // Dorf-Kern bleibt neutrales Gras. So sind Wald/Gebirge/Felder auf einen Blick unterscheidbar ().
+  if(s.biomes){ const CELL=34;
+    for(let gx=0; gx<WORLD; gx+=CELL){ for(let gy=0; gy<WORLD; gy+=CELL){ const cx=gx+CELL/2, cy=gy+CELL/2;
+      if(dist(cx,cy,BASE.x,BASE.y)<VILLAGE_R+10) continue;
+      t.fillStyle=BIOMES[biomeAt(s,cx,cy)].ground; t.fillRect(gx,gy,CELL+1,CELL+1); } } }
+  t.lineCap='round'; t.lineJoin='round';
+  const sandReady=GROUND.sand.complete&&GROUND.sand.naturalWidth>0;
+  const sandPat=sandReady? t.createPattern(GROUND.sand,'repeat') : '#d8c08a';
+  const wReady=GROUND.water.complete&&GROUND.water.naturalWidth>0;
+  // organischen Blob-Pfad bauen (Sand-Flächen + Seen)
+  const blobPath=(B,scale)=>{ const N=B.pts.length; t.beginPath();
+    const pt=i=>{ const a=i/N*6.2832, rr=B.r*B.pts[((i%N)+N)%N]*scale; return [B.x+Math.cos(a)*rr, B.y+Math.sin(a)*rr*0.92]; };
+    const p0=pt(N-1), p1=pt(0); t.moveTo((p0[0]+p1[0])/2,(p0[1]+p1[1])/2);
+    for(let i=0;i<N;i++){ const c=pt(i), nx=pt(i+1); t.quadraticCurveTo(c[0],c[1],(c[0]+nx[0])/2,(c[1]+nx[1])/2); } t.closePath(); };
+  // Sand-Flächen (Terrain-Abwechslung) — unter Wege/Seen
+  t.globalAlpha=0.92; t.fillStyle=sandPat; for(const B of s.sand){ blobPath(B,1); t.fill(); } t.globalAlpha=1;
+  // dünne Sand-Speichen vom Kern zur Grenze
+  const line=(a,b,w,style)=>{ t.strokeStyle=style; t.lineWidth=w; t.beginPath(); t.moveTo(a.x,a.y); t.lineTo(b.x,b.y); t.stroke(); };
+  // Speichen enden INNERHALB des Rings (nicht drüber hinaus)
+  for(const p of s.pois){ const e={x:BASE.x+(p.x-BASE.x)*0.84, y:BASE.y+(p.y-BASE.y)*0.84}; line(BASE,e,20,'rgba(90,70,40,.5)'); line(BASE,e,13,sandPat); }
+  // kleiner Dorf-Ring (= spätere Turm-Grenze für die Nacht-Phase)
+  const ringPath=()=>{ const n=s.pois.length; t.beginPath();
+    t.moveTo((s.pois[n-1].x+s.pois[0].x)/2,(s.pois[n-1].y+s.pois[0].y)/2);
+    for(let i=0;i<n;i++){ const c=s.pois[i], nx=s.pois[(i+1)%n]; t.quadraticCurveTo(c.x,c.y,(c.x+nx.x)/2,(c.y+nx.y)/2); } t.closePath(); };
+  t.strokeStyle='rgba(90,70,40,.5)'; t.lineWidth=34; ringPath(); t.stroke();
+  t.strokeStyle=sandPat; t.lineWidth=25; ringPath(); t.stroke();
+  // Seen draussen im Land: Schaum-Rand + Wasser-Textur + Wellen
+  for(const L of s.lakes){
+    t.fillStyle='#dff4f0'; blobPath(L,1.04); t.fill();
+    t.save(); blobPath(L,0.96); t.clip();
+    t.fillStyle=wReady? t.createPattern(GROUND.water,'repeat') : '#3f9fb0';
+    t.fillRect(L.x-L.r*1.4,L.y-L.r*1.4,L.r*2.8,L.r*2.8);
+    t.fillStyle='rgba(255,255,255,.13)';
+    for(let i=0;i<7;i++){ const yy=L.y-L.r*.55+i*L.r*.2; t.beginPath(); t.ellipse(L.x+rnd(-L.r*.3,L.r*.3),yy,L.r*rnd(.2,.4),3,0,0,7); t.fill(); }
+    t.restore();
+  }
+  s.terrain=c; }
+
+function setRing(s){ s.pois=[]; const RR=VILLAGE_R; for(let i=0;i<6;i++){ const a=i/6*6.2832-Math.PI/2; s.pois.push({x:BASE.x+Math.cos(a)*RR,y:BASE.y+Math.sin(a)*RR}); } }
+function organicBlob(x,y,r){ const pts=[]; for(let i=0;i<11;i++) pts.push(rnd(0.62,1.28)); return {x,y,r,pts}; }
+function buildLevel(s){
+  setRing(s); s.obstacles=[];
+  // Biom-Layout: 6 Sektoren um die Basis, zyklisch Wald/Gebirge/Felder, je Spiel zufällig rotiert/versetzt
+  const start=Math.floor(rnd(0,3)); s.biomes=[]; for(let i=0;i<6;i++) s.biomes.push(BIOME_CYCLE[(i+start)%3]);
+  s.biomeRot=rnd(0,6.2832); s.biomeWarp=rnd(0,6.2832);
+  // Seen + Sand über die GANZE später erschliessbare Karte verteilen (nicht nur das Start-Gebiet) — .
+  // Wasser = solides Hindernis (unbetretbar, r*0.9); Sand bremst (siehe onSand im step).
+  const FULLR=600+3*230;  // Radius bei Gebiet 4 (Maximalausbau) → Terrain ist von Anfang an überall, wird nur freigeschaltet
+  s.lakes=[]; const lakeN=4+(Math.random()<0.5?1:0);
+  for(let i=0;i<lakeN;i++){ const r=rnd(150,250); let x,y,t=0,ok=false;
+    do{ const a=rnd(0,6.2832), d=rnd(VILLAGE_R+r*1.3+70, FULLR+140); x=BASE.x+Math.cos(a)*d; y=BASE.y+Math.sin(a)*d; t++;
+        ok = x>r+50&&x<WORLD-r-50&&y>r+50&&y<WORLD-r-50 && !s.lakes.some(L=>dist(x,y,L.x,L.y)<L.r+r+120);
+    } while(!ok && t<40); if(!ok) continue;
+    const L=organicBlob(x,y,r); s.lakes.push(L); s.obstacles.push({x:L.x,y:L.y,r:L.r*0.9}); }
+  // Sand-Flächen: Strände an den Seen + frei verstreut über die ganze Karte
+  s.sand=[];
+  for(const L of s.lakes){ const a=rnd(0,6.2832); s.sand.push(organicBlob(L.x+Math.cos(a)*L.r*0.95, L.y+Math.sin(a)*L.r*0.95, rnd(120,190))); }
+  for(let i=0;i<7;i++){ const r=rnd(110,200), a=rnd(0,6.2832), d=rnd(VILLAGE_R+r*1.1+50, FULLR+60); s.sand.push(organicBlob(BASE.x+Math.cos(a)*d, BASE.y+Math.sin(a)*d, r)); }
+  const inLake=(x,y,m)=>s.lakes.some(L=>dist(x,y,L.x,L.y)<L.r+m);
+  // 6 Kuchenstück-Slots (zwischen den Speichen): je 1 Produktionsgebäude, das pro Zeitalter dazukommt
+  s.segSlots=[]; for(let i=0;i<6;i++){ const a=(i+0.5)/6*6.2832-Math.PI/2, d=VILLAGE_R*0.55; s.segSlots.push({x:BASE.x+Math.cos(a)*d,y:BASE.y+Math.sin(a)*d}); }
+  // Dorf-Leben: nur Schafe (Deko-Hütten raus — Häuser kommen als Produktionsgebäude pro Zeitalter)
+  s.village=[];
+  for(let i=0;i<4;i++){ const a=rnd(0,6.28),d=rnd(60,VILLAGE_R-95); s.village.push({key:'sheep',x:BASE.x+Math.cos(a)*d,y:BASE.y+Math.sin(a)*d,size:32,wob:rnd(0,6.28)}); }
+  s.deco=[];
+  // Biom-abhängige Deko: dichter Wald im Wald, Felsfelder im Gebirge, offene Wiesen+Kürbisse in den Feldern.
+  // Eine Stichprobe über die ganze Karte; Sprite-Wahl je nach Biom an der Position → die Welt „ergibt Sinn".
+  for(let i=0;i<1100;i++){ const x=rnd(60,WORLD-60), y=rnd(60,WORLD-60);
+    if(dist(x,y,BASE.x,BASE.y)<VILLAGE_R+12||inLake(x,y,28)||blocked(s,x,y,26)) continue;
+    const b=BIOMES[biomeAt(s,x,y)], roll=Math.random();
+    if(roll<b.tree){ s.deco.push({key:'holz',x,y,size:rnd(44,62),solid:false}); }                 // Baum
+    else if(roll<b.tree+b.rock){ const sz=rnd(40,56); s.deco.push({key:'deco_rock',x,y,size:sz,solid:true}); s.obstacles.push({x,y,r:sz*0.34}); } // solider Felsen
+    else if(roll<b.tree+b.rock+0.20){ const k=b.small[Math.floor(Math.random()*b.small.length)]; s.deco.push({key:k,x,y,size:rnd(20,30),solid:false}); } // kleine Biom-Deko
+    // sonst: offene Fläche (Dichte-Variation, damit Wald/Feld sich unterscheiden)
+  }
+  buildTerrain(s);
+}
+
+function freshState(){ const store={},carry={}; ALL.forEach(k=>{store[k]=0;carry[k]=0;});
+  const s={ store, player:{x:BASE.x,y:BASE.y+BASE_SOLID+30,tx:BASE.x,ty:BASE.y+BASE_SOLID+30,carry},
+    cap:10, speed:190, gather:BAL.heroGatherBase, capLvl:0,speedLvl:0,gatherLvl:0,steamLvl:0, wboost:1,
+    workerPool:0, builds:[], freeWalkers:[], autoAcc:0, areas:1, areaLvl:0,
+    era:0, nodes:[], pops:[], particles:[], respawns:[], cam:{x:BASE.x,y:BASE.y}, paused:false, firstDeposit:false,
+    phase:'day', day:1, baseHP:100, baseHPmax:100, towers:[],  // Naht fuer spaetere Tag/Nacht-TD-Phase
+    questIdx:0, achieved:[], lifetime:0, playSec:0 };
+  buildLevel(s);
+  for(let i=0;i<6;i++) spawnNode(s,'holz'); for(let i=0;i<3;i++) spawnNode(s,'stein'); for(let i=0;i<3;i++) spawnNode(s,'korn');
+  return s; }
+function addPop(s,x,y,color,text){ s.pops.push({x,y,color,text:text||null,age:0,max:text?1.1:0.6}); }
+/* ---------- Juice: Partikel ---------- */
+function addParticle(s,x,y,color){ if(s.particles.length>140) return;
+  const a=rnd(0,6.2832), sp=rnd(40,130);
+  s.particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-rnd(40,90),color,age:0,max:rnd(0.5,0.9),sz:rnd(3,6)}); }
+function burst(s,x,y,color,n){ for(let i=0;i<n;i++) addParticle(s,x,y,color); }
+/* ---------- Juice: Sound (synthetisiert, keine Dateien) ---------- */
+let actx=null, muted=false;
+function audioInit(){ try{ if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)(); if(actx.state==='suspended') actx.resume(); }catch(e){} }
+function tone(freq,dur,type,vol,delay){ if(!actx||muted) return; const t=actx.currentTime+(delay||0);
+  const o=actx.createOscillator(), g=actx.createGain(); o.type=type||'sine'; o.frequency.value=freq;
+  o.connect(g); g.connect(actx.destination); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(vol||0.12,t+0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+dur); o.start(t); o.stop(t+dur+0.03); }
+const SFX={
+  harvest:()=>tone(400+Math.random()*70,0.06,'triangle',0.06),
+  deposit:()=>{ tone(523,0.12,'sine',0.12); tone(784,0.15,'sine',0.09,0.06); },
+  buy:()=>{ tone(640,0.07,'square',0.08); tone(960,0.1,'square',0.07,0.05); },
+  era:()=>[523,659,784,1047].forEach((f,i)=>tone(f,0.2,'sine',0.11,i*0.09)),
+  quest:()=>{ tone(880,0.1,'sine',0.11); tone(1175,0.16,'sine',0.1,0.07); },
+};
+
+/* ---------- Speichern + Offline-Progress ---------- */
+const SAVE_KEY='ausdemnichts_save', SAVE_VERSION=2, OFFLINE_CAP=8*3600; // v2: Gebäude-/Arbeiter-Modell
+function serialize(s){ return { // nur Fortschritt (Welt/Knoten/Deko werden neu erzeugt)
+  store:s.store, cap:s.cap, speed:s.speed, gather:s.gather, wboost:s.wboost,
+  capLvl:s.capLvl, speedLvl:s.speedLvl, gatherLvl:s.gatherLvl, steamLvl:s.steamLvl,
+  workerPool:s.workerPool, builds:s.builds,
+  areas:s.areas, areaLvl:s.areaLvl, era:s.era, firstDeposit:s.firstDeposit,
+  phase:s.phase, day:s.day, baseHP:s.baseHP, towers:s.towers, questIdx:s.questIdx,
+  achieved:s.achieved, lifetime:s.lifetime, playSec:s.playSec }; }
+function saveGame(s){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify({v:SAVE_VERSION, t:Date.now(), d:serialize(s)})); }catch(e){} }
+function loadRaw(){ try{ const r=localStorage.getItem(SAVE_KEY); if(!r) return null; const o=JSON.parse(r);
+  if(!o||o.v!==SAVE_VERSION||!o.d) return null; return o; }catch(e){ return null; } }
+function clearSave(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} }
+function stateFromSave(d){ const s=freshState();  // frische Welt, dann Fortschritt drüberlegen
+  ALL.forEach(k=>{ if(typeof d.store[k]==='number') s.store[k]=d.store[k]; });
+  ['cap','speed','gather','wboost','capLvl','speedLvl','gatherLvl','steamLvl','workerPool','areas','areaLvl','era','firstDeposit','phase','day','baseHP','questIdx'].forEach(k=>{ if(d[k]!==undefined) s[k]=d[k]; });
+  if(Array.isArray(d.towers)) s.towers=d.towers;
+  if(Array.isArray(d.achieved)) s.achieved=d.achieved.slice();
+  if(typeof d.lifetime==='number') s.lifetime=d.lifetime;
+  if(typeof d.playSec==='number') s.playSec=d.playSec;
+  if(Array.isArray(d.builds)) s.builds=d.builds.map(b=>({type:b.type,seg:b.seg,tempo:b.tempo||0,menge:b.menge||0,workers:b.workers||0}));
+  setRing(s);
+  s.nodes=[]; const n=10+s.areas*4; for(let i=0;i<n;i++) spawnNode(s);  // Knoten passend zu Era/Gebieten
+  return s; }
+// Offline-Ertrag: Auto-Producer voll, Helfer grob geschätzt (reduziert), gedeckelt
+function applyOffline(s, elapsedSec){ const t=Math.min(Math.max(0,elapsedSec), OFFLINE_CAP); if(t<30) return null;
+  const before={}; ALL.forEach(k=>before[k]=s.store[k]||0);
+  // Konverter brauchen Input → in groben Schritten simulieren statt 1 Riesen-Tick (sonst Input-Deckel falsch)
+  const steps=Math.min(240, Math.max(1, Math.round(t/30))), sdt=t/steps;
+  for(let i=0;i<steps;i++) for(const b of s.builds) produce(s,b,sdt);
+  const g={}; ALL.forEach(k=>{ const d=Math.floor((s.store[k]||0)-before[k]); if(d>0) g[NAME[k]]=d; });
+  const mins=Math.round(t/60); const parts=Object.entries(g).map(([k,v])=>`+${v} ${k}`);
+  return parts.length? {mins, txt:parts.join(', ')} : null; }
+function humanDur(mins){ if(mins<60) return mins+' Min'; const h=Math.floor(mins/60); return h+(h===1?' Stunde':' Stunden'); }
+
+const scaled=(b,f,l)=>Math.round(b*Math.pow(f,l));
+// Helden-Upgrades sind pro Zeitalter gedeckelt () — kein 7×-Sofort-Maxen, Power ans Zeitalter gekoppelt
+function heroMaxLvl(s){ return 3 + s.era*2; }  // era0:3, era1:5, era2:7, era3:9, era4:11
+// ---- Two upgrade trees ----  (UP_HELD-Einträge tragen lvl:=aktuelles Level für den Era-Cap)
+// Kosten eskalieren mit dem Zeitalter (): jede Stufe nimmt eine höhere Ressource dazu, statt alles in Holz zu zahlen.
+const UP_HELD=[
+  {id:'cap',icon:'holz',name:()=>'Größerer Beutel',desc:s=>`Tragen +4 (jetzt ${s.cap})`,lvl:s=>s.capLvl,
+   cost:s=>{ const l=s.capLvl,c={holz:scaled(12,1.45,l)}; if(s.era>=2)c.stein=scaled(8,1.45,l); return c; },apply:s=>{s.cap+=4;s.capLvl++;}},
+  {id:'speed',icon:'korn',name:()=>'Schnellere Beine',desc:()=>'Tempo +15%',lvl:s=>s.speedLvl,
+   cost:s=>{ const l=s.speedLvl,c={korn:scaled(10,1.45,l)}; if(s.era>=3)c.beeren=scaled(6,1.45,l); return c; },apply:s=>{s.speed*=1.15;s.speedLvl++;}},
+  {id:'gather',icon:'stein',name:()=>'Bessere Werkzeuge',desc:()=>'Sammeln deutlich schneller',lvl:s=>s.gatherLvl,
+   cost:s=>{ const l=s.gatherLvl,c={stein:scaled(10,1.45,l)}; if(s.era>=2)c.gold=scaled(6,1.45,l); if(s.era>=4)c.kristall=scaled(4,1.5,l); return c; },apply:s=>{s.gather+=BAL.gatherPerLvl;s.gatherLvl++;}},
+  {id:'steam',icon:'kristall',name:()=>'Dampfmaschine',desc:()=>'Sammeln +3 & Helfer +10%',show:s=>s.era>=4,lvl:s=>s.steamLvl,
+   cost:s=>({kristall:scaled(8,1.55,s.steamLvl),gold:scaled(45,1.4,s.steamLvl)}),apply:s=>{s.gather+=3;s.wboost+=0.1;s.steamLvl++;}},
+];
+const UP_DORF=[
+  {id:'hire',icon:'worker',name:s=>'Helfer anheuern',desc:s=>`Arbeiter für die Hütten zuweisen (frei: ${freeWorkers(s)}/${s.workerPool})`,
+   cost:s=>{ const c={korn:scaled(22,1.55,s.workerPool)}; if(s.era>=3)c.beeren=scaled(12,1.55,s.workerPool); return c; },  // Nahrung füttert Helfer; ab Manufaktur Beeren dazu
+   apply:s=>{s.workerPool++;}},
+  {id:'build',icon:'era1',name:s=>{const t=nextBuildType(s);return t?'Bau: '+BUILD_TYPES[t].name:'Alle Hütten gebaut';},
+   desc:s=>{const t=nextBuildType(s);return t?`Stellt eine ${BUILD_TYPES[t].name}-Hütte in ein freies Kuchenstück (tippe sie an zum Verwalten)`:'';},
+   show:s=>!!nextBuildType(s), cost:s=>{const t=nextBuildType(s);return t?BUILD_TYPES[t].cost:{holz:1e9};},
+   apply:s=>{const t=nextBuildType(s); if(!t)return; const used=s.builds.map(b=>b.seg); let seg=[0,1,2,3,4,5].find(i=>!used.includes(i)); if(seg==null)seg=s.builds.length%6;
+     s.builds.push({type:t,seg,tempo:0,menge:0,workers:0}); say(BUILD_TYPES[t].name+' gebaut! Tippe die Hütte an, um Arbeiter zuzuweisen + sie aufzurüsten.'); }},
+  {id:'expand',icon:'era1',name:s=>'Gebiet erschliessen',desc:s=>s.areas>=4?'Alle Gebiete erschlossen':`Dorf vergrössern (Gebiet ${s.areas}/4) — mehr Platz & Ressourcen`,
+   show:s=>s.areas<4, cost:s=>({holz:scaled(80,1.7,s.areaLvl),stein:scaled(50,1.7,s.areaLvl),korn:scaled(40,1.7,s.areaLvl)}),
+   apply:s=>{ if(s.areas>=4) return; const oldR=areaRadius(s); s.areas++; s.areaLvl++;
+     for(let i=0;i<12;i++) spawnNode(s,null,oldR-20);
+     say('Neues Gebiet erschlossen! Die Karte wächst nach aussen — mehr Ressourcen jenseits des Dorfrands.'); },expand:true},
+];
+// Hütten-Upgrade-Kosten (): Tempo = Effizienz-Währung Gold (früh Holz, bis Gold da ist);
+// Menge = Eigen-Ressource der Hütte + Pilze als Veredelungs-Material (gibt Pilzen eine Dauer-Senke).
+function buildUpCost(b,kind,s){ const T=BUILD_TYPES[b.type], lvl=b[kind], era=s?s.era:0, c={};
+  if(kind==='tempo'){ if(era>=2) c.gold=scaled(20,1.5,lvl); else c.holz=scaled(35,1.5,lvl); }
+  else { c[T.res]=scaled(24,1.5,lvl); c.pilze=scaled(12,1.5,lvl); }
+  return c; }
+// Caps pro Zeitalter (): kein Sofort-Maxen — Tempo/Menge + Arbeiter sind ans Zeitalter gekoppelt
+function buildMaxLvl(s){ return s.era+1; }                  // max Tempo-/Menge-Level je Hütte
+function buildMaxWorkers(s){ return Math.min(4, s.era+1); } // max zugewiesene Arbeiter je Hütte
+const ALLUP=[...UP_HELD,...UP_DORF];
+const eraCost=e=>[null,{holz:55,korn:38},{holz:120,stein:85,pilze:28},{holz:180,stein:150,gold:38},{holz:240,beeren:55,gold:55}][e];
+const canAfford=(s,c)=>c&&Object.keys(c).every(k=>(s.store[k]||0)>=c[k]);
+const pay=(s,c)=>Object.keys(c).forEach(k=>{s.store[k]-=c[k];});
+const costStr=c=>Object.keys(c).map(k=>`${c[k]} ${NAME[k]}`).join(' · ');
+// Held-Aussehen (Rüstung) haengt an seinem EIGENEN Upgrade-Level, NICHT am Zeitalter
+function heroTier(s){ const t=s.capLvl+s.speedLvl+s.gatherLvl+s.steamLvl; return t>=18?4:t>=11?3:t>=6?2:t>=2?1:0; }
+
+/* ---------- Ziele / Quests (immer ein sichtbares nächstes Ziel) ---------- */
+const QUESTS=[
+  {t:'Sammle 20 Holz',                 g:s=>s.store.holz,     n:20,  rew:s=>s.store.holz+=8,   r:'+8 Holz'},
+  {t:'Sammle 15 Stein',                g:s=>s.store.stein,    n:15,  rew:s=>s.store.stein+=8,  r:'+8 Stein'},
+  {t:'Erreiche das Dorf',              g:s=>s.era,            n:1,   rew:s=>s.store.holz+=18,  r:'+18 Holz'},
+  {t:'Baue den Holzfäller',            g:s=>s.builds.some(b=>b.type==='holz')?1:0, n:1, rew:s=>s.store.stein+=18, r:'+18 Stein'},
+  {t:'Heuere deinen ersten Helfer an', g:s=>s.workerPool,     n:1,   rew:s=>s.store.korn+=12,  r:'+12 Kürbis'},
+  {t:'Weise dem Holzfäller einen Helfer zu', g:s=>assignedWorkers(s), n:1, rew:s=>s.store.holz+=22, r:'+22 Holz'},
+  {t:'Erschliesse ein neues Gebiet',   g:s=>s.areas,          n:2,   rew:s=>s.store.korn+=28,  r:'+28 Kürbis'},
+  {t:'Erreiche die Burg',              g:s=>s.era,            n:2,   rew:s=>s.store.gold=(s.store.gold||0)+18, r:'+18 Gold'},
+  {t:'Baue den Steinbruch',            g:s=>s.builds.some(b=>b.type==='stein')?1:0, n:1, rew:s=>s.store.holz+=35, r:'+35 Holz'},
+  {t:'Heuere 4 Helfer an',             g:s=>s.workerPool,     n:4,   rew:s=>s.store.holz+=55,  r:'+55 Holz'},
+  {t:'Sammle 150 Gold',                g:s=>s.store.gold,     n:150, rew:s=>s.store.stein+=60, r:'+60 Stein'},
+  {t:'Erreiche die Manufaktur',        g:s=>s.era,            n:3,   rew:s=>s.store.gold=(s.store.gold||0)+35, r:'+35 Gold'},
+  {t:'Erreiche die Dampfzeit',         g:s=>s.era,            n:4,   rew:s=>s.store.kristall=(s.store.kristall||0)+15, r:'+15 Kristall — Imperium vollendet!'},
+];
+function checkQuests(s){ if(s.questIdx>=QUESTS.length) return; const q=QUESTS[s.questIdx];
+  if(q.g(s)>=q.n){ q.rew(s); addPop(s,BASE.x,BASE.y-72,'#ffe08a','Ziel!'); burst(s,BASE.x,BASE.y-30,'#ffe08a',16); SFX.quest(); say('Ziel erreicht: '+q.t+'! Belohnung: '+q.r+'.'); s.questIdx++; saveGame(s); } }
+/* ---------- Erfolge (Langzeit-Ziele jenseits der Zeitalter, dauerhaft) ---------- */
+const ACHIEVEMENTS=[
+  {id:'first',  icon:'holz',   name:'Erste Schubkarre',  desc:'Liefere zum ersten Mal Ressourcen ab.',         check:s=>s.firstDeposit},
+  {id:'huette', icon:'era1',   name:'Erste Hütte',       desc:'Baue dein erstes Produktionsgebäude.',          check:s=>s.builds.length>=1},
+  {id:'vollbau',icon:'era1',   name:'Voll ausgebaut',    desc:'Errichte alle vier Produktionshütten.',          check:s=>s.builds.length>=4},
+  {id:'chef',   icon:'worker', name:'Arbeitgeber',       desc:'Heuere 5 Helfer an.',                            check:s=>s.workerPool>=5},
+  {id:'dorf',   icon:'era0',   name:'Dorfgründer',       desc:'Erreiche das Zeitalter Dorf.',                   check:s=>s.era>=1},
+  {id:'burg',   icon:'era2',   name:'Burgherr',          desc:'Erreiche das Zeitalter Burg.',                   check:s=>s.era>=2},
+  {id:'dampf',  icon:'era4',   name:'Industrieller',     desc:'Erreiche die Dampfzeit — Imperium vollendet.',   check:s=>s.era>=4},
+  {id:'land',   icon:'era1',   name:'Großgrundbesitzer', desc:'Erschließe alle vier Gebiete.',                  check:s=>s.areas>=4},
+  {id:'maloch', icon:'stein',  name:'Malocher',          desc:'Liefere insgesamt 1.000 Ressourcen ab.',         check:s=>s.lifetime>=1000},
+  {id:'magnat', icon:'gold',   name:'Rohstoff-Magnat',   desc:'Liefere insgesamt 10.000 Ressourcen ab.',        check:s=>s.lifetime>=10000},
+  {id:'treu',   icon:'kristall',name:'Stammspieler',     desc:'Spiele insgesamt 10 Minuten.',                   check:s=>s.playSec>=600},
+];
+function checkAchievements(s){ for(const a of ACHIEVEMENTS){ if(!s.achieved.includes(a.id) && a.check(s)){
+  s.achieved.push(a.id); addPop(s,s.player.x,s.player.y-46,'#ffd86b','🏆 '+a.name); burst(s,s.player.x,s.player.y-20,'#ffd86b',20);
+  SFX.quest(); tone(1320,0.18,'sine',0.1,0.14); say('Erfolg freigeschaltet: '+a.name+' — '+a.desc); saveGame(s);
+  if(game&&game.achOpen) game.renderAch(); } } }
+
+const game={
+  s:null,last:0,uiAcc:0,running:true,btns:null,vw:0,vh:0,dpr:1,zoom:0.61,tab:'held',pan:{x:0,y:0},flash:0,dragging:false,panelFor:'castle',camFollow:true,camGoal:{x:BASE.x,y:BASE.y},
+  init(){ const sv=loadRaw(); let welcome=null;
+    if(sv){ this.s=stateFromSave(sv.d); welcome=applyOffline(this.s,(Date.now()-sv.t)/1000); }
+    else { this.s=freshState(); }
+    this.resize(); this.buildShop();
+    window.addEventListener('resize',()=>this.resize());
+    window.addEventListener('orientationchange',()=>setTimeout(()=>this.resize(),200));
+    window.addEventListener('beforeunload',()=>saveGame(this.s));
+    document.addEventListener('visibilitychange',()=>{ if(document.hidden) saveGame(this.s); });
+    document.getElementById('zoomInBtn').onclick=()=>{ this.zoom=Math.min(3.0,this.zoom*1.18); };
+    document.getElementById('zoomOutBtn').onclick=()=>{ this.zoom=Math.max(0.4,this.zoom/1.18); };
+    document.getElementById('pauseBtn').onclick=()=>this.toggle();
+    document.getElementById('resetBtn').onclick=()=>this.reset();
+    document.getElementById('zoomInBtn').innerHTML=svg('plus');
+    document.getElementById('zoomOutBtn').innerHTML=svg('minus'); document.getElementById('pauseBtn').innerHTML=svg('pause');
+    document.getElementById('resetBtn').innerHTML=svg('reset');
+    const sb=document.getElementById('soundBtn'); sb.innerHTML=svg('soundOn');
+    sb.onclick=()=>{ muted=!muted; audioInit(); sb.innerHTML=svg(muted?'soundOff':'soundOn'); if(!muted) SFX.buy(); };
+    const mb=document.getElementById('menuBtn'), mi=document.getElementById('menuItems');
+    const burger='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>';
+    mb.innerHTML=burger; mb.onclick=()=>{ const open=mi.classList.toggle('open'); mb.innerHTML=open?svg('close'):burger; };
+    const ab=document.getElementById('achBtn'); ab.innerHTML='<span style="font-size:22px;line-height:1">🏆</span>';
+    ab.onclick=()=>this.toggleAch();
+    document.getElementById('achClose').innerHTML=svg('close');
+    document.getElementById('achClose').onclick=()=>this.toggleAch(false);
+    document.getElementById('achOverlay').onclick=e=>{ if(e.target.id==='achOverlay') this.toggleAch(false); };
+    const closeShop=()=>document.getElementById('panel').classList.remove('open');
+    document.getElementById('closeShop').innerHTML=svg('close');
+    document.getElementById('closeShop').onclick=closeShop;
+    document.querySelector('#panel .grab').onclick=closeShop;
+    for(const b of document.querySelectorAll('#tabs button')){ b.onclick=()=>this.setTab(b.dataset.tab);
+      b.innerHTML=svg(b.dataset.tab==='held'?'person':'house')+(b.dataset.tab==='held'?'Held':'Dorf'); }
+    // Cheat-Button nur im Dev-Modus (URL ?dev=1) — normale Spieler sehen ihn nicht; Entwickler nutzt die Dev-URL.
+    const DEV=new URLSearchParams(location.search).has('dev');
+    const cb=document.getElementById('cheatBtn');
+    if(DEV){ cb.onclick=()=>{ const s=this.s; activeKeys(s.era).forEach(k=>s.store[k]+=50);
+      say('Cheat: +50 auf alle aktuellen Ressourcen.'); this.renderRes(); this.updateShop(); saveGame(s); }; }
+    else { cb.style.display='none'; }
+    this.loop=this.loop.bind(this); requestAnimationFrame(this.loop);
+    if(welcome) say('Willkommen zurück! In '+humanDur(welcome.mins)+' abwesend: '+welcome.txt+'.');
+    else if(!this.s.firstDeposit) say(ERAS[0].say); },
+  resize(){ this.dpr=Math.min(window.devicePixelRatio||1,2); this.vw=window.innerWidth; this.vh=window.innerHeight;
+    cv.style.width=this.vw+'px'; cv.style.height=this.vh+'px'; cv.width=Math.round(this.vw*this.dpr); cv.height=Math.round(this.vh*this.dpr); },
+  rebuildTerrain(){ if(this.s) buildTerrain(this.s); },
+  reset(){ if(!confirm('Wirklich neu anfangen? Aller Fortschritt weg.'))return; clearSave(); this.s=freshState(); say(ERAS[0].say); this.buildShop(); },
+  toggle(){ this.s.paused=!this.s.paused; document.getElementById('pauseBtn').innerHTML=svg(this.s.paused?'play':'pause'); },
+  setTab(t){ this.tab=t; for(const b of document.querySelectorAll('#tabs button')) b.classList.toggle('on',b.dataset.tab===t); this.buildShop(); },
+  toggleAch(force){ this.achOpen=(force===undefined)?!this.achOpen:force;
+    document.getElementById('achOverlay').classList.toggle('open',this.achOpen); if(this.achOpen) this.renderAch(); },
+  renderAch(){ const s=this.s, list=document.getElementById('achList'); list.innerHTML='';
+    const got=ACHIEVEMENTS.filter(a=>s.achieved.includes(a.id)).length;
+    const head=document.querySelector('#achHead span'); head.innerHTML='🏆 Erfolge <span id="achProg">'+got+'/'+ACHIEVEMENTS.length+'</span>';
+    for(const a of ACHIEVEMENTS){ const has=s.achieved.includes(a.id); const el=document.createElement('div');
+      el.className='ach '+(has?'got':'locked');
+      el.innerHTML='<img src="ts/icons/'+a.icon+'.png"><div><div class="an">'+a.name+'</div><div class="ad">'+a.desc+'</div></div>'+(has?'<span class="tick">✓</span>':'');
+      list.appendChild(el); } },
+  buy(id){ const s=this.s,up=ALLUP.find(u=>u.id===id); if(!up)return;
+    if(up.lvl && up.lvl(s)>=heroMaxLvl(s)){ say('Max für dieses Zeitalter erreicht — steig erst auf.'); return; }
+    const c=up.cost(s);
+    if(!canAfford(s,c)){ say('Dafür fehlen noch Ressourcen.'); return; } pay(s,c); up.apply(s); SFX.buy(); burst(s,BASE.x,BASE.y-20,'#cbb8ff',10);
+    if(!up.expand) say(['Investiert. Schau dich an, du Kapitalist.','Aufgerüstet. Es wächst!','Gut angelegt.','Mehr, mehr, mehr — dein Stil gefällt mir.'][Math.floor(s.store.holz+s.store.korn)%4]);
+    this.updateShop(); saveGame(s); },
+  buyEra(){ const s=this.s,next=s.era+1; if(next>=ERAS.length){ say('Du bist am Gipfel. Genieß die Aussicht.'); return; }
+    const c=eraCost(next); if(!canAfford(s,c)){ say(`Für ${ERAS[next].name}: ${costStr(c)}.`); return; }
+    pay(s,c); s.era=next; const e=ERAS[next]; if(e.gather)s.gather+=e.gather; say(e.say); SFX.era(); this.flash=1; burst(s,BASE.x,BASE.y-30,'#a05bff',24);
+    const fresh=RES.filter(r=>r.unlock===next).map(r=>r.key);
+    for(const k of fresh){ for(let i=0;i<3;i++) spawnNode(s,k); }
+    this.updateShop(); saveGame(s); },
+
+  step(dt){ const s=this.s; s.playSec+=dt;
+    const psp=onSand(s,s.player.x,s.player.y)?s.speed*0.55:s.speed;  // Sand bremst ()
+    moveToward(s.player,s.player.tx,s.player.ty,psp,dt); collide(s,s.player,PR);
+    if(carryTotal(s.player.carry)<s.cap){ for(const n of s.nodes){ if(n.amount>0.4 && dist(s.player.x,s.player.y,n.x,n.y)<HARVEST_R){
+      const amt=Math.min(s.gather*dt,n.amount,s.cap-carryTotal(s.player.carry)); if(amt>0){ n.amount-=amt; s.player.carry[n.type]+=amt;
+        s.harvAcc=(s.harvAcc||0)+dt; if(s.harvAcc>0.16){ s.harvAcc=0; addParticle(s,n.x,n.y-6,COL[n.type]); SFX.harvest(); } } break; } } }
+    for(const n of s.nodes){ if(n.amount<=0.4&&!n.dead){ n.dead=true; addPop(s,n.x,n.y,COL[n.type]); burst(s,n.x,n.y-6,COL[n.type],7); s.respawns.push({type:n.type,t:rnd(3,5)}); } }
+    s.nodes=s.nodes.filter(n=>!n.dead);
+    for(const r of s.respawns) r.t-=dt;
+    for(const r of s.respawns.filter(r=>r.t<=0)) spawnNode(s, Math.random()<0.5?r.type:null);
+    s.respawns=s.respawns.filter(r=>r.t>0);
+    for(const n of s.nodes){ if(n.scale<1) n.scale=Math.min(1,n.scale+dt*3); }
+    // Produktionsgebäude (passives Einkommen, skaliert mit Tempo/Menge/Arbeitern); Konverter ziehen Input ab
+    for(const b of s.builds){ produce(s,b,dt); }
+    s.autoAcc+=dt; if(s.autoAcc>2.2){ s.autoAcc=0;
+      for(const b of s.builds){ const r=buildRate(s,b)*2.2; if(r>=1){ const p=s.segSlots[b.seg], res=BUILD_TYPES[b.type].res;
+        addPop(s,p.x,p.y-24,COL[res],'+'+r.toFixed(0)); } } }
+    // Sack leert ins Lager, sobald man die Dorfgrenze übertritt (agiler — kein Trek bis zur Burg)
+    if(dist(s.player.x,s.player.y,BASE.x,BASE.y)<VILLAGE_R){ const had=carryTotal(s.player.carry);
+      if(had>0.4){ ALL.forEach(k=>{ s.store[k]+=s.player.carry[k]; s.player.carry[k]=0; }); s.lifetime+=had;
+        addPop(s,s.player.x,s.player.y-30,'#fff','+'+Math.floor(had)); burst(s,s.player.x,s.player.y-12,'#ffe9a8',Math.min(18,4+Math.floor(had/2))); SFX.deposit();
+        if(!s.firstDeposit){ s.firstDeposit=true; say('Erste Lieferung! Der Sack leert sich automatisch, sobald du das Dorf betrittst.'); } } }
+    updateFreeWalkers(s,dt);  // freie Arbeiter farmen selbstständig in Dorfnähe; zugewiesene sind Boost-Pawns an den Hütten
+    for(const p of s.pops) p.age+=dt; s.pops=s.pops.filter(p=>p.age<p.max);
+    // Partikel (Juice): bewegen, Schwerkraft, altern
+    for(const q of s.particles){ q.age+=dt; q.x+=q.vx*dt; q.y+=q.vy*dt; q.vy+=260*dt; q.vx*=0.92; }
+    s.particles=s.particles.filter(q=>q.age<q.max);
+    if(this.flash>0) this.flash=Math.max(0,this.flash-dt*1.6);  // Era-Aufstieg-Blitz klingt ab
+    // Panel schliesst sich, sobald der Held das Dorf verlässt (Burg + Hütten liegen im Kern)
+    const panel=document.getElementById('panel');
+    if(panel.classList.contains('open') && dist(s.player.x,s.player.y,BASE.x,BASE.y) > VILLAGE_R+30) panel.classList.remove('open');
+    // Kamera: folgt dem Helden NUR wenn camFollow aktiv. Nach freiem Schwenk bleibt sie stehen (kein Zurück-Snap),
+    // bis man den Helden wieder wohin schickt (moveTo → camFollow=true) — dann gleitet sie zurück und matcht ().
+    if(this.camFollow){ this.camGoal.x=s.player.x; this.camGoal.y=s.player.y; }
+    const k=Math.min(1,dt*7);
+    s.cam.x+=(this.camGoal.x-s.cam.x)*k; s.cam.y+=(this.camGoal.y-s.cam.y)*k;
+  },
+  loop(ts){ if(!this.running)return; if(!this.last)this.last=ts; let dt=(ts-this.last)/1000; this.last=ts; if(dt>0.1)dt=0.1;
+    if(!this.s.paused) this.step(dt); this.draw();
+    this.uiAcc+=dt; if(this.uiAcc>0.2){ this.uiAcc=0; checkQuests(this.s); checkAchievements(this.s); this.renderRes(); this.updateShop(); this.renderQuest(); }
+    this.saveAcc=(this.saveAcc||0)+dt; if(this.saveAcc>5){ this.saveAcc=0; saveGame(this.s); }  // Auto-Save alle 5s
+    requestAnimationFrame(this.loop); },
+
+  draw(){ const s=this.s, cam=s.cam, dpr=this.dpr, VW=this.vw, VH=this.vh, z=this.zoom;
+    const offx=-cam.x*z+VW/2, offy=-cam.y*z+VH/2;
+    // Sichtbarer Welt-Ausschnitt (+Rand) → Off-Screen-Culling: nur Sichtbares zeichnen (, Software-Raster-Entlastung)
+    const vx0=(-offx)/z-90, vx1=(VW-offx)/z+90, vy0=(-offy)/z-90, vy1=(VH-offy)/z+90;
+    const vis=(x,y)=> x>vx0 && x<vx1 && y>vy0 && y<vy1;
+    ctx.imageSmoothingEnabled=false;
+    ctx.setTransform(1,0,0,1,0,0); ctx.fillStyle='#0a1610'; ctx.fillRect(0,0,cv.width,cv.height);
+    ctx.setTransform(z*dpr,0,0,z*dpr, offx*dpr, offy*dpr);
+    // Terrain nur im sichtbaren Ausschnitt zeichnen (statt das ganze 2800×2800-Canvas pro Frame)
+    if(s.terrain){ const sx=Math.max(0,vx0), sy=Math.max(0,vy0), sw=Math.min(WORLD,vx1)-sx, sh=Math.min(WORLD,vy1)-sy;
+      if(sw>0&&sh>0) ctx.drawImage(s.terrain, sx,sy,sw,sh, sx,sy,sw,sh); }
+    // Dorf-Deko (Häuser/Schafe) für Leben
+    for(const v of s.village){ if(!vis(v.x,v.y))continue; shadow(v.x,v.y,v.size*0.32,v.size*0.12); worldSprite(v.key,v.x,v.y,v.size,true); }
+    // Natur-Deko (Bäume/Felsen/Pilze)
+    for(const d of s.deco){ if(!vis(d.x,d.y))continue; shadow(d.x,d.y,d.size*0.34,d.size*0.13); worldSprite(d.key,d.x,d.y,d.size,true); }
+    // base + era-Gebäude (unten verankert)
+    shadow(BASE.x,BASE.y+22,58,18); worldSprite('era'+s.era, BASE.x, BASE.y+26, 134, true); label(ERAS[s.era].name, BASE.x, BASE.y-94);
+    // Produktionsgebäude (je in einem Kuchenstück) + zugewiesene Arbeiter-Pawns daneben
+    for(const b of s.builds){ const p=s.segSlots[b.seg], T=BUILD_TYPES[b.type]; if(!vis(p.x,p.y))continue;
+      shadow(p.x,p.y,30,10); worldSprite(T.sprite,p.x,p.y,92,true); label(T.name,p.x,p.y-80);
+      for(let i=0;i<Math.min(b.workers,4);i++){ const wx=p.x-28+i*18, wy=p.y+14; shadow(wx,wy,9,3); worldSprite('worker',wx,wy,30,true); } }
+    // Ressourcen-Knoten — mit Glow-Ring, damit sie sich klar von der Deko abheben (P6)
+    for(const n of s.nodes){ if(!vis(n.x,n.y))continue; const sc=0.7+0.3*(n.scale||1);
+      ctx.fillStyle='rgba(255,238,150,.20)'; ctx.beginPath(); ctx.ellipse(n.x,n.y+2,25,12,0,0,7); ctx.fill();
+      ctx.strokeStyle='rgba(255,238,150,.6)'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.ellipse(n.x,n.y+2,25,12,0,0,7); ctx.stroke();
+      shadow(n.x,n.y,15,5); worldSprite(n.type, n.x, n.y+6, 50*sc, true); amountBar(n); }
+    // freie Arbeiter (laufender Schwarm, farmen selbstständig) + ggf. das was sie gerade tragen
+    for(const w of s.freeWalkers){ if(!vis(w.x,w.y))continue; shadow(w.x,w.y,11,4); worldSprite('worker',w.x,w.y+2,32,true);
+      if(w.carry>0.4&&w.type) worldSprite(w.type,w.x+12,w.y-26,18,true); }
+    for(const q of s.particles){ const f=1-q.age/q.max; ctx.globalAlpha=f; ctx.fillStyle=q.color;
+      ctx.beginPath(); ctx.arc(q.x,q.y,q.sz*f+1,0,7); ctx.fill(); } ctx.globalAlpha=1;
+    for(const p of s.pops) pop(p);
+    if(dist(s.player.x,s.player.y,s.player.tx,s.player.ty)>5){ ctx.strokeStyle='rgba(255,79,216,.75)';ctx.lineWidth=3; ctx.beginPath();ctx.arc(s.player.tx,s.player.ty,12,0,7);ctx.stroke(); }
+    shadow(s.player.x,s.player.y,24,9); worldSprite('hero'+heroTier(s), s.player.x, s.player.y+6, 74, true);
+    if(carryTotal(s.player.carry)>0.4){ const c=s.player.carry, tk=ALL.find(k=>c[k]>0.4)||'holz'; worldSprite(tk, s.player.x+22, s.player.y-58, 28, true); }
+    // overlay edge arrows
+    ctx.setTransform(dpr,0,0,dpr,0,0); ctx.imageSmoothingEnabled=false;
+    edgeArrow('era'+s.era,BASE.x,BASE.y,offx,offy,VW,VH,z,'rgba(160,91,255,.95)');
+    const nn=nearestNode(s.player.x,s.player.y,s.nodes);
+    if(nn) edgeArrow(nn.type,nn.x,nn.y,offx,offy,VW,VH,z,COL[nn.type]);
+    if(this.flash>0){ ctx.fillStyle='rgba(255,255,255,'+(this.flash*0.35)+')'; ctx.fillRect(0,0,VW,VH); }  // Era-Aufstieg-Blitz
+  },
+  renderRes(){ const s=this.s;
+    document.getElementById('resbar').innerHTML =
+      `<span class="sack"><span class="bag">👝</span>${Math.floor(carryTotal(s.player.carry))}/${s.cap}</span>`  // Tasche (was du gerade trägst)
+      + `<span class="rdiv"></span>`                                                                            // Trennstrich → ab hier das Lager
+      + activeKeys(s.era).map(k=>`<span class="r"><img src="ts/icons/${k}.png"><span class="rn">${NAME[k]}</span><b>${Math.floor(s.store[k])}</b></span>`).join('')
+      + `<span class="r"><img src="ts/icons/worker.png"><span class="rn">Helfer</span><b>${freeWorkers(s)}/${s.workerPool}</b></span>`; },
+  renderQuest(){ const s=this.s, el=document.getElementById('quest');
+    if(s.questIdx>=QUESTS.length){ el.innerHTML='<span class="qt">Ziel</span> Alle Ziele erreicht — bau dein Imperium aus!'; return; }
+    const q=QUESTS[s.questIdx], cur=Math.min(Math.floor(q.g(s)),q.n);
+    el.innerHTML=`<span class="qt">Ziel</span>${q.t}<span class="qp">${cur}/${q.n}</span>`; },
+  openPanelFor(target){ this.panelFor=target; this.buildShop(); document.getElementById('panel').classList.add('open'); },
+  mkBtn(shop,id,cls,onclick){ const b=document.createElement('button'); b.className='up'+(cls?' '+cls:'');
+    b.innerHTML='<img><span class="tx"><span class="t"></span><span class="c d"></span><span class="c k"></span></span>';
+    b.onclick=onclick; shop.appendChild(b); this.btns[id]=b; return b; },
+  buildShop(){ const shop=document.getElementById('shop'); shop.innerHTML=''; this.btns={};
+    const tabsEl=document.getElementById('tabs'), ph=document.querySelector('#panel .ph');
+    if(typeof this.panelFor==='number'){            // ----- HÜTTEN-Panel -----
+      const b=this.s.builds[this.panelFor]; if(!b){ this.panelFor='castle'; return this.buildShop(); }
+      tabsEl.style.display='none'; ph.textContent=BUILD_TYPES[b.type].name+' — Hütte';
+      this.mkBtn(shop,'tempo','',()=>this.upgBuild('tempo'));
+      this.mkBtn(shop,'menge','',()=>this.upgBuild('menge'));
+      this.mkBtn(shop,'assignAdd','',()=>this.assign(1));
+      this.mkBtn(shop,'assignRem','',()=>this.assign(-1));
+    } else {                                        // ----- BURG-Panel (Held/Dorf) -----
+      tabsEl.style.display='flex'; ph.textContent='Burg — Aufbau & Upgrades';
+      const list=this.tab==='held'?UP_HELD:UP_DORF;
+      for(const up of list) this.mkBtn(shop,up.id,'',()=>this.buy(up.id));
+      if(this.tab==='dorf') this.mkBtn(shop,'era','era',()=>this.buyEra());
+    }
+    this.updateShop(); },
+  updateShop(){ const s=this.s; if(!this.btns)return;
+    const set=(id,img,t,d,k,dis)=>{ const el=this.btns[id]; if(!el)return; el.style.display=''; if(img)el.querySelector('img').src='ts/icons/'+img+'.png';
+      el.querySelector('.t').textContent=t; el.querySelector('.d').textContent=d||''; el.querySelector('.k').textContent=k||''; el.disabled=!!dis; };
+    if(typeof this.panelFor==='number'){            // HÜTTEN-Panel refresh
+      const b=s.builds[this.panelFor]; if(!b) return; const T=BUILD_TYPES[b.type];
+      const mxL=buildMaxLvl(s), mxW=buildMaxWorkers(s), ct=buildUpCost(b,'tempo',s), cm=buildUpCost(b,'menge',s);
+      const tMax=b.tempo>=mxL, gMax=b.menge>=mxL, wMax=b.workers>=mxW;
+      const flow=T.consumes ? `wandelt ${Object.keys(T.consumes).map(k=>NAME[k]).join('+')} → ${NAME[T.res]}` : `produziert ${NAME[T.res]}`;
+      set('tempo','era1',`Tempo Lvl ${b.tempo}/${mxL}`, tMax?'Max für dieses Zeitalter — erst aufsteigen':`${flow} (jetzt ${buildRate(s,b).toFixed(2)}/s)`, tMax?'':'⤷ '+costStr(ct), tMax||!canAfford(s,ct));
+      set('menge',T.res,`Menge Lvl ${b.menge}/${mxL}`, gMax?'Max für dieses Zeitalter — erst aufsteigen':'Mehr Ertrag pro Zyklus', gMax?'':'⤷ '+costStr(cm), gMax||!canAfford(s,cm));
+      set('assignAdd','worker',`Arbeiter zuweisen (${b.workers}/${mxW})`, wMax?'Hütte voll für dieses Zeitalter':`+50% Output je Arbeiter`, wMax?'':'Frei im Pool: '+freeWorkers(s), wMax||freeWorkers(s)<=0);
+      set('assignRem','worker','Arbeiter abziehen','zurück in den Pool der Burg','',b.workers<=0);
+      return;
+    }
+    const list=this.tab==='held'?UP_HELD:UP_DORF;
+    for(const up of list){ const el=this.btns[up.id]; if(!el)continue;
+      if(up.show&&!up.show(s)){ el.style.display='none'; continue; }
+      if(up.lvl){ const atMax=up.lvl(s)>=heroMaxLvl(s); const c=up.cost(s);
+        set(up.id,up.icon,`${up.name(s)} (Lvl ${up.lvl(s)}/${heroMaxLvl(s)})`, atMax?'Max für dieses Zeitalter — erst aufsteigen':up.desc(s), atMax?'':'⤷ '+costStr(c), atMax||!canAfford(s,c)); }
+      else { const c=up.cost(s); set(up.id,up.icon,up.name(s),up.desc(s),'⤷ '+costStr(c),!canAfford(s,c)); } }
+    const eb=this.btns.era; if(!eb) return; const next=s.era+1;
+    if(next<ERAS.length){ const ec=eraCost(next); set('era','era'+next,'Zeitalter: '+ERAS[next].name,'',(canAfford(s,ec)?'⤷ ':'⤷ fehlt: ')+costStr(ec),!canAfford(s,ec)); }
+    else set('era','era4','Dampfzeit erreicht','','Imperium vollendet.',true); },
+  upgBuild(kind){ const s=this.s,b=s.builds[this.panelFor]; if(!b)return;
+    if(b[kind]>=buildMaxLvl(s)){ say('Max für dieses Zeitalter erreicht — steig erst auf.'); return; }
+    const c=buildUpCost(b,kind,s);
+    if(!canAfford(s,c)){ say('Dafür fehlen noch Ressourcen.'); return; } pay(s,c); b[kind]++; SFX.buy(); this.updateShop(); saveGame(s); },
+  assign(d){ const s=this.s,b=s.builds[this.panelFor]; if(!b)return;
+    if(d>0){ if(b.workers>=buildMaxWorkers(s)){ say('Hütte voll für dieses Zeitalter — steig erst auf.'); return; }
+      if(freeWorkers(s)<=0){ say('Keine freien Helfer — heuere in der Burg welche an.'); return; } b.workers++; }
+    else { if(b.workers<=0) return; b.workers--; }
+    SFX.buy(); this.updateShop(); saveGame(s); },
+};
+
+// world sprite: zeichnet ein fertiges Tiny-Swords-Sprite (A[key]), aspekt-korrekt; anchorBottom = Füsse auf (x,y)
+function worldSprite(key,x,y,size,anchorBottom){ const im=A[key];
+  if(!im||!im.complete||!im.naturalWidth) return;
+  const asp=im.naturalWidth/im.naturalHeight; let w=size,h=size; if(asp>1)h=size/asp; else w=size*asp;
+  const dy=anchorBottom? y-h : y-h/2;  // anchorBottom: Sprite steht mit den Füßen auf (x,y)
+  ctx.drawImage(im,x-w/2,dy,w,h); }
+function shadow(x,y,rx,ry){ ctx.fillStyle='rgba(0,0,0,.24)'; ctx.beginPath(); ctx.ellipse(x,y,rx,ry,0,0,7); ctx.fill(); }
+function label(t,x,y){ ctx.save(); ctx.font='bold 14px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle='rgba(0,0,0,.55)'; ctx.fillText(t,x+1,y+1); ctx.fillStyle='rgba(236,231,255,.92)'; ctx.fillText(t,x,y); ctx.restore(); }
+function amountBar(n){ const w=34, frac=Math.max(0,n.amount/n.max), x=n.x, y=n.y-36;
+  ctx.fillStyle='rgba(0,0,0,.5)'; rr(x-w/2,y,w,5,2.5); ctx.fill(); ctx.fillStyle=COL[n.type]; rr(x-w/2,y,w*frac,5,2.5); ctx.fill(); }
+function pop(p){ const f=p.age/p.max; ctx.save(); ctx.globalAlpha=1-f;
+  if(p.text){ ctx.fillStyle=p.color; ctx.font='bold 26px sans-serif'; ctx.textAlign='center'; ctx.fillText(p.text,p.x,p.y-38*f); }
+  else { ctx.strokeStyle=p.color; ctx.lineWidth=4; ctx.beginPath(); ctx.arc(p.x,p.y,12+f*38,0,7); ctx.stroke(); } ctx.restore(); }
+function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function edgeArrow(key,wx,wy,offx,offy,VW,VH,z,color){ let sx=wx*z+offx, sy=wy*z+offy; const m=34;
+  if(sx>=m&&sx<=VW-m&&sy>=m&&sy<=VH-m) return;
+  const cx=VW/2, cy=VH/2, ang=Math.atan2(sy-cy,sx-cx);
+  const px=Math.max(m,Math.min(VW-m,sx)), py=Math.max(m,Math.min(VH-m,sy));
+  ctx.save(); ctx.translate(px,py); ctx.rotate(ang); ctx.fillStyle=color; ctx.beginPath();
+  ctx.moveTo(16,0); ctx.lineTo(-9,-10); ctx.lineTo(-9,10); ctx.closePath(); ctx.fill(); ctx.restore();
+  worldSprite(key,px,py,22); }
+
+let sayT=null;
+function say(msg){ const el=document.getElementById('say'); el.style.opacity=0;
+  setTimeout(()=>{ el.innerHTML='<b>Lucy:</b> '+msg; el.style.opacity=1; },120);
+  if(sayT)clearTimeout(sayT); sayT=setTimeout(()=>{ el.style.opacity=0; },6000); }
+function worldFromEvent(e){ const r=cv.getBoundingClientRect(), z=game.zoom;
+  const cx=(e.touches?e.touches[0].clientX:e.clientX), cy=(e.touches?e.touches[0].clientY:e.clientY);
+  return { x:(cx-r.left-game.vw/2)/z+game.s.cam.x, y:(cy-r.top-game.vh/2)/z+game.s.cam.y }; }
+function moveTo(p){ game.s.player.tx=Math.max(10,Math.min(WORLD-10,p.x)); game.s.player.ty=Math.max(10,Math.min(WORLD-10,p.y));
+  game.camFollow=true; }  // Held wird wohin geschickt → Kamera zieht wieder mit (matcht zurück)
+// Eingabe: kurzer Tap = laufen (oder Shop am Gebäude); Halten+Ziehen = Kamera schwenken (umschauen)
+let pDown=null, pLast=null;
+cv.addEventListener('pointerdown',e=>{ e.preventDefault(); audioInit(); pDown={x:e.clientX,y:e.clientY}; pLast={x:e.clientX,y:e.clientY}; game.dragging=false; },{passive:false});
+cv.addEventListener('pointermove',e=>{ if(!pDown||!(e.pressure>0||e.buttons)) return; e.preventDefault();
+  const dx=e.clientX-pLast.x, dy=e.clientY-pLast.y; pLast={x:e.clientX,y:e.clientY};
+  const wasDrag=game.dragging; if(Math.hypot(e.clientX-pDown.x,e.clientY-pDown.y)>10) game.dragging=true;
+  if(game.dragging){
+    if(!wasDrag){ game.camFollow=false; game.camGoal.x=game.s.cam.x; game.camGoal.y=game.s.cam.y; } // Schwenk startet bei der aktuellen Kamera
+    game.camGoal.x=Math.max(0,Math.min(WORLD, game.camGoal.x-dx/game.zoom));
+    game.camGoal.y=Math.max(0,Math.min(WORLD, game.camGoal.y-dy/game.zoom));
+    game.s.cam.x=game.camGoal.x; game.s.cam.y=game.camGoal.y;  // 1:1 während des Ziehens (kein Smoothing-Lag)
+  } },{passive:false});
+function endPointer(){ if(!pDown) return;
+  if(!game.dragging){ const p=worldFromEvent({clientX:pDown.x,clientY:pDown.y}), s=game.s, panel=document.getElementById('panel');
+    const heroInVillage=dist(s.player.x,s.player.y,BASE.x,BASE.y)<VILLAGE_R+10;
+    // Hütte angetippt? (nur wenn Held im Dorf ist) → Hütten-Panel
+    let hutIdx=-1, hutD=70;
+    if(heroInVillage&&s.segSlots) for(let i=0;i<s.builds.length;i++){ const sl=s.segSlots[s.builds[i].seg]; if(!sl)continue; const d=dist(p.x,p.y,sl.x,sl.y); if(d<hutD){ hutD=d; hutIdx=i; } }
+    const tappedBase=dist(p.x,p.y,BASE.x,BASE.y)<BASE_SOLID+85;
+    if(hutIdx>=0){ game.openPanelFor(hutIdx); }
+    else if(tappedBase&&heroInVillage){ if(panel.classList.contains('open')&&game.panelFor==='castle') panel.classList.remove('open'); else game.openPanelFor('castle'); }
+    else moveTo(p); }
+  pDown=null; game.dragging=false; }
+cv.addEventListener('pointerup',e=>{ e.preventDefault(); endPointer(); },{passive:false});
+cv.addEventListener('pointercancel',()=>endPointer(),{passive:false});
+
+game.init();
+</script>
+</body>
+</html>
