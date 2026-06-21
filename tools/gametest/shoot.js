@@ -218,6 +218,14 @@ const VIEW = DEVICE === 'desktop'
       out.push(['Tempo-Upgrade hebt Sammelrate', outpostRate(o) > r0]);
       out.push(['Menge-Upgrade hebt Cap', outpostCap(o) > c0]);
     }
+    // Dorfgrenze auf die äußere Linie OUTER_R erweitert (mid:6280): Heilung reicht bis OUTER_R, nicht weit darüber
+    game.s.enemies = []; game.s.player.hpmax = 100;
+    game.s.player.hp = 50; game.s.player.x = game.s.player.tx = BASE.x + OUTER_R - 25; game.s.player.y = game.s.player.ty = BASE.y;
+    for (let i = 0; i < 30; i++) updateCombat(game.s, 0.1);
+    out.push(['Heilung reicht bis zur äußeren Dorflinie (OUTER_R)', game.s.player.hp > 50]);
+    game.s.player.hp = 50; game.s.player.x = game.s.player.tx = BASE.x + OUTER_R + 140; game.s.player.y = game.s.player.ty = BASE.y;
+    for (let i = 0; i < 30; i++) updateCombat(game.s, 0.1);
+    out.push(['keine Heilung außerhalb des Dorfs', Math.abs(game.s.player.hp - 50) < 0.01]);
     // Deko + Ressourcen-Knoten dürfen NICHT auf Sand oder Wasser liegen (mid:6260)
     out.push(['keine Deko auf Sand', game.s.deco.filter(d => onSand(game.s, d.x, d.y)).length === 0]);
     out.push(['keine Knoten auf Sand', game.s.nodes.filter(n => onSand(game.s, n.x, n.y)).length === 0]);

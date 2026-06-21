@@ -229,7 +229,7 @@ function updateFreeWalkers(s,dt){
       } else { w.tx=BASE.x+(w.x<BASE.x?-50:50); w.ty=BASE.y; }       // nichts in Reichweite → bei der Basis tigern
     } else {                                                          // return: zur Basis, abliefern beim Übertreten der Dorfgrenze
       w.tx=BASE.x; w.ty=BASE.y;
-      if(dist(w.x,w.y,BASE.x,BASE.y)<VILLAGE_R){
+      if(dist(w.x,w.y,BASE.x,BASE.y)<OUTER_R){
         if(w.carry>0&&w.type){ s.store[w.type]=(s.store[w.type]||0)+w.carry; addPop(s,w.x,w.y-18,COL[w.type]||'#fff','+'+Math.floor(w.carry)); }
         w.carry=0; w.type=null; w.state='seek'; w.target=null; } }
     moveToward(w,w.tx,w.ty,onSand(s,w.x,w.y)?66:120,dt);  // Sand bremst auch die Helfer (mid:6060)
@@ -260,7 +260,7 @@ function spawnEnemy(s,kind){ const T=ETYPES[kind], R=areaRadius(s), lo=enemyNoSp
 function updateCombat(s,dt){ const P=s.player; P.attacking=false;
   if(P.hurtT>0)P.hurtT-=dt; P.atkT=(P.atkT||0)-dt; if(P.invT>0)P.invT-=dt;
   // Heilung NUR im Dorf (mid:6124, Kombi A+B): außerhalb keine Regeneration; im Dorf Heil-Funke
-  if(dist(P.x,P.y,BASE.x,BASE.y)<VILLAGE_R && P.hp<P.hpmax){ P.hp=Math.min(P.hpmax,P.hp+14*dt);
+  if(dist(P.x,P.y,BASE.x,BASE.y)<OUTER_R && P.hp<P.hpmax){ P.hp=Math.min(P.hpmax,P.hp+14*dt);
     P.healT=(P.healT||0)-dt; if(P.healT<=0){ P.healT=0.55; addFx(s,'heal',P.x,P.y-18,44); } }
   // eingesammelte Drop-Säcke (vom Tod) wieder aufnehmen
   for(const d of s.drops){ if(dist(P.x,P.y,d.x,d.y)<HARVEST_R+8){ let tot=0; ALL.forEach(k=>{ s.store[k]=(s.store[k]||0)+(d.carry[k]||0); tot+=d.carry[k]||0; });
@@ -558,6 +558,19 @@ const SFX={
   era:()=>[523,659,784,1047].forEach((f,i)=>tone(f,0.2,'sine',0.11,i*0.09)),
   quest:()=>{ tone(880,0.1,'sine',0.11); tone(1175,0.16,'sine',0.1,0.07); },
 };
+// ----- Entspannte, generative Hintergrundmusik (mid:6280): rein WebAudio, KEINE Datei/Lizenz → gratis. Sanfte, sparsame Pentatonik-Pads. -----
+const MUSIC_SCALE=[220.00,261.63,293.66,329.63,392.00,440.00,523.25];   // A-Moll-Pentatonik, ruhig
+let musicT=0, musicStep=0;
+function musicNote(freq,dur,vol){ if(!actx||muted) return; const t=actx.currentTime;
+  const o=actx.createOscillator(), g=actx.createGain(); o.type='sine'; o.frequency.value=freq;
+  o.connect(g); g.connect(actx.destination);
+  g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(vol,t+0.5); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);   // langsamer Attack/Release = Pad-Charakter
+  o.start(t); o.stop(t+dur+0.06); }
+function updateMusic(dt){ if(muted||!actx) return; musicT+=dt; const interval=1.8;   // sparsam: ~alle 1.8s eine Note
+  if(musicT>=interval){ musicT-=interval; musicStep++;
+    musicNote(MUSIC_SCALE[Math.floor(Math.random()*MUSIC_SCALE.length)], 2.8, 0.04);                  // Melodie-Pad, leise
+    if(musicStep%4===0) musicNote(110.00, 4.4, 0.028);                                                // sanfter Bass-Drone alle 4 Schritte
+    if(Math.random()<0.32) musicNote(MUSIC_SCALE[Math.floor(Math.random()*4)], 2.4, 0.026); } }       // gelegentlich eine zweite, harmonische Note
 
 /* ---------- Speichern + Offline-Progress ---------- */
 const SAVE_KEY='ausdemnichts_save', SAVE_VERSION=2, OFFLINE_CAP=8*3600; // v2: Gebäude-/Arbeiter-Modell
@@ -806,7 +819,7 @@ const game={
       for(const b of s.builds){ const r=buildRate(s,b)*2.2; if(r>=1){ const p=s.segSlots[b.seg], res=BUILD_TYPES[b.type].res;
         addPop(s,p.x,p.y-24,COL[res],'+'+r.toFixed(0)); } } }
     // Sack leert ins Lager, sobald man die Dorfgrenze übertritt (agiler — kein Trek bis zur Burg)
-    if(dist(s.player.x,s.player.y,BASE.x,BASE.y)<VILLAGE_R){ const had=carryTotal(s.player.carry);
+    if(dist(s.player.x,s.player.y,BASE.x,BASE.y)<OUTER_R){ const had=carryTotal(s.player.carry);
       if(had>0.4){ ALL.forEach(k=>{ s.store[k]+=s.player.carry[k]; s.player.carry[k]=0; }); s.lifetime+=had;
         addPop(s,s.player.x,s.player.y-30,'#fff','+'+Math.floor(had)); burst(s,s.player.x,s.player.y-12,'#ffe9a8',Math.min(18,4+Math.floor(had/2))); SFX.deposit();
         if(!s.firstDeposit){ s.firstDeposit=true; say('Erste Lieferung! Der Sack leert sich automatisch, sobald du das Dorf betrittst.'); } } }
@@ -822,7 +835,7 @@ const game={
     if(this.flash>0) this.flash=Math.max(0,this.flash-dt*1.6);  // Era-Aufstieg-Blitz klingt ab
     // Panel schliesst sich, sobald der Held das Dorf verlässt (Burg + Hütten liegen im Kern)
     const panel=document.getElementById('panel');
-    if(panel.classList.contains('open') && dist(s.player.x,s.player.y,BASE.x,BASE.y) > VILLAGE_R+30) panel.classList.remove('open');
+    if(panel.classList.contains('open') && dist(s.player.x,s.player.y,BASE.x,BASE.y) > OUTER_R+30) panel.classList.remove('open');
     // Kamera: folgt dem Helden NUR wenn camFollow aktiv. Nach freiem Schwenk bleibt sie stehen (kein Zurück-Snap),
     // bis man den Helden wieder wohin schickt (moveTo → camFollow=true) — dann gleitet sie zurück und matcht (mid:6040).
     if(this.camFollow){ this.camGoal.x=s.player.x; this.camGoal.y=s.player.y; }
@@ -830,7 +843,7 @@ const game={
     s.cam.x+=(this.camGoal.x-s.cam.x)*k; s.cam.y+=(this.camGoal.y-s.cam.y)*k;
   },
   loop(ts){ if(!this.running)return; if(!this.last)this.last=ts; let dt=(ts-this.last)/1000; this.last=ts; if(dt>0.1)dt=0.1;
-    if(!this.s.paused) this.step(dt); this.draw();
+    if(!this.s.paused) this.step(dt); this.draw(); updateMusic(dt);
     this.uiAcc+=dt; if(this.uiAcc>0.2){ this.uiAcc=0; checkQuests(this.s); checkAchievements(this.s); this.renderRes(); this.updateShop(); this.renderQuest(); }
     this.saveAcc=(this.saveAcc||0)+dt; if(this.saveAcc>5){ this.saveAcc=0; saveGame(this.s); }  // Auto-Save alle 5s
     requestAnimationFrame(this.loop); },
@@ -866,7 +879,7 @@ const game={
       for(let gx=Math.floor(vx0/CELL)*CELL; gx<vx1; gx+=CELL) for(let gy=Math.floor(vy0/CELL)*CELL; gy<vy1; gy+=CELL){
         const cx=gx+CELL/2, cy=gy+CELL/2; if(dist(cx,cy,BASE.x,BASE.y)>lr) continue;
         ctx.fillStyle=BIOMES[biomeAt(s,cx,cy)].ground; ctx.fillRect(gx,gy,CELL+1,CELL+1); } }
-    ctx.fillStyle=this._gp||'#5fa148'; ctx.beginPath(); ctx.arc(BASE.x,BASE.y,VILLAGE_R+10,0,Math.PI*2); ctx.fill();   // Dorf-Kern neutral
+    ctx.fillStyle=this._gp||'#5fa148'; ctx.beginPath(); ctx.arc(BASE.x,BASE.y,OUTER_R+10,0,Math.PI*2); ctx.fill();   // Dorf-Boden neutral bis zur äußeren Linie (mid:6280)
     ctx.fillStyle=this._sp||'#d8c08a'; ctx.globalAlpha=0.92; for(const B of s.sand){ if(dist(B.x,B.y,BASE.x,BASE.y)<lr+B.r){ blobPathCtx(B,1); ctx.fill(); } } ctx.globalAlpha=1;
     // Inland-Seen (mid:6213): Schaum-Rand + Wasser-Textur + Glitzer-Wellen
     ctx.fillStyle='#dff4f0'; for(const L of s.lakes){ if(dist(L.x,L.y,BASE.x,BASE.y)>lr+L.r) continue; blobPathCtx(L,1.05); ctx.fill(); }   // See-Schaum
@@ -1086,7 +1099,7 @@ cv.addEventListener('pointermove',e=>{ if(!pDown||!(e.pressure>0||e.buttons)) re
   } },{passive:false});
 function endPointer(){ if(!pDown) return;
   if(!game.dragging){ const p=worldFromEvent({clientX:pDown.x,clientY:pDown.y}), s=game.s, panel=document.getElementById('panel');
-    const heroInVillage=dist(s.player.x,s.player.y,BASE.x,BASE.y)<VILLAGE_R+10;
+    const heroInVillage=dist(s.player.x,s.player.y,BASE.x,BASE.y)<OUTER_R+10;
     // Hütte angetippt? (nur wenn Held im Dorf ist) → Hütten-Panel
     let hutIdx=-1, hutD=70;
     if(heroInVillage&&s.segSlots) for(let i=0;i<s.builds.length;i++){ const sl=s.segSlots[s.builds[i].seg]; if(!sl)continue; const d=dist(p.x,p.y,sl.x,sl.y); if(d<hutD){ hutD=d; hutIdx=i; } }
