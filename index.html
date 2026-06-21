@@ -108,6 +108,19 @@
     background-color:rgba(0,0,0,.3);box-shadow:inset 0 0 0 1px rgba(160,91,255,.35);padding:6px}
   .ch-name{font-weight:800;font-size:18px;color:#fff}
   .ch-abil{font-size:13px;color:#c2b6e6;margin-top:3px;line-height:1.3}
+  #tutOverlay{position:absolute;inset:0;background:rgba(6,4,14,.5);backdrop-filter:blur(2px);
+    display:none;align-items:flex-end;justify-content:center;pointer-events:auto;z-index:28;padding:0 14px calc(env(safe-area-inset-bottom) + 64px)}
+  #tutOverlay.open{display:flex}
+  #tutCard{width:100%;max-width:440px;text-align:left;padding:15px 17px;border-radius:18px;
+    background:linear-gradient(180deg,rgba(24,16,44,.98),rgba(14,10,26,.99));border:1px solid rgba(160,91,255,.45);
+    box-shadow:0 12px 40px rgba(0,0,0,.55)}
+  #tutTitle{font-weight:800;font-size:16px;color:#fff;margin-bottom:6px;display:flex;align-items:center;gap:7px}
+  #tutBody{font-size:13.5px;color:#d8cdf6;line-height:1.45}
+  #tutFoot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:13px}
+  #tutStep{font-size:11px;color:#b1a4da;font-weight:700}
+  #tutBtn{padding:9px 20px;border-radius:12px;cursor:pointer;font-weight:800;font-size:14px;
+    color:#fff;background:linear-gradient(180deg,#7a3df0,#5a23c0);border:1px solid #a05bff}
+  #tutBtn:active{transform:scale(.98)}
   #say{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom) + 14px);transform:translateX(-50%);
     max-width:88vw;text-align:center;color:#ffb0ec;font-size:13.5px;background:rgba(10,8,18,.62);
     backdrop-filter:blur(6px);border-radius:12px;padding:7px 13px;border:1px solid rgba(160,91,255,.25);
@@ -148,6 +161,10 @@
     <button id="cheatBtn" title="Test-Cheat">+50 auf alle Ressourcen (Test)</button>
   </div>
   <div id="say"></div>
+  <div id="tutOverlay"><div id="tutCard">
+    <div id="tutTitle"></div><div id="tutBody"></div>
+    <div id="tutFoot"><span id="tutStep"></span><button id="tutBtn">Weiter</button></div>
+  </div></div>
 </div>
 
 <script>
@@ -614,7 +631,7 @@ function freshState(){ const store={},carry={}; ALL.forEach(k=>{store[k]=0;carry
     era:0, nodes:[], pops:[], particles:[], loot:[], respawns:[], cam:{x:BASE.x,y:BASE.y}, paused:false, firstDeposit:false,
     phase:'day', day:1, baseHP:100, baseHPmax:100, towers:[],  // Naht fuer spaetere Tag/Nacht-TD-Phase
     outposts:[],   // Außenposten-Sammler (mid:6246) — werden vom Spieler gebaut
-    questIdx:0, achieved:[], lifetime:0, playSec:0 };
+    questIdx:0, achieved:[], lifetime:0, playSec:0, tutShown:{} };
   buildLevel(s);
   for(let i=0;i<40;i++) spawnNode(s,'holz'); for(let i=0;i<26;i++) spawnNode(s,'stein'); for(let i=0;i<26;i++) spawnNode(s,'korn');  // viele Start-Knoten für die große Insel (mid:6260)
   return s; }
@@ -682,7 +699,7 @@ const SAVE_KEY='ausdemnichts_save', SAVE_VERSION=2, OFFLINE_CAP=8*3600; // v2: G
 function serialize(s){ return { // nur Fortschritt (Welt/Knoten/Deko werden neu erzeugt)
   store:s.store, cap:s.cap, speed:s.speed, gather:s.gather, wboost:s.wboost,
   capLvl:s.capLvl, speedLvl:s.speedLvl, gatherLvl:s.gatherLvl, steamLvl:s.steamLvl,
-  workerPool:s.workerPool, builds:s.builds, char:s.char, charChosen:s.charChosen, atk:s.atk, def:s.def, hpmax:s.player.hpmax,
+  workerPool:s.workerPool, builds:s.builds, char:s.char, charChosen:s.charChosen, tutShown:s.tutShown||{}, atk:s.atk, def:s.def, hpmax:s.player.hpmax,
   atkLvl:s.atkLvl, defLvl:s.defLvl, hpLvl:s.hpLvl,
   areas:s.areas, areaLvl:s.areaLvl, era:s.era, firstDeposit:s.firstDeposit,
   phase:s.phase, nightToken:!!s.nightToken, healBought:s.healBought||0, day:s.day, baseHP:s.baseHP, baseHPmax:s.baseHPmax, towers:(s.towers||[]).map(t=>({seg:t.seg,type:t.type,lvl:t.lvl||0,mode:t.mode||'wache'})), questIdx:s.questIdx, outposts:s.outposts,
@@ -698,6 +715,8 @@ function stateFromSave(d){ const s=freshState();  // frische Welt, dann Fortschr
   if(Array.isArray(d.towers)) s.towers=d.towers.filter(t=>TOWER_TYPES[t.type]&&typeof t.seg==='number').map(t=>{ const nt={seg:t.seg,type:t.type,lvl:t.lvl||0,mode:t.mode||'wache',downT:0}; spawnTroop(s,nt); return nt; });   // Einheit frisch (mid:6359)
   if(d.char && CHARS[d.char]) s.char=d.char;
   if(typeof d.charChosen==='boolean') s.charChosen=d.charChosen;
+  if(d.tutShown && typeof d.tutShown==='object') s.tutShown=d.tutShown;   // Tutorials (mid:6438)
+  else if(d.charChosen){ s.tutShown={}; Object.keys(TUT).forEach(k=>s.tutShown[k]=true); }   // Altsave: nicht nachträglich Tutorials zeigen
   if(typeof d.atk==='number') s.atk=d.atk;
   if(typeof d.def==='number') s.def=d.def;
   ['atkLvl','defLvl','hpLvl'].forEach(k=>{ if(typeof d[k]==='number') s[k]=d[k]; });
@@ -831,7 +850,7 @@ function checkAchievements(s){ for(const a of ACHIEVEMENTS){ if(!s.achieved.incl
   if(game&&game.achOpen) game.renderAch(); } } }
 
 const game={
-  s:null,last:0,uiAcc:0,running:true,btns:null,vw:0,vh:0,dpr:1,zoom:0.7,tab:'held',pan:{x:0,y:0},flash:0,dragging:false,panelFor:'castle',camFollow:true,camGoal:{x:BASE.x,y:BASE.y},
+  s:null,last:0,uiAcc:0,running:true,btns:null,vw:0,vh:0,dpr:1,zoom:0.7,tab:'held',pan:{x:0,y:0},flash:0,dragging:false,panelFor:'castle',camFollow:true,camGoal:{x:BASE.x,y:BASE.y},tutQueue:[],tutOpen:false,
   init(){ const sv=loadRaw(); let welcome=null;
     if(sv){ this.s=stateFromSave(sv.d); welcome=applyOffline(this.s,(Date.now()-sv.t)/1000); }
     else { this.s=freshState(); }
@@ -842,6 +861,7 @@ const game={
     document.addEventListener('visibilitychange',()=>{ if(document.hidden){ saveGame(this.s); if(bgm&&!bgm.paused) bgm.pause(); } else { updateMusic(); } });   // Musik pausiert wenn weggetabt (mid:6306)
     window.addEventListener('pagehide',()=>{ if(bgm&&!bgm.paused) bgm.pause(); });   // iOS-Safari: zusätzlicher Hintergrund-Trigger
     document.getElementById('pauseBtn').onclick=()=>this.toggle();
+    document.getElementById('tutBtn').onclick=()=>this.showNextTut();   // Tutorial weiter/schließen (mid:6438)
     document.getElementById('quest').onclick=function(){ this.classList.toggle('expanded'); };   // Ziel ausklappen (mid:6371)
     document.getElementById('resetBtn').onclick=()=>this.reset();
     document.getElementById('pauseBtn').innerHTML=svg('pause');
@@ -896,7 +916,21 @@ const game={
     document.getElementById('charSelect').classList.add('open'); },
   pickChar(key){ const s=this.s; audioInit(); s.char=key; CHARS[key].apply(s); s.charChosen=true;
     document.getElementById('charSelect').classList.remove('open'); this.renderRes(); saveGame(s);
-    SFX.era(); say(CHARS[key].name+' gewählt — '+CHARS[key].desc+'. Auf geht\'s!'); },
+    SFX.era(); say(CHARS[key].name+' gewählt — '+CHARS[key].desc+'. Auf geht\'s!');
+    TUT_INTRO.forEach(k=>this.queueTut(k)); },   // Basis-Tutorial starten (mid:6438)
+  queueTut(key){ const s=this.s; if(!TUT[key]||(s.tutShown&&s.tutShown[key])) return;
+    (s.tutShown||(s.tutShown={}))[key]=true; (this.tutQueue||(this.tutQueue=[])).push(key); saveGame(s);
+    if(!this.tutOpen) this.showNextTut(); },
+  showNextTut(){ const q=this.tutQueue||[], ov=document.getElementById('tutOverlay');
+    if(!q.length){ this.tutOpen=false; ov.classList.remove('open'); return; }
+    this.tutOpen=true; const e=TUT[q.shift()];
+    document.getElementById('tutTitle').textContent=e.t; document.getElementById('tutBody').textContent=e.b;
+    document.getElementById('tutStep').textContent=q.length?('noch '+q.length):'';
+    document.getElementById('tutBtn').textContent=q.length?'Weiter':'Verstanden';
+    ov.classList.add('open'); },
+  checkTut(){ const s=this.s; if(!s.charChosen) return;
+    if(s.era>=1) this.queueTut('era1'); if(towersUnlocked(s)) this.queueTut('towers'); if(nightPending(s)) this.queueTut('night1');
+    if(s.era>=3) this.queueTut('era3'); if(s.era>=4) this.queueTut('era4'); if(s.era>=5) this.queueTut('era5'); },
   buy(id){ const s=this.s,up=ALLUP.find(u=>u.id===id); if(!up)return;
     if(up.lvl && up.lvl(s)>=heroMaxLvl(s)){ say('Max für diese Stufe erreicht — erst aufsteigen.'); return; }
     const c=up.cost(s);
@@ -977,7 +1011,7 @@ const game={
   },
   loop(ts){ if(!this.running)return; if(!this.last)this.last=ts; let dt=(ts-this.last)/1000; this.last=ts; if(dt>0.1)dt=0.1;
     if(!this.s.paused) this.step(dt); this.draw(); updateMusic(dt);
-    this.uiAcc+=dt; if(this.uiAcc>0.2){ this.uiAcc=0; checkQuests(this.s); checkAchievements(this.s); this.renderRes(); this.updateShop(); this.renderQuest(); }
+    this.uiAcc+=dt; if(this.uiAcc>0.2){ this.uiAcc=0; checkQuests(this.s); checkAchievements(this.s); this.checkTut(); this.renderRes(); this.updateShop(); this.renderQuest(); }
     this.saveAcc=(this.saveAcc||0)+dt; if(this.saveAcc>5){ this.saveAcc=0; saveGame(this.s); }  // Auto-Save alle 5s
     requestAnimationFrame(this.loop); },
 
@@ -1271,6 +1305,20 @@ function edgeArrow(key,wx,wy,offx,offy,VW,VH,z,color){ let sx=wx*z+offx, sy=wy*z
   worldSprite(key,px,py,22); }
 
 let sayT=null;
+// Tutorial-Tooltips (mid:6438): Basis-Tutorial am Start + je eine kurze Karte beim Freischalten von Neuem. Jede nur 1x (in s.tutShown persistiert).
+const TUT={
+  intro1:{t:'🌱 Willkommen!',b:'Tippe auf die Karte, um deinen Helden laufen zu lassen — er folgt deinem Finger.'},
+  intro2:{t:'⛏️ Sammeln',b:'Lauf zu den leuchtenden Ressourcen-Knoten und bleib kurz daneben stehen. Du sammelst automatisch, bis dein Beutel voll ist.'},
+  intro3:{t:'🏰 Abladen',b:'Bring die Beute zur Basis in der Mitte — lauf einfach hinein, dann landet alles im Lager.'},
+  intro4:{t:'⬆️ Aufsteigen',b:'Tippe unten auf ☰ und dann „Dorf", um aufzusteigen, Gebäude zu bauen und Helden-Upgrades zu kaufen. Viel Spaß!'},
+  era1:{t:'🪓 Stufe 2',b:'Neu baubar: der Holzfäller (im Dorf-Menü) und der Kürbis-Sammler als Außenposten draußen im Feld. Sammler produzieren von allein — du holst die Ernte nur ab.'},
+  towers:{t:'⚔️ Kampf-Türme',b:'Im äußeren Dorf-Ring kannst du jetzt Türme bauen — tippe einen freien Bauplatz an. Jeder Turm stellt eine Truppe, die das Dorf bewacht oder dir folgt (umschaltbar).'},
+  night1:{t:'🌙 Die Nacht',b:'Vor dem Aufstieg auf Stufe 4 musst du eine Nacht überstehen: im Dorf-Menü „Nacht starten". Gegner stürmen das Dorf — halt sie mit Held und Türmen auf, sonst sinkt die Dorf-Lebensleiste!'},
+  era3:{t:'🍄 Stufe 4',b:'Gold und Pilze sind da. Mit Pilzen heilst du im Dorf-Menü dein Dorf, falls es nachts Schaden genommen hat.'},
+  era4:{t:'💎 Stufe 5',b:'Der Juwelier veredelt Kristall — und du kannst jetzt auch Lanze und Mönch als Türme bauen (der Mönch heilt deine Truppen).'},
+  era5:{t:'🫐 Stufe 6',b:'Goldmine und Beeren-Sammler sind freigeschaltet. Ab jetzt brauchst du für jeden weiteren Aufstieg eine frisch überstandene Nacht.'},
+};
+const TUT_INTRO=['intro1','intro2','intro3','intro4'];
 function say(msg){ const el=document.getElementById('say'); el.style.opacity=0;
   setTimeout(()=>{ el.innerHTML='<b>'+GUIDE+':</b> '+msg; el.style.opacity=1; },120);
   if(sayT)clearTimeout(sayT); sayT=setTimeout(()=>{ el.style.opacity=0; },6000); }

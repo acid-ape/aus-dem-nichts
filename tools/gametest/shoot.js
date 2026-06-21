@@ -128,6 +128,10 @@ const VIEW = DEVICE === 'desktop'
   });
   await sleep(400); await frames(20); await shot('12_nacht');
 
+  // Tutorial-Tooltip Screenshot (mid:6438)
+  await page.evaluate(() => { document.getElementById('panel').classList.remove('open'); game.s.tutShown = {}; game.tutQueue = []; game.tutOpen = false; game.queueTut('night1'); });
+  await sleep(300); await frames(8); await shot('13_tutorial');
+
   // functional assertions: production scales, save round-trips the new model
   const checks = await page.evaluate(() => {
     const out = [];
@@ -303,6 +307,17 @@ const VIEW = DEVICE === 'desktop'
     out.push(['Dorf-Heilung füllt Lebensleiste', game.s.baseHP === game.s.baseHPmax]);
     out.push(['Dorf-Heilung kostet Pilze', game.s.store.pilze === 999 - hc0]);
     out.push(['Heilung wird mit jedem Kauf teurer', healCost(game.s) > hc0]);
+    // --- Tutorial-Tooltips (mid:6438): zeigen, einmalig, Context-Trigger ---
+    game.s.tutShown = {}; game.s.charChosen = true; game.tutQueue = []; game.tutOpen = false; game.s.era = 0; game.s.nightToken = true;
+    game.queueTut('era1');
+    out.push(['Tooltip zeigt + wird als gesehen markiert', game.s.tutShown.era1 === true && game.tutOpen === true]);
+    game.queueTut('era3'); game.queueTut('era1');   // era3 neu, era1 schon gesehen
+    out.push(['gesehene Tooltips nicht erneut einreihen', game.tutQueue.length === 1 && game.tutQueue[0] === 'era3']);
+    game.showNextTut(); game.showNextTut();
+    out.push(['Tutorial-Queue schließt am Ende', game.tutOpen === false]);
+    game.s.era = 2; game.checkTut();
+    out.push(['Context-Tooltip feuert bei Freischaltung (Türme)', game.s.tutShown.towers === true]);
+    out.push(['Tutorial-Stand wird gespeichert', (saveGame(game.s), JSON.parse(localStorage.getItem(SAVE_KEY)).d.tutShown.towers === true)]);
     // save round-trip
     saveGame(game.s);
     const raw = localStorage.getItem(SAVE_KEY);
