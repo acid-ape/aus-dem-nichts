@@ -92,7 +92,7 @@ const VIEW = DEVICE === 'desktop'
     game.panelFor = 'castle';
     ALL.forEach(k => game.s.store[k] = 999999);
     for (let i = 0; i < 8; i++) { ['cap','speed','gather'].forEach(id => game.buy(id)); }
-    while (game.s.era < 6) { ALL.forEach(k => game.s.store[k] = 999999); game.buyEra(); }   // bis Stufe 7 (era6)
+    while (game.s.era < 6) { ALL.forEach(k => game.s.store[k] = 999999); game.s.nightToken = true; game.buyEra(); }   // bis Stufe 7 (era6); Nacht-Gates per Token überbrückt
     game.buy('steam'); game.buy('steam');
     for (let i = 0; i < 6; i++) { ALL.forEach(k => game.s.store[k] = 999999); game.buy('hire'); } // workerPool -> 9
     for (let i = 0; i < 6; i++) { ALL.forEach(k => game.s.store[k] = 999999); game.buy('build'); } // alle 6 Hütten (inkl. Schmiede + Juwelier-Ketten)
@@ -116,6 +116,16 @@ const VIEW = DEVICE === 'desktop'
   await sleep(300); await frames();
   await shot('11_achievements');
   await page.evaluate(() => game.toggleAch(false));
+
+  // Nacht-Modus Screenshot: Stufe 3, Nacht starten, abgedunkelte Karte + Welle + Dorf-Panel
+  await page.evaluate(() => {
+    game.s.era = 2; game.s.nightToken = false; game.s.phase = 'day'; game.s.enemies = []; game.s.areas = 1;
+    game.s.player.x = game.s.player.tx = BASE.x; game.s.player.y = game.s.player.ty = BASE.y + 40;
+    game.startNight();
+    game.zoom = 0.32;
+    document.getElementById('panel').classList.add('open'); game.setTab('dorf');
+  });
+  await sleep(400); await frames(20); await shot('12_nacht');
 
   // functional assertions: production scales, save round-trips the new model
   const checks = await page.evaluate(() => {
@@ -253,6 +263,15 @@ const VIEW = DEVICE === 'desktop'
     const mt = game.s.towers.find(t => t.type === 'monk');
     if (mt && mt.unit) { game.s.player.hpmax = 100; game.s.player.hp = 40; game.s.player.x = game.s.player.tx = mt.unit.x + 20; game.s.player.y = game.s.player.ty = mt.unit.y;
       for (let i = 0; i < 60; i++) updateTroops(game.s, 0.1); out.push(['Mönch heilt verwundeten Verbündeten', game.s.player.hp > 40]); }
+    // --- Nacht-Gating (mid:6396): Stufe 4 (era3) braucht eine überstandene Nacht ---
+    game.s.era = 2; game.s.nightToken = false; game.s.phase = 'day'; game.s.enemies = []; game.s.areas = 2; ALL.forEach(k => game.s.store[k] = 999999);
+    game.buyEra(); out.push(['Aufstieg auf Stufe 4 ohne Nacht blockiert', game.s.era === 2]);
+    game.startNight(); out.push(['Nacht startet (phase=night + Welle)', game.s.phase === 'night' && game.s.enemies.some(e => e.night)]);
+    out.push(['Aufstieg während Nacht blockiert', (game.buyEra(), game.s.era === 2)]);
+    game.s.enemies.forEach(e => { if (e.night) e.hp = 0; }); game.step(0.05);   // Welle erledigt → Nacht überstanden
+    out.push(['Nacht überstanden → phase=day + Token', game.s.phase === 'day' && game.s.nightToken === true]);
+    ALL.forEach(k => game.s.store[k] = 999999); game.buyEra(); out.push(['Aufstieg auf Stufe 4 nach Nacht', game.s.era === 3]);
+    out.push(['Stufe 5 NICHT nacht-gated', (game.s.nightToken = false, game.buyEra(), game.s.era === 4)]);
     // save round-trip
     saveGame(game.s);
     const raw = localStorage.getItem(SAVE_KEY);

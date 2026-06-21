@@ -323,7 +323,7 @@ function updateCombat(s,dt){ const P=s.player; P.attacking=false;
     if(o.store>=1 && dist(P.x,P.y,o.x,o.y)<HARVEST_R+14){ const res=OUTPOST_TYPES[o.type].res, amt=Math.floor(o.store);
       s.store[res]=(s.store[res]||0)+amt; o.store-=amt; addPop(s,o.x,o.y-30,'#fff','+'+amt+' '+NAME[res]); burst(s,o.x,o.y-8,'#ffe9a8',8); SFX.deposit(); } }
   // Bestände skalieren mit der MAP-Größe (areas): Grunts ab Start (auch era0), Brutes erst ab Dorf-Era (mid:6108)
-  { s.spawnT+=dt;   // langsam+sequenziell; Cap skaliert mit Map-Größe (mid:6233/6242): Gebiet 1-4 → 10/15/20/25 (Floor 10, sonst trifft man zu selten einen)
+  if(s.phase!=='night') { s.spawnT+=dt;   // langsam+sequenziell; Cap skaliert mit Map-Größe (mid:6233/6242): Gebiet 1-4 → 10/15/20/25 (Floor 10, sonst trifft man zu selten einen). Bei Nacht ruht der Tag-Spawner.
     const CAP=5+((s.areas||1))*5;
     if(s.enemies.length<CAP && s.spawnT>7){ s.spawnT=0;
       const nb=s.enemies.filter(e=>e.kind==='brute').length, nboss=s.enemies.filter(e=>e.kind==='miniboss').length;
@@ -338,7 +338,7 @@ function updateCombat(s,dt){ const P=s.player; P.attacking=false;
     const tg=enemyTarget(s,e), isP=(tg===P), dP=dist(e.x,e.y,tg.x,tg.y);   // Ziel: Held oder nächste Turm-Einheit (mid:6359)
     if(e.state==='idle'){ e.moving=false; if(dP<T.aggro) e.state='chase'; }                         // stationär bis Aggro
     else if(e.state==='chase'){
-      if(dP>T.leash) e.state='return';
+      if(!e.night && dP>T.leash) e.state='return';   // Nacht-Welle gibt nicht auf (mid:6396)
       else if(dP>T.atkRange){ const dx=tg.x-e.x; if(Math.abs(dx)>2)e.face=dx<0?-1:1; e.moving=true;
         moveToward(e,tg.x,tg.y, onSand(s,e.x,e.y)?T.speed*0.55:T.speed, dt); collide(s,e,ENEMY_R); }   // jagt Ziel
       else { e.moving=false; e.atkT-=dt; if(e.atkT<=0 && !(isP&&P.invT>0)){ e.atkT=ENEMY_ATK_CD;
@@ -363,6 +363,10 @@ function updateCombat(s,dt){ const P=s.player; P.attacking=false;
         s.store[rk]=(s.store[rk]||0)+amt; addPop(s,e.x,e.y-34,COL[rk]||'#fff','+'+amt+' '+NAME[rk]); SFX.deposit(); } }
     else if(e.poof){ burst(s,e.x,e.y-10,'rgba(150,150,170,.8)',8); } }
   s.enemies=s.enemies.filter(e=>!e.dead);
+  if(s.phase==='night' && !s.enemies.some(e=>e.night)){   // Nacht überstanden → Aufstiegs-Kredit (mid:6396)
+    s.phase='day'; s.nightToken=true; const rw=30+s.era*15; s.store.gold=(s.store.gold||0)+rw;
+    addPop(s,BASE.x,BASE.y-52,'#ffe08a','Nacht überstanden! +'+rw+' Gold'); burst(s,BASE.x,BASE.y-20,'#a05bff',28); SFX.era();
+    say('🌅 Nacht überstanden! Du kannst jetzt aufsteigen.'); saveGame(s); }
   if(P.hp<=0 && P.invT<=0){                                    // Tod (Option A): Sack fällt, Respawn an Basis, kurz unverwundbar
     addFx(s,'dust',P.x,P.y-4,84);
     if(carryTotal(P.carry)>0.4){ const c={}; ALL.forEach(k=>{ c[k]=P.carry[k]; P.carry[k]=0; }); s.drops.push({x:P.x,y:P.y,carry:c}); }
@@ -658,7 +662,7 @@ function serialize(s){ return { // nur Fortschritt (Welt/Knoten/Deko werden neu 
   workerPool:s.workerPool, builds:s.builds, char:s.char, charChosen:s.charChosen, atk:s.atk, def:s.def, hpmax:s.player.hpmax,
   atkLvl:s.atkLvl, defLvl:s.defLvl, hpLvl:s.hpLvl,
   areas:s.areas, areaLvl:s.areaLvl, era:s.era, firstDeposit:s.firstDeposit,
-  phase:s.phase, day:s.day, baseHP:s.baseHP, towers:(s.towers||[]).map(t=>({seg:t.seg,type:t.type,lvl:t.lvl||0,mode:t.mode||'wache'})), questIdx:s.questIdx, outposts:s.outposts,
+  phase:s.phase, nightToken:!!s.nightToken, day:s.day, baseHP:s.baseHP, towers:(s.towers||[]).map(t=>({seg:t.seg,type:t.type,lvl:t.lvl||0,mode:t.mode||'wache'})), questIdx:s.questIdx, outposts:s.outposts,
   achieved:s.achieved, lifetime:s.lifetime, playSec:s.playSec }; }
 function saveGame(s){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify({v:SAVE_VERSION, t:Date.now(), d:serialize(s)})); }catch(e){} }
 function loadRaw(){ try{ const r=localStorage.getItem(SAVE_KEY); if(!r) return null; const o=JSON.parse(r);
@@ -666,7 +670,8 @@ function loadRaw(){ try{ const r=localStorage.getItem(SAVE_KEY); if(!r) return n
 function clearSave(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} }
 function stateFromSave(d){ const s=freshState();  // frische Welt, dann Fortschritt drüberlegen
   ALL.forEach(k=>{ if(typeof d.store[k]==='number') s.store[k]=d.store[k]; });
-  ['cap','speed','gather','wboost','capLvl','speedLvl','gatherLvl','steamLvl','workerPool','areas','areaLvl','era','firstDeposit','phase','day','baseHP','questIdx'].forEach(k=>{ if(d[k]!==undefined) s[k]=d[k]; });
+  ['cap','speed','gather','wboost','capLvl','speedLvl','gatherLvl','steamLvl','workerPool','areas','areaLvl','era','firstDeposit','day','baseHP','questIdx','nightToken'].forEach(k=>{ if(d[k]!==undefined) s[k]=d[k]; });
+  s.phase='day';   // laufende Nacht beim Laden abbrechen (Nacht-Gegner werden nicht persistiert) — Token bleibt erhalten
   if(Array.isArray(d.towers)) s.towers=d.towers.filter(t=>TOWER_TYPES[t.type]&&typeof t.seg==='number').map(t=>{ const nt={seg:t.seg,type:t.type,lvl:t.lvl||0,mode:t.mode||'wache',downT:0}; spawnTroop(s,nt); return nt; });   // Einheit frisch (mid:6359)
   if(d.char && CHARS[d.char]) s.char=d.char;
   if(typeof d.charChosen==='boolean') s.charChosen=d.charChosen;
@@ -758,6 +763,10 @@ const eraCost=e=>[null,
 const canAfford=(s,c)=>c&&Object.keys(c).every(k=>(s.store[k]||0)>=c[k]);
 const pay=(s,c)=>Object.keys(c).forEach(k=>{s.store[k]-=c[k];});
 const costStr=c=>Object.keys(c).map(k=>`${c[k]} ${NAME[k]}`).join(' · ');
+// Nacht-Gating (mid:6396): Aufstieg auf Stufe 4 (era3) einmal, Stufe 6 (era5) einmal, ab Stufe 7 (era6+) pro Runde — erst eine Nacht überstehen.
+const nightGated=next=>next===3||next>=5;
+const nightActive=s=>s.phase==='night';
+const nightPending=s=>{ const n=s.era+1; return n<ERAS.length && nightGated(n) && !s.nightToken; };
 // Held-Aussehen (Rüstung) haengt an seinem EIGENEN Upgrade-Level, NICHT am Zeitalter
 function heroTier(s){ const t=s.capLvl+s.speedLvl+s.gatherLvl+s.steamLvl; return t>=18?4:t>=11?3:t>=6?2:t>=2?1:0; }
 
@@ -872,11 +881,22 @@ const game={
     if(!up.expand) say(['Investiert. Schau dich an, du Kapitalist.','Aufgerüstet. Es wächst!','Gut angelegt.','Mehr, mehr, mehr — dein Stil gefällt mir.'][Math.floor(s.store.holz+s.store.korn)%4]);
     this.updateShop(); saveGame(s); },
   buyEra(){ const s=this.s,next=s.era+1; if(next>=ERAS.length){ say('Du bist am Gipfel. Genieß die Aussicht.'); return; }
+    if(nightActive(s)){ say('Die Nacht läuft — erst die Welle zurückschlagen.'); return; }
     const c=eraCost(next); if(!canAfford(s,c)){ say(`Für ${ERAS[next].name}: ${costStr(c)}.`); return; }
-    pay(s,c); s.era=next; const e=ERAS[next]; if(e.gather)s.gather+=e.gather; say(e.say); SFX.era(); this.flash=1; burst(s,BASE.x,BASE.y-30,'#a05bff',24);
+    if(nightGated(next) && !s.nightToken){ say('Erst eine Nacht überstehen — „🌙 Nacht starten" im Dorf-Menü.'); return; }
+    pay(s,c); if(nightGated(next)) s.nightToken=false;   // Nacht-Kredit verbraucht (mid:6396)
+    s.era=next; const e=ERAS[next]; if(e.gather)s.gather+=e.gather; say(e.say); SFX.era(); this.flash=1; burst(s,BASE.x,BASE.y-30,'#a05bff',24);
     const fresh=RES.filter(r=>r.unlock===next).map(r=>r.key);
     for(const k of fresh){ for(let i=0;i<3;i++) spawnNode(s,k); }
     this.updateShop(); saveGame(s); },
+  startNight(){ const s=this.s; if(nightActive(s)){ say('Die Nacht läuft bereits.'); return; }
+    if(!nightPending(s)){ say('Gerade ist keine Nacht nötig.'); return; }
+    s.phase='night'; const before=s.enemies.length, n=5+(s.areas||1)+s.era*2;   // Welle skaliert mit Map+Stufe
+    for(let i=0;i<n;i++) spawnEnemy(s,(s.era>=3&&i%4===0)?'brute':'grunt');
+    for(let i=before;i<s.enemies.length;i++){ const e=s.enemies[i]; e.night=true; e.state='chase'; }
+    s.nightTotal=s.enemies.filter(e=>e.night).length;
+    if(!s.nightTotal){ s.phase='day'; say('Kein Platz für die Welle — versuch es gleich nochmal.'); return; }
+    say('🌙 Die Nacht bricht herein — schlag die Welle zurück, dann kannst du aufsteigen!'); SFX.era(); this.flash=1; this.updateShop(); saveGame(s); },
 
   step(dt){ const s=this.s; s.playSec+=dt;
     const psp=onSand(s,s.player.x,s.player.y)?s.speed*0.55:s.speed;  // Sand bremst (mid:6060)
@@ -1067,6 +1087,7 @@ const game={
     if(carryTotal(s.player.carry)>0.4){ const c=s.player.carry, tk=ALL.find(k=>c[k]>0.4)||'holz'; worldSprite(tk, s.player.x+22, s.player.y-58, 28, true); }
     // overlay edge arrows
     ctx.setTransform(dpr,0,0,dpr,0,0); ctx.imageSmoothingEnabled=false;
+    if(nightActive(s)){ ctx.fillStyle='rgba(18,22,54,.42)'; ctx.fillRect(0,0,VW,VH); }   // Nacht: Karte abdunkeln (mid:6396)
     edgeArrow('era'+s.era,BASE.x,BASE.y,offx,offy,VW,VH,z,'rgba(160,91,255,.95)');
     const nn=nearestNode(s.player.x,s.player.y,s.nodes);
     if(nn) edgeArrow(nn.type,nn.x,nn.y,offx,offy,VW,VH,z,COL[nn.type]);
@@ -1113,7 +1134,7 @@ const game={
       tabsEl.style.display='flex'; ph.textContent='Burg — Aufbau & Upgrades';
       const list=this.tab==='held'?UP_HELD:this.tab==='kampf'?UP_KAMPF:UP_DORF;
       for(const up of list) this.mkBtn(shop,up.id,'',()=>this.buy(up.id));
-      if(this.tab==='dorf') this.mkBtn(shop,'era','era',()=>this.buyEra());
+      if(this.tab==='dorf'){ this.mkBtn(shop,'nacht','era',()=>this.startNight()); this.mkBtn(shop,'era','era',()=>this.buyEra()); }
     }
     this.updateShop(); },
   updateShop(){ const s=this.s; if(!this.btns)return;
@@ -1158,8 +1179,13 @@ const game={
       if(up.lvl){ const atMax=up.lvl(s)>=heroMaxLvl(s); const c=up.cost(s);
         set(up.id,up.icon,`${up.name(s)} (Lvl ${up.lvl(s)}/${heroMaxLvl(s)})`, atMax?'Max für diese Stufe — erst aufsteigen':up.desc(s), atMax?'':'⤷ '+costStr(c), atMax||!canAfford(s,c)); }
       else { const c=up.cost(s); set(up.id,up.icon,up.name(s),up.desc(s),'⤷ '+costStr(c),!canAfford(s,c)); } }
+    const nb=this.btns.nacht;   // 🌙 Nacht-Button: nur sichtbar wenn Nacht ansteht oder läuft (mid:6396)
+    if(nb){ if(nightActive(s)){ const left=s.enemies.filter(e=>e.night).length; set('nacht','era4','🌙 Nacht läuft','Schlag die Welle zurück','Gegner übrig: '+left,true); }
+      else if(nightPending(s)) set('nacht','era4','🌙 Nacht starten','Überstehe die Welle, um aufzusteigen','Tippen zum Starten',false);
+      else nb.style.display='none'; }
     const eb=this.btns.era; if(!eb) return; const next=s.era+1;
-    if(next<ERAS.length){ const ec=eraCost(next); set('era','era'+Math.min(4,next),'Aufstieg → '+ERAS[next].name,'',(canAfford(s,ec)?'⤷ ':'⤷ fehlt: ')+costStr(ec),!canAfford(s,ec)); }
+    if(next<ERAS.length){ const ec=eraCost(next); const gate=nightGated(next)&&!s.nightToken;
+      set('era','era'+Math.min(4,next),'Aufstieg → '+ERAS[next].name,gate?'🌙 Erst eine Nacht überstehen':'',(canAfford(s,ec)?'⤷ ':'⤷ fehlt: ')+costStr(ec),!canAfford(s,ec)||gate||nightActive(s)); }
     else set('era','era4','Stufe 7 erreicht','','Maximum erreicht.',true); },
   upgBuild(kind){ const s=this.s,b=s.builds[this.panelFor]; if(!b)return;
     if(b[kind]>=buildMaxLvl(s)){ say('Max für diese Stufe erreicht — erst aufsteigen.'); return; }
