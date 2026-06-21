@@ -847,6 +847,7 @@ const UP_HELD=[
   {id:'steam',icon:'kristall',name:()=>'Dampfmaschine',desc:()=>'Sammeln +3 & Helfer +10%',show:s=>s.era>=4,lvl:s=>s.steamLvl,
    cost:s=>({kristall:scaled(8,1.55,s.steamLvl),gold:scaled(45,1.4,s.steamLvl)}),apply:s=>{s.gather+=3;s.wboost+=0.1;s.steamLvl++;}},
 ];
+const EXPAND_REQ={1:1, 2:3, 3:5};   // Gebiet-Erschliessen-Gate je aktueller Gebietszahl → era (Stufe-1): Gebiet2 ab Stufe2, Gebiet3 ab Stufe4, Gebiet4 ab Stufe6 (mid:6618)
 const UP_DORF=[
   {id:'hire',icon:'worker',name:s=>'Helfer anheuern',desc:s=>`Arbeiter für die Hütten zuweisen (frei: ${freeWorkers(s)}/${s.workerPool})`,
    cost:s=>{ const c={korn:scaled(22,1.55,s.workerPool)}; if(s.era>=5)c.beeren=scaled(12,1.55,s.workerPool); return c; },  // Nahrung füttert Helfer; ab Stufe 6 Beeren dazu
@@ -856,9 +857,11 @@ const UP_DORF=[
    show:s=>!!nextBuildType(s), cost:s=>{const t=nextBuildType(s);return t?BUILD_TYPES[t].cost:{holz:1e9};},
    apply:s=>{const t=nextBuildType(s); if(!t)return; const used=s.builds.map(b=>b.seg); let seg=[0,1,2,3,4,5].find(i=>!used.includes(i)); if(seg==null)seg=s.builds.length%6;
      s.builds.push({type:t,seg,tempo:0,menge:0,workers:0}); say(BUILD_TYPES[t].name+' gebaut! Tippe die Hütte an, um Arbeiter zuzuweisen + sie aufzurüsten.'); }},
-  {id:'expand',icon:'era1',name:s=>'Gebiet erschliessen',desc:s=>s.areas>=4?'Alle Gebiete erschlossen':`Dorf vergrössern (Gebiet ${s.areas}/4) — mehr Platz & Ressourcen`,
-   show:s=>s.areas<4, cost:s=>({holz:scaled(80,1.7,s.areaLvl),stein:scaled(50,1.7,s.areaLvl),korn:scaled(40,1.7,s.areaLvl)}),
-   apply:s=>{ if(s.areas>=4) return; const oldR=areaRadius(s); s.areas++; s.areaLvl++;
+  {id:'expand',icon:'era1',name:s=>'Gebiet erschliessen',
+   desc:s=> s.areas>=4 ? 'Alle Gebiete erschlossen' : ((s.era<(EXPAND_REQ[s.areas]||99)) ? `Nächstes Gebiet ab Stufe ${(EXPAND_REQ[s.areas]||99)+1}` : `Dorf vergrössern (Gebiet ${s.areas}/4) — mehr Platz & Ressourcen`),
+   show:s=>s.areas<4, locked:s=>s.era<(EXPAND_REQ[s.areas]||99),   // an den Stufen-Rhythmus gekoppelt (mid:6618): Gebiet 2 ab Stufe 2, 3 ab Stufe 4, 4 ab Stufe 6
+   cost:s=>({holz:scaled(80,1.7,s.areaLvl),stein:scaled(50,1.7,s.areaLvl),korn:scaled(40,1.7,s.areaLvl)}),
+   apply:s=>{ if(s.areas>=4||s.era<(EXPAND_REQ[s.areas]||99)) return; const oldR=areaRadius(s); s.areas++; s.areaLvl++;
      for(let i=0;i<12;i++) spawnNode(s,null,oldR-20);
      say('Neues Gebiet erschlossen! Die Karte wächst nach aussen — mehr Ressourcen jenseits des Dorfrands.'); },expand:true},
   // Außenposten ans ENDE der Liste (mid:6272): alte Reihenfolge hire/build/expand bleibt, Außenposten ist nur zusätzlich
@@ -1061,6 +1064,7 @@ const game={
     if(s.era>=1) this.queueTut('era1'); if(towersUnlocked(s)) this.queueTut('towers'); if(nightPending(s)) this.queueTut('night1');
     if(s.era>=3) this.queueTut('era3'); if(s.era>=4) this.queueTut('era4'); if(s.era>=5) this.queueTut('era5'); },
   buy(id){ const s=this.s,up=ALLUP.find(u=>u.id===id); if(!up)return;
+    if(up.locked && up.locked(s)){ say('Das ist erst in einer höheren Stufe verfügbar.'); return; }   // mid:6618
     if(up.lvl && up.lvl(s)>=heroMaxLvl(s)){ say('Max für diese Stufe erreicht — erst aufsteigen.'); return; }
     const c=up.cost(s);
     if(!canAfford(s,c)){ say('Dafür fehlen noch Ressourcen.'); return; } pay(s,c); up.apply(s); ((up.id==='build'||up.id==='buildpost')?SFX.build:up.id==='expand'?SFX.expand:SFX.buy)(); burst(s,BASE.x,BASE.y-20,'#cbb8ff',10);
@@ -1395,7 +1399,7 @@ const game={
       if(up.show&&!up.show(s)){ el.style.display='none'; continue; }
       if(up.lvl){ const atMax=up.lvl(s)>=heroMaxLvl(s); const c=up.cost(s);
         set(up.id,up.icon,`${up.name(s)} (Lvl ${up.lvl(s)}/${heroMaxLvl(s)})`, atMax?'Max für diese Stufe — erst aufsteigen':up.desc(s), atMax?'':'⤷ '+costStr(c), atMax||!canAfford(s,c)); }
-      else { const c=up.cost(s); set(up.id,up.icon,up.name(s),up.desc(s),'⤷ '+costStr(c),!canAfford(s,c)); } }
+      else { const c=up.cost(s), lk=up.locked&&up.locked(s); set(up.id,up.icon,up.name(s),up.desc(s), lk?'':'⤷ '+costStr(c), lk||!canAfford(s,c)); } }
     const nb=this.btns.nacht;   // 🌙 Nacht-Button: nur sichtbar wenn Nacht ansteht oder läuft (mid:6396)
     if(nb){ if(nightActive(s)){ const left=s.enemies.filter(e=>e.night).length; set('nacht','era4','🌙 Nacht läuft','Schlag die Welle zurück','Gegner übrig: '+left,true); }
       else if(nightPending(s)) set('nacht','era4','🌙 Nacht starten','Überstehe die Welle, um aufzusteigen','Tippen zum Starten',false);
