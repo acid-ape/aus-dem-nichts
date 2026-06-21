@@ -5,3 +5,8 @@ Frei nutzbar (auch kommerziell). Credit an Pixel Frog.
 Verwendet im Spiel "Aus dem Nichts" (basebuilder.html):
 Gebäude (Haus/Turm/Burgen), Einheiten (Ritter/Pawn), Ressourcen
 (Baum/Goldmine), Deko (Pilze/Felsen/Büsche/Kürbisse), Terrain-Farben.
+
+[Musik] — alle CC0 / gemeinfrei (OpenGameArt.org), keine Attribution noetig
+- "The Old Tower Inn" — RandomMind  (ts/bgm.mp3)
+- "A New Town (RPG Theme)" — cynicmusic / The Cynic Project  (ts/bgm2.mp3)
+- "Medieval: The Bard's Tale" — RandomMind  (ts/bgm3.mp3)

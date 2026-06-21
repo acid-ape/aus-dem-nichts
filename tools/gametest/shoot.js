@@ -82,7 +82,7 @@ const VIEW = DEVICE === 'desktop'
   await page.evaluate(()=>document.getElementById('panel').classList.toggle('open')); await sleep(300); await frames(16);
   await shot('05_world_upgraded');
   // zoom out to reveal the village border / roads
-  for (let i = 0; i < 4; i++) { await page.click('#zoomOutBtn'); await sleep(120); }
+  await page.evaluate(() => { for (let i = 0; i < 4; i++) game.zoom = Math.max(0.06, game.zoom / 1.18); }); await sleep(120);
   await frames(12); await shot('06_world_zoomout');
   // tap to move the hero, then a couple frames
   await page.mouse.click(VIEW.width * 0.7, VIEW.height * 0.4); await sleep(500); await frames(20);
@@ -92,12 +92,12 @@ const VIEW = DEVICE === 'desktop'
     game.panelFor = 'castle';
     ALL.forEach(k => game.s.store[k] = 999999);
     for (let i = 0; i < 8; i++) { ['cap','speed','gather'].forEach(id => game.buy(id)); }
-    while (game.s.era < 4) { ALL.forEach(k => game.s.store[k] = 999999); game.buyEra(); }
+    while (game.s.era < 6) { ALL.forEach(k => game.s.store[k] = 999999); game.buyEra(); }   // bis Stufe 7 (era6)
     game.buy('steam'); game.buy('steam');
     for (let i = 0; i < 6; i++) { ALL.forEach(k => game.s.store[k] = 999999); game.buy('hire'); } // workerPool -> 9
     for (let i = 0; i < 6; i++) { ALL.forEach(k => game.s.store[k] = 999999); game.buy('build'); } // alle 6 Hütten (inkl. Schmiede + Juwelier-Ketten)
     for (let i = 0; i < 3; i++) { ALL.forEach(k => game.s.store[k] = 999999); game.buy('expand'); } // erschliesse alle Gebiete
-    for (let i = 0; i < 2; i++) { ALL.forEach(k => game.s.store[k] = 999999); game.buy('buildpost'); } // Pilz- + Beeren-Außenposten (mid:6246)
+    for (let i = 0; i < 3; i++) { ALL.forEach(k => game.s.store[k] = 999999); game.buy('buildpost'); } // Kürbis/Pilz/Beeren-Sammler (mid:6246/6313)
     if (game.s.outposts) game.s.outposts.forEach(o => { o.store = Math.round(outpostCap(o) * 0.7); }); // teilweise gefüllt für den Screenshot
     // verteile Arbeiter auf die Hütten + rüste sie hoch
     game.s.builds.forEach((b, i) => { game.panelFor = i; game.assign(1); game.assign(1); game.upgBuild('tempo'); game.upgBuild('menge'); });
@@ -105,7 +105,7 @@ const VIEW = DEVICE === 'desktop'
   });
   await sleep(300); await frames(16); await shot('08_endgame_world');
   // ganz rauszoomen um das expandierte Dorf (alle Gebiete) zu sehen
-  for (let i = 0; i < 7; i++) { await page.click('#zoomOutBtn'); await sleep(100); }
+  await page.evaluate(() => { for (let i = 0; i < 7; i++) game.zoom = Math.max(0.06, game.zoom / 1.18); }); await sleep(100);
   await frames(12); await shot('10_expanded_areas');
   await page.evaluate(() => document.getElementById('panel').classList.add('open'));
   await page.evaluate(() => game.setTab('held')); await sleep(250); await frames();
