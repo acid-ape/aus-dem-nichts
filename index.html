@@ -1091,8 +1091,8 @@ function endPointer(){ if(!pDown) return;
     let hutIdx=-1, hutD=70;
     if(heroInVillage&&s.segSlots) for(let i=0;i<s.builds.length;i++){ const sl=s.segSlots[s.builds[i].seg]; if(!sl)continue; const d=dist(p.x,p.y,sl.x,sl.y); if(d<hutD){ hutD=d; hutIdx=i; } }
     // Außenposten angetippt (nur wenn der Held nah dran ist) → Außenposten-Panel (mid:6246)
-    let opIdx=-1, opD=95;   // Außenposten antippen öffnet sein Panel unabhängig von der Held-Position (mid:6261); Abholen bleibt automatisch bei Annäherung
-    if(s.outposts) for(let i=0;i<s.outposts.length;i++){ const o=s.outposts[i], d=dist(p.x,p.y,o.x,o.y); if(d<opD){ opD=d; opIdx=i; } }
+    let opIdx=-1, opD=46;   // ENGE Hitbox auf dem Gebäude-Körper (mid:6276): nah vorbeilaufen ohne Menü; Tap aufs Gebäude öffnet Panel (unabhängig von Held-Position, mid:6261)
+    if(s.outposts) for(let i=0;i<s.outposts.length;i++){ const o=s.outposts[i], d=dist(p.x,p.y,o.x,o.y-31); if(d<opD){ opD=d; opIdx=i; } }   // -31 = Gebäude-Mitte (Sprite ist fußverankert)
     const tappedBase=dist(p.x,p.y,BASE.x,BASE.y)<BASE_SOLID+85;
     if(opIdx>=0){ game.openPanelFor('op'+opIdx); }
     else if(hutIdx>=0){ game.openPanelFor(hutIdx); }
