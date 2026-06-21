@@ -626,15 +626,16 @@ const UP_DORF=[
    show:s=>!!nextBuildType(s), cost:s=>{const t=nextBuildType(s);return t?BUILD_TYPES[t].cost:{holz:1e9};},
    apply:s=>{const t=nextBuildType(s); if(!t)return; const used=s.builds.map(b=>b.seg); let seg=[0,1,2,3,4,5].find(i=>!used.includes(i)); if(seg==null)seg=s.builds.length%6;
      s.builds.push({type:t,seg,tempo:0,menge:0,workers:0}); say(BUILD_TYPES[t].name+' gebaut! Tippe die Hütte an, um Arbeiter zuzuweisen + sie aufzurüsten.'); }},
-  {id:'buildpost',icon:'era0',name:s=>{const t=nextOutpostType(s);return t?'Bau: '+OUTPOST_TYPES[t].name:'Alle Außenposten gebaut';},
-   desc:s=>{const t=nextOutpostType(s);return t?`Sammler im ${BIOMES[OUTPOST_TYPES[t].biome].name} nahe dem Dorf — sammelt ${NAME[OUTPOST_TYPES[t].res]} über Zeit, du läufst hin und holst sie ab`:'';},
-   show:s=>!!nextOutpostType(s), cost:s=>{const t=nextOutpostType(s);return t?OUTPOST_TYPES[t].cost:{holz:1e9};},
-   apply:s=>{const t=nextOutpostType(s); if(!t)return; if(!s.outposts)s.outposts=[]; s.outposts.push(placeOutpost(s,t)); say(OUTPOST_TYPES[t].name+' gebaut! Lauf hin, dort sammelt sich '+NAME[OUTPOST_TYPES[t].res]+' — antippen zum Aufrüsten.'); }},
   {id:'expand',icon:'era1',name:s=>'Gebiet erschliessen',desc:s=>s.areas>=4?'Alle Gebiete erschlossen':`Dorf vergrössern (Gebiet ${s.areas}/4) — mehr Platz & Ressourcen`,
    show:s=>s.areas<4, cost:s=>({holz:scaled(80,1.7,s.areaLvl),stein:scaled(50,1.7,s.areaLvl),korn:scaled(40,1.7,s.areaLvl)}),
    apply:s=>{ if(s.areas>=4) return; const oldR=areaRadius(s); s.areas++; s.areaLvl++;
      for(let i=0;i<12;i++) spawnNode(s,null,oldR-20);
      say('Neues Gebiet erschlossen! Die Karte wächst nach aussen — mehr Ressourcen jenseits des Dorfrands.'); },expand:true},
+  // Außenposten ans ENDE der Liste (mid:6272): alte Reihenfolge hire/build/expand bleibt, Außenposten ist nur zusätzlich
+  {id:'buildpost',icon:'era0',name:s=>{const t=nextOutpostType(s);return t?'Bau: '+OUTPOST_TYPES[t].name:'Alle Außenposten gebaut';},
+   desc:s=>{const t=nextOutpostType(s);return t?`Sammler im ${BIOMES[OUTPOST_TYPES[t].biome].name} nahe dem Dorf — sammelt ${NAME[OUTPOST_TYPES[t].res]} über Zeit, du läufst hin und holst sie ab`:'';},
+   show:s=>!!nextOutpostType(s), cost:s=>{const t=nextOutpostType(s);return t?OUTPOST_TYPES[t].cost:{holz:1e9};},
+   apply:s=>{const t=nextOutpostType(s); if(!t)return; if(!s.outposts)s.outposts=[]; s.outposts.push(placeOutpost(s,t)); say(OUTPOST_TYPES[t].name+' gebaut! Lauf hin, dort sammelt sich '+NAME[OUTPOST_TYPES[t].res]+' — antippen zum Aufrüsten.'); }},
 ];
 // Hütten-Upgrade-Kosten (mid:6051/6052): Tempo = Effizienz-Währung Gold (früh Holz, bis Gold da ist);
 // Menge = Eigen-Ressource der Hütte + Pilze als Veredelungs-Material (gibt Pilzen eine Dauer-Senke).
