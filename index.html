@@ -477,7 +477,7 @@ const VILLAGE_R=Math.round(280*VS);  // innerer Dorf-KERN (Ring-Weg + Produktion
 const OUTER_R=Math.round(400*VS);    // äußerer Ring-Weg (mid:6176); Band VILLAGE_R..OUTER_R = 12 Turm-Bauplätze — skaliert mit VS
 const TOWER_N=12, TOWER_RAD=Math.round((280+400)/2*VS);   // 12 Turm-Bauplätze im äußeren Ring-Band — skaliert mit VS
 // Ressourcen/Wasser liegen DRAUSSEN im Land; der erschlossene Land-Radius wächst mit s.areas
-const areaRadius=s=>2400+(((s.areas||1)-1)*2400);  // nochmal groesser (mid:6190): 2400,4800,7200,9600
+const areaRadius=s=>2400+(((s.areas||1)-1)*850);  // sanftere Erweiterung (mid:6596): 2400,3250,4100,4950 (vorher zu krass +2400/Schritt)
 
 /* ---------- UI line-icons (statt Smartphone-Emojis, Dashboard-Stil) ---------- */
 const ICO={
@@ -639,7 +639,7 @@ function buildLevel(s){
   s.biomeRot=rnd(0,6.2832); s.biomeWarp=rnd(0,6.2832);
   // Seen + Sand über die GANZE später erschliessbare Karte verteilen (nicht nur das Start-Gebiet) — mid:6060.
   // Wasser = solides Hindernis (unbetretbar, r*0.9); Sand bremst (siehe onSand im step).
-  const FULLR=2400+3*2400;  // Gebiet 4 = 9600
+  const FULLR=2400+3*850;  // Gebiet 4 = 4950 (mid:6596)
   s.lakes=[]; const lakeN=8+Math.floor(rnd(0,4));   // Inland-Seen (mid:6213/6224/6226) — 8-11, ein paar mehr (Flüsse gestrichen)
   for(let i=0;i<lakeN;i++){ const r=rnd(150,250); let x,y,t=0,ok=false;
     do{ const a=rnd(0,6.2832), d=rnd(Math.max(VILLAGE_R+r*1.3+70, 650+r), FULLR+140); x=BASE.x+Math.cos(a)*d; y=BASE.y+Math.sin(a)*d; t++;   // großer Mindestabstand: Wasser ragt nicht ins Dorf (mid:6224)
@@ -682,7 +682,7 @@ function buildLevel(s){
     }
   }
   // Wasser-Felsen als Ozean-Deko (immer im Wasser jenseits des Maximalausbaus FULLR)
-  s.waterRocks=[]; const maxR=2400+3*2400;
+  s.waterRocks=[]; const maxR=2400+3*850;   // = FULLR (mid:6596)
   for(let i=0;i<26;i++){ const a=rnd(0,6.2832), d=rnd(maxR+120, maxR+900); s.waterRocks.push({x:BASE.x+Math.cos(a)*d, y:BASE.y+Math.sin(a)*d, kind:Math.random()<0.5?'env_waterrock1':'env_waterrock3', t:rnd(0,2)}); }
   // Wolken (mid:6503): driften langsam übers Meer + bisschen über die Insel, leicht transparent
   s.clouds=[]; s.cloudSpan=maxR+1600; const CGRID=4200, CR=maxR+1400;   // weniger, größer (mid:6513); jittert → immer welche im Bild
