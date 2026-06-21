@@ -15,6 +15,11 @@
   #ui{position:fixed;inset:0;pointer-events:none;font:14px/1.4 "Segoe UI",system-ui,-apple-system,sans-serif;color:#ece7ff}
   #resbar{position:absolute;top:calc(env(safe-area-inset-top) + 10px);left:calc(env(safe-area-inset-left) + 8px);
     display:flex;flex-direction:column;gap:5px;align-items:flex-start}
+  #resbar .charhdr{display:flex;flex-direction:column;align-items:flex-start;gap:3px;margin-bottom:6px}   /* Charakter-Ecke: Kürzel über Portrait (mid:6468) */
+  #resbar .cname{font-family:'MedievalSharp',Georgia,serif;font-size:15px;font-weight:700;letter-spacing:1px;color:#ffe9a8;
+    padding:1px 9px;border-radius:8px;background:rgba(12,9,22,.6);border:1px solid rgba(255,224,138,.45);text-shadow:0 1px 2px #000}
+  #resbar .cportrait{width:50px;height:50px;image-rendering:pixelated;object-fit:contain;
+    background:rgba(12,9,22,.6);border:1px solid rgba(160,91,255,.5);border-radius:12px;padding:2px}
   #resbar .r{display:flex;align-items:center;gap:5px;font-weight:800;font-size:16px;color:#fff;
     text-shadow:0 1px 2px #000,0 0 4px rgba(0,0,0,.75)}
   #resbar .r img{height:28px;width:28px;image-rendering:pixelated;filter:drop-shadow(0 1px 1px rgba(0,0,0,.6))}
@@ -30,7 +35,7 @@
     left:calc(env(safe-area-inset-left) + 138px);right:calc(env(safe-area-inset-right) + 64px);
     text-align:center;font-size:13.5px;font-weight:600;color:#fff;background:rgba(12,9,22,.7);backdrop-filter:blur(6px);
     border:1px solid rgba(255,224,138,.55);border-radius:13px;padding:6px 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;
-    box-shadow:0 2px 10px rgba(0,0,0,.35)}
+    pointer-events:auto;box-shadow:0 2px 10px rgba(0,0,0,.35)}   /* anklickbar trotz #ui pointer-events:none (mid:6468) */
   #quest.expanded{white-space:normal;overflow:visible;text-overflow:clip;z-index:30}   /* antippen klappt das Ziel voll aus (mid:6371) */
   #quest .qt{color:#ffe08a;font-weight:800;margin-right:6px}
   #quest .qp{color:#9fe0b0;font-weight:700;margin-left:6px}
@@ -173,7 +178,8 @@
   <div id="topbtns">
     <button id="menuBtn" title="Menü"></button>
     <div id="menuItems">
-      <button id="soundBtn" title="Ton"></button>
+      <button id="musicBtn" title="Musik an/aus"></button>
+      <button id="sfxBtn" title="SFX an/aus"></button>
       <button id="achBtn" title="Erfolge"></button>
       <button id="pauseBtn" title="Pause"></button>
       <button id="resetBtn" title="Neu"></button>
@@ -697,22 +703,24 @@ function burst(s,x,y,color,n){ for(let i=0;i<n;i++) addParticle(s,x,y,color); }
 function addLoot(s,x,y,type){ if(!s.loot)s.loot=[]; if(s.loot.length>60) return;
   s.loot.push({x:x+rnd(-8,8), y:y-8, type, age:0, max:0.8, vx:rnd(-22,22), vy:rnd(-95,-62), sz:rnd(22,28)}); }
 /* ---------- Juice: Sound (synthetisiert, keine Dateien) ---------- */
-let actx=null, muted=false;
-const SFXVOL=7.6;   // globaler Lautstärke-Faktor für die Spiel-SFX (mid:6291/6297/6299) — Musik (2%) liegt sehr leise drunter
+let actx=null, musicMuted=false, sfxMuted=false;   // getrennte Schalter für Musik und SFX (mid:6471)
+function loadAudioPrefs(){ try{ const p=JSON.parse(localStorage.getItem('adn_audio')||'{}'); musicMuted=!!p.m; sfxMuted=!!p.s; }catch(e){} }
+function saveAudioPrefs(){ try{ localStorage.setItem('adn_audio',JSON.stringify({m:musicMuted,s:sfxMuted})); }catch(e){} }
+const SFXVOL=12;   // globaler Lautstärke-Faktor für die Spiel-SFX (mid:6471: lauter gegen die Musik); Cap pro Sound = 1.0
 function audioInit(){ try{ if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)(); if(actx.state==='suspended') actx.resume(); }catch(e){} startMusic(); }
-function tone(freq,dur,type,vol,delay){ if(!actx||muted) return; const t=actx.currentTime+(delay||0);
+function tone(freq,dur,type,vol,delay){ if(!actx||sfxMuted) return; const t=actx.currentTime+(delay||0);
   const o=actx.createOscillator(), g=actx.createGain(); o.type=type||'sine'; o.frequency.value=freq;
-  o.connect(g); g.connect(actx.destination); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(Math.min(0.9,(vol||0.12)*SFXVOL),t+0.012);
+  o.connect(g); g.connect(actx.destination); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(Math.min(1.0,(vol||0.12)*SFXVOL),t+0.012);
   g.gain.exponentialRampToValueAtTime(0.0001,t+dur); o.start(t); o.stop(t+dur+0.03); }
 // Rausch-Burst (für Treffer/Bauen/Whoosh) + Pitch-Sweep — beide respektieren muted + SFXVOL (mid:6308)
-function noise(dur,vol,cutoff){ if(!actx||muted) return; const t=actx.currentTime, n=Math.max(1,Math.floor(actx.sampleRate*dur));
+function noise(dur,vol,cutoff){ if(!actx||sfxMuted) return; const t=actx.currentTime, n=Math.max(1,Math.floor(actx.sampleRate*dur));
   const buf=actx.createBuffer(1,n,actx.sampleRate), d=buf.getChannelData(0); for(let i=0;i<n;i++) d[i]=Math.random()*2-1;
   const src=actx.createBufferSource(); src.buffer=buf; const f=actx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=cutoff||1800;
   const g=actx.createGain(); src.connect(f); f.connect(g); g.connect(actx.destination);
-  g.gain.setValueAtTime(Math.min(0.9,(vol||0.1)*SFXVOL),t); g.gain.exponentialRampToValueAtTime(0.0001,t+dur); src.start(t); src.stop(t+dur+0.02); }
-function sweep(f0,f1,dur,type,vol){ if(!actx||muted) return; const t=actx.currentTime, o=actx.createOscillator(), g=actx.createGain();
+  g.gain.setValueAtTime(Math.min(1.0,(vol||0.1)*SFXVOL),t); g.gain.exponentialRampToValueAtTime(0.0001,t+dur); src.start(t); src.stop(t+dur+0.02); }
+function sweep(f0,f1,dur,type,vol){ if(!actx||sfxMuted) return; const t=actx.currentTime, o=actx.createOscillator(), g=actx.createGain();
   o.type=type||'sine'; o.frequency.setValueAtTime(f0,t); o.frequency.exponentialRampToValueAtTime(Math.max(1,f1),t+dur);
-  o.connect(g); g.connect(actx.destination); const V=Math.min(0.9,(vol||0.1)*SFXVOL);
+  o.connect(g); g.connect(actx.destination); const V=Math.min(1.0,(vol||0.1)*SFXVOL);
   g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(V,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+dur); o.start(t); o.stop(t+dur+0.03); }
 const SFX={
   harvest:()=>{ tone(540+Math.random()*80,0.05,'triangle',0.06); tone(820,0.04,'sine',0.035,0.015); },          // weicher Ernte-Tick
@@ -738,13 +746,13 @@ function bgmFadeTo(target,dur){ if(bgmRouted&&bgmGain&&actx){ const t=actx.curre
   if(!bgm) return; if(bgmFade)clearInterval(bgmFade); const v0=bgm.volume, steps=Math.max(1,Math.round(dur/0.05)); let k=0;   // iOS/Fallback: Element-Lautstärke rampen
   bgmFade=setInterval(()=>{ k++; bgm.volume=Math.max(0,Math.min(1,v0+(target-v0)*(k/steps))); if(k>=steps){ clearInterval(bgmFade); bgmFade=null; } },50); }
 function curVol(){ return bgmRouted&&bgmGain?bgmGain.gain.value:(bgm?bgm.volume:0); }
-function playBgmTrack(i){ if(!bgm) return; bgmIdx=i; bgm.src=BGM_TRACKS[i]; if(!bgmRouted) bgm.volume=0; if(bgmWanted&&!muted){ const p=bgm.play(); if(p&&p.catch)p.catch(()=>{}); bgmFadeTo(BGM_VOL,1.4); } }
+function playBgmTrack(i){ if(!bgm) return; bgmIdx=i; bgm.src=BGM_TRACKS[i]; if(!bgmRouted) bgm.volume=0; if(bgmWanted&&!musicMuted){ const p=bgm.play(); if(p&&p.catch)p.catch(()=>{}); bgmFadeTo(BGM_VOL,1.4); } }
 function initMusic(){ if(bgm) return; try{ bgmIdx=Math.floor(Math.random()*BGM_TRACKS.length); bgm=new Audio(BGM_TRACKS[bgmIdx]); bgm.loop=false; bgm.volume=0;
   bgm.addEventListener('timeupdate',()=>{ if(bgm.duration && (bgm.duration-bgm.currentTime)<1.4 && curVol()>0.004) bgmFadeTo(0,1.2); });   // Fade-out kurz vorm Track-Ende
-  bgm.addEventListener('ended',()=>{ setTimeout(()=>{ if(bgmWanted&&!muted) playBgmTrack(nextBgmIdx()); }, 700); });   // kurze Pause, dann shuffle-next mit Fade-in
-  bgm.addEventListener('error',()=>{ setTimeout(()=>{ if(bgmWanted&&!muted) playBgmTrack(nextBgmIdx()); }, 400); }); }catch(e){} }   // Track lädt nicht (404 o.ä.) → nächsten versuchen statt stumm bleiben (mid:6419)
-function startMusic(){ initMusic(); routeBgm(); bgmWanted=true; if(bgm && !muted){ const p=bgm.play(); if(p&&p.catch)p.catch(()=>{}); bgmFadeTo(BGM_VOL,1.4); } }
-function updateMusic(){ if(!bgm) return; if(muted){ if(!bgm.paused) bgm.pause(); } else if(bgmWanted && bgm.paused){ const p=bgm.play(); if(p&&p.catch)p.catch(()=>{}); bgmFadeTo(BGM_VOL,1.0); } }
+  bgm.addEventListener('ended',()=>{ setTimeout(()=>{ if(bgmWanted&&!musicMuted) playBgmTrack(nextBgmIdx()); }, 700); });   // kurze Pause, dann shuffle-next mit Fade-in
+  bgm.addEventListener('error',()=>{ setTimeout(()=>{ if(bgmWanted&&!musicMuted) playBgmTrack(nextBgmIdx()); }, 400); }); }catch(e){} }   // Track lädt nicht (404 o.ä.) → nächsten versuchen statt stumm bleiben (mid:6419)
+function startMusic(){ initMusic(); routeBgm(); bgmWanted=true; if(bgm && !musicMuted){ const p=bgm.play(); if(p&&p.catch)p.catch(()=>{}); bgmFadeTo(BGM_VOL,1.4); } }
+function updateMusic(){ if(!bgm) return; if(musicMuted){ if(!bgm.paused) bgm.pause(); } else if(bgmWanted && bgm.paused){ const p=bgm.play(); if(p&&p.catch)p.catch(()=>{}); bgmFadeTo(BGM_VOL,1.0); } }
 
 /* ---------- Speichern + Offline-Progress ---------- */
 const SAVE_KEY='ausdemnichts_save', SAVE_VERSION=2, OFFLINE_CAP=8*3600; // v2: Gebäude-/Arbeiter-Modell
@@ -923,8 +931,13 @@ const game={
     document.getElementById('resetBtn').onclick=()=>this.reset();
     document.getElementById('pauseBtn').innerHTML=svg('pause');
     document.getElementById('resetBtn').innerHTML=svg('reset');
-    const sb=document.getElementById('soundBtn'); sb.innerHTML=svg('soundOn');
-    sb.onclick=()=>{ muted=!muted; audioInit(); updateMusic(); sb.innerHTML=svg(muted?'soundOff':'soundOn'); if(!muted) SFX.buy(); };
+    loadAudioPrefs();   // Musik/SFX-Schalter aus localStorage (mid:6471)
+    const mus=document.getElementById('musicBtn'), sfxb=document.getElementById('sfxBtn');
+    const lbl=(on,em)=>`<span style="font-size:21px;line-height:1;${on?'':'opacity:.4'}">${em}</span>`;
+    const paintAudio=()=>{ mus.innerHTML=lbl(!musicMuted,'🎵'); sfxb.innerHTML=lbl(!sfxMuted,'🔊'); };
+    paintAudio();
+    mus.onclick=()=>{ musicMuted=!musicMuted; saveAudioPrefs(); audioInit(); updateMusic(); paintAudio(); };
+    sfxb.onclick=()=>{ sfxMuted=!sfxMuted; saveAudioPrefs(); audioInit(); paintAudio(); if(!sfxMuted) SFX.buy(); };
     const mb=document.getElementById('menuBtn'), mi=document.getElementById('menuItems');
     const burger='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>';
     mb.innerHTML=burger; mb.onclick=()=>{ const open=mi.classList.toggle('open'); mb.innerHTML=open?svg('close'):burger; };
@@ -1248,7 +1261,8 @@ const game={
   },
   renderRes(){ const s=this.s;
     document.getElementById('resbar').innerHTML =
-      `<span class="sack"><span class="bag">👝</span>${Math.floor(carryTotal(s.player.carry))}/${s.cap}</span>`  // Tasche (was du gerade trägst)
+      (s.charChosen?`<div class="charhdr">${s.playerName?`<div class="cname">${s.playerName}</div>`:''}<img class="cportrait" src="ts/u/portrait_${CHARS[s.char]?s.char:'krieger'}.png"></div>`:'')   // Charakter-Ecke (mid:6468)
+      + `<span class="sack"><span class="bag">👝</span>${Math.floor(carryTotal(s.player.carry))}/${s.cap}</span>`  // Tasche (was du gerade trägst)
       + `<span class="rdiv"></span>`                                                                            // Trennstrich → ab hier das Lager
       + activeKeys(s.era).map(k=>`<span class="r"><img src="ts/icons/${k}.png"><b>${Math.floor(s.store[k])}</b></span>`).join('')
       + `<span class="r"><img src="ts/icons/worker.png"><b>${freeWorkers(s)}/${s.workerPool}</b></span>`; },   // Namen weg (mid:6301), nur Icon + Zahl
