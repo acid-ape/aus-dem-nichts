@@ -304,7 +304,7 @@ function towerAt(s,seg){ return s.towers && s.towers.find(t=>t.seg===seg); }
 // Freie (nicht zugewiesene) Arbeiter laufen selbstständig los und farmen zufällige Knoten in Dorfnähe (mid:6048).
 // Zugewiesene Arbeiter bleiben Boost-Pawns an ihrer Hütte; nur der freie Pool wird als laufende Pawns abgebildet.
 function makeWalker(){ const a=rnd(0,6.2832), d=rnd(BASE_SOLID+24,BASE_SOLID+80);
-  return {x:BASE.x+Math.cos(a)*d, y:BASE.y+Math.sin(a)*d, tx:BASE.x, ty:BASE.y, carry:0, type:null, state:'seek', target:null}; }
+  return {x:BASE.x+Math.cos(a)*d, y:BASE.y+Math.sin(a)*d, tx:BASE.x, ty:BASE.y, carry:0, type:null, state:'seek', target:null, face:1, moving:false, animT:rnd(0,2)}; }
 function updateFreeWalkers(s,dt){
   const want=Math.max(0,freeWorkers(s));
   while(s.freeWalkers.length<want) s.freeWalkers.push(makeWalker());
@@ -326,6 +326,7 @@ function updateFreeWalkers(s,dt){
       if(dist(w.x,w.y,BASE.x,BASE.y)<OUTER_R){
         if(w.carry>0&&w.type){ s.store[w.type]=(s.store[w.type]||0)+w.carry; addPop(s,w.x,w.y-18,COL[w.type]||'#fff','+'+Math.floor(w.carry)); }
         w.carry=0; w.type=null; w.state='seek'; w.target=null; } }
+    const ddx=w.tx-w.x; if(Math.abs(ddx)>2) w.face=ddx<0?-1:1; w.moving=dist(w.x,w.y,w.tx,w.ty)>4; w.animT+=dt;   // Anim-Zustand für den Pawn (mid:6576)
     moveToward(w,w.tx,w.ty,onSand(s,w.x,w.y)?66:120,dt);  // Sand bremst auch die Helfer (mid:6060)
   } }
 
@@ -712,7 +713,7 @@ function addParticle(s,x,y,color){ if(s.particles.length>140) return;
 function burst(s,x,y,color,n){ for(let i=0;i<n;i++) addParticle(s,x,y,color); }
 // Loot-Pop beim Sammeln: das Ressourcen-Icon springt aus dem Knoten, fliegt hoch + verblasst (mid:6108)
 function addLoot(s,x,y,type){ if(!s.loot)s.loot=[]; if(s.loot.length>60) return;
-  s.loot.push({x:x+rnd(-8,8), y:y-8, type, age:0, max:0.8, vx:rnd(-22,22), vy:rnd(-95,-62), sz:rnd(22,28)}); }
+  s.loot.push({x:x+rnd(-8,8), y:y-8, type, age:0, max:0.85, vx:rnd(-30,30), vy:rnd(-130,-92), sz:rnd(30,40)}); }   // höher/größer = mehr Bewegung (mid:6576)
 /* ---------- Juice: Sound (synthetisiert, keine Dateien) ---------- */
 let actx=null, musicMuted=false, sfxMuted=false;   // getrennte Schalter für Musik und SFX (mid:6471)
 function loadAudioPrefs(){ try{ const p=JSON.parse(localStorage.getItem('adn_audio')||'{}'); musicMuted=!!p.m; sfxMuted=!!p.s; }catch(e){} }
@@ -1192,7 +1193,7 @@ const game={
     // Produktionsgebäude (je in einem Kuchenstück) + zugewiesene Arbeiter-Pawns daneben
     for(const b of s.builds){ const p=s.segSlots[b.seg], T=BUILD_TYPES[b.type]; if(!vis(p.x,p.y))continue;
       shadow(p.x,p.y+20*VS,28,9); worldSprite(T.sprite,p.x,p.y,86,false); label(T.name,p.x,p.y-48*VS);   // zentriert auf dem Slot → mittig im Kuchenstück (mid:6350)
-      for(let i=0;i<Math.min(b.workers,4);i++){ const wx=p.x-28*VS+i*18*VS, wy=p.y+30*VS; shadow(wx,wy,9,3); worldSprite('worker',wx,wy,30,true); } }
+      for(let i=0;i<Math.min(b.workers,4);i++){ const wx=p.x-30*VS+i*24*VS, wy=p.y+30*VS; shadow(wx,wy,11,4); drawUnit('pawn_blue','idle', this.animT+i*0.5, wx, wy, 50, false); } }   // animierter Pawn statt statischem Worker (mid:6576)
     // Außenposten-Sammler (mid:6246): Gebäude + Ressourcen-Marker + Füllbalken; glüht wenn was zum Abholen bereitliegt
     if(s.outposts) for(const o of s.outposts){ if(!vis(o.x,o.y))continue; const T=OUTPOST_TYPES[o.type], cap=outpostCap(o), frac=Math.min(1,(o.store||0)/cap), ready=(o.store||0)>=1;
       if(ready){ ctx.fillStyle='rgba(255,238,150,.18)'; ctx.beginPath(); ctx.ellipse(o.x,o.y+2*VS,40*VS,18*VS,0,0,7); ctx.fill();
@@ -1222,13 +1223,13 @@ const game={
       ctx.strokeStyle='rgba(255,222,128,.85)'; ctx.lineWidth=2.5*VS; ctx.beginPath(); ctx.ellipse(d.x,d.y,20*VS,9*VS,0,0,7); ctx.stroke();
       shadow(d.x,d.y,12,4); worldSprite(tk,d.x,d.y-2*VS,30,true); }
     // freie Arbeiter (laufender Schwarm, farmen selbstständig) + ggf. das was sie gerade tragen
-    for(const w of s.freeWalkers){ if(!vis(w.x,w.y))continue; shadow(w.x,w.y,11,4); worldSprite('worker',w.x,w.y+2*VS,32,true);
-      if(w.carry>0.4&&w.type) worldSprite(w.type,w.x+12*VS,w.y-26*VS,18,true); }
+    for(const w of s.freeWalkers){ if(!vis(w.x,w.y))continue; shadow(w.x,w.y,13,5); drawUnit('pawn_blue', w.moving?'run':'idle', w.animT, w.x, w.y+4*VS, 64, w.face<0);   // animierter Pawn, größer (mid:6576)
+      if(w.carry>0.4&&w.type) worldSprite(w.type,w.x+16*VS,w.y-40*VS,22,true); }
     for(const q of s.particles){ const f=1-q.age/q.max; ctx.globalAlpha=f; ctx.fillStyle=q.color;
       ctx.beginPath(); ctx.arc(q.x,q.y,q.sz*f+1,0,7); ctx.fill(); } ctx.globalAlpha=1;
     // Loot-Icons (fliegen beim Sammeln hoch + verblassen)
     for(const L of s.loot){ if(!vis(L.x,L.y))continue; const f=L.age/L.max; ctx.globalAlpha=Math.max(0,1-f*f);
-      worldSprite(L.type, L.x, L.y, L.sz*(1+f*0.35), false); } ctx.globalAlpha=1;
+      const pop=1+Math.sin(Math.min(1,f*1.4)*Math.PI)*0.5; worldSprite(L.type, L.x, L.y, L.sz*pop, false); } ctx.globalAlpha=1;   // Bounce-Pop (mid:6576)
     for(const p of s.pops) pop(p);
     drawFx(s);  // Dust-/Heal-Effekte
     if(dist(s.player.x,s.player.y,s.player.tx,s.player.ty)>5){ ctx.strokeStyle='rgba(255,79,216,.75)';ctx.lineWidth=3; ctx.beginPath();ctx.arc(s.player.tx,s.player.ty,12,0,7);ctx.stroke(); }
