@@ -230,6 +230,23 @@ const VIEW = DEVICE === 'desktop'
     out.push(['keine Deko auf Sand', game.s.deco.filter(d => onSand(game.s, d.x, d.y)).length === 0]);
     out.push(['keine Knoten auf Sand', game.s.nodes.filter(n => onSand(game.s, n.x, n.y)).length === 0]);
     out.push(['keine Knoten im Wasser', game.s.nodes.filter(n => game.s.lakes.some(L => dist(n.x, n.y, L.x, L.y) < L.r)).length === 0]);
+    // Türme (mid:6357/6359)
+    game.s.towers = []; game.s.enemies = []; ALL.forEach(k => game.s.store[k] = 999999);
+    game.panelFor = 'tb3'; game.buildTower('kaempfer');
+    out.push(['Turm gebaut + Einheit gespawnt', game.s.towers.length === 1 && !!game.s.towers[0].unit]);
+    if (game.s.towers.length && game.s.towers[0].unit) {
+      const tw = game.s.towers[0], u = tw.unit;
+      game.s.enemies = [{ kind: 'grunt', x: u.x + 30, y: u.y, home: { x: u.x + 30, y: u.y }, hp: 40, max: 40, base: 40, face: -1, animT: 0, atkT: 0, hurtT: 0, state: 'idle', moving: false, evo: 0, evoT: 0 }];
+      const ehp0 = game.s.enemies[0].hp; for (let i = 0; i < 60; i++) updateTroops(game.s, 0.1);
+      out.push(['Turm-Einheit kämpft (Gegner nimmt Schaden)', game.s.enemies[0].hp < ehp0]);
+      game.s.player.x = u.x + 9999;
+      out.push(['Gegner zielt auf nächste Turm-Einheit', enemyTarget(game.s, game.s.enemies[0]) === u]);
+      game.panelFor = 'tw3'; const m0 = tw.mode; game.toggleTowerMode(); out.push(['Modus-Toggle (Wache/Folgen)', tw.mode !== m0]);
+      const hp0 = towerHp(tw); game.upgTower(); out.push(['Turm-Upgrade hebt HP', towerHp(tw) > hp0]);
+    }
+    game.s.towers = []; game.panelFor = 'tb5'; game.buildTower('bogen'); const bt = game.s.towers[0];
+    if (bt && bt.unit) { game.s.enemies = [{ kind: 'grunt', x: bt.unit.x + 130, y: bt.unit.y, home: { x: bt.unit.x + 130, y: bt.unit.y }, hp: 60, max: 60, base: 60, face: -1, animT: 0, atkT: 0, hurtT: 0, state: 'idle', moving: false, evo: 0, evoT: 0 }];
+      for (let i = 0; i < 40; i++) updateTroops(game.s, 0.1); out.push(['Bogenschütze trifft auf Distanz', game.s.enemies[0].hp < 60]); }
     // save round-trip
     saveGame(game.s);
     const raw = localStorage.getItem(SAVE_KEY);
@@ -237,6 +254,7 @@ const VIEW = DEVICE === 'desktop'
     out.push(['save restores huts', restored.builds.length === game.s.builds.length]);
     out.push(['save restores workerPool', restored.workerPool === game.s.workerPool]);
     out.push(['save restores outposts', restored.outposts.length === game.s.outposts.length]);
+    out.push(['save restores towers', restored.towers.length === game.s.towers.length]);
     return out;
   });
   checks.forEach(([name, ok]) => { if (!ok) errors.push('assertion FAILED: ' + name); else console.log('  ok ' + name); });
