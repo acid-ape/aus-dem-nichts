@@ -442,13 +442,13 @@ function blocked(s,x,y,r){ if(dist(x,y,BASE.x,BASE.y)<BASE_SOLID+r) return true;
   for(const o of s.obstacles){ if(dist(x,y,o.x,o.y)<o.r+r) return true; } return false; }
 // Knoten landen jetzt in ihrem passenden Biom (Wald=Holz/Pilze, Gebirge=Stein/Gold/Kristall, Felder=Kürbis/Beeren).
 // type vorgegeben → per Rejection-Sampling in ein Biom legen, das ihn führt; sonst Typ nach Biom an der Position wählen.
-function spawnNode(s,type,ringMin){ const R=areaRadius(s), lo=ringMin||(VILLAGE_R+30), allowed=activeKeys(s.era);
+function spawnNode(s,type,ringMin){ const R=areaRadius(s), lo=ringMin||(OUTER_R+40), allowed=activeKeys(s.era);   // Ressourcen erst JENSEITS des Dorf-Rings (mid:6258)
   for(let t=0;t<60;t++){
     const a=rnd(0,6.2832), d=rnd(lo,R-40), x=BASE.x+Math.cos(a)*d, y=BASE.y+Math.sin(a)*d, bt=BIOMES[biomeAt(s,x,y)];
     let chosen;
     if(type){ if(!bt.res[type]) continue; chosen=type; }       // Knoten nur in ein Biom legen, das diesen Typ führt
     else { chosen=weightedFromTable(bt.res, allowed); if(!chosen) continue; }
-    if(s.nodes.every(n=>dist(x,y,n.x,n.y)>104) && !blocked(s,x,y,40)){
+    if(s.nodes.every(n=>dist(x,y,n.x,n.y)>82) && !blocked(s,x,y,36) && !onSand(s,x,y) && !s.lakes.some(L=>dist(x,y,L.x,L.y)<L.r+24)){   // nicht auf Sand/Wasser (mid:6260), dichter packbar
       const amt=Math.round(rnd(12,18)); s.nodes.push({id:++nodeId,type:chosen,x,y,amount:amt,max:amt,scale:0}); return; }  // langlebiger (mid:6098)
   } }
 
@@ -499,12 +499,12 @@ function buildLevel(s){
   s.deco=[];
   // Deko in NATÜRLICHEN KLUMPEN statt gleichmäßigem Streuen (mid:6229): Wäldchen mit großen Bäumen eng zusammen,
   // Felsfelder (viele Brocken + ein paar große solide), Wiesen offener mit Kürbissen/Pilzen. → volle, „gebaute" Karte.
-  const placeD=(key,x,y,size,solid,obR)=>{ if(dist(x,y,BASE.x,BASE.y)<VILLAGE_R+18||inLake(x,y,26)||blocked(s,x,y,16)) return;
+  const placeD=(key,x,y,size,solid,obR)=>{ if(dist(x,y,BASE.x,BASE.y)<OUTER_R+22||inLake(x,y,26)||onSand(s,x,y)||blocked(s,x,y,16)) return;   // Deko: nicht im Dorf-Ring, nicht auf Wasser/Sand (mid:6258/6260)
     s.deco.push({key,x,y,size,solid:!!solid}); if(solid) s.obstacles.push({x,y,r:obR||size*0.30}); };
   const clump=(cx,cy,n,spread,fn)=>{ for(let j=0;j<n;j++){ const a=rnd(0,6.2832), d=Math.pow(Math.random(),0.7)*spread; fn(cx+Math.cos(a)*d, cy+Math.sin(a)*d); } };
-  const NCL=1700;   // viele Klumpen-Zentren, gleichmäßig über die Insel-Disk (sqrt → Flächentreue)
+  const NCL=2600;   // viele Klumpen-Zentren, gleichmäßig über die Insel-Disk (sqrt → Flächentreue) — dichter (mid:6260)
   for(let i=0;i<NCL;i++){ const a=rnd(0,6.2832), d=Math.sqrt(Math.random())*FULLR, cx=BASE.x+Math.cos(a)*d, cy=BASE.y+Math.sin(a)*d;
-    if(dist(cx,cy,BASE.x,BASE.y)<VILLAGE_R+60) continue;
+    if(dist(cx,cy,BASE.x,BASE.y)<OUTER_R+30) continue;
     const bk=biomeAt(s,cx,cy);
     if(bk==='wald'){            // Wäldchen: VIELE große Bäume eng zusammen + etwas Unterholz/Pilze (mid:6235 — mehr Bäume)
       clump(cx,cy, 8+Math.floor(rnd(0,10)), rnd(80,190), (x,y)=> placeD('holz',x,y,rnd(82,132),false));
@@ -533,7 +533,7 @@ function freshState(){ const store={},carry={}; ALL.forEach(k=>{store[k]=0;carry
     outposts:[],   // Außenposten-Sammler (mid:6246) — werden vom Spieler gebaut
     questIdx:0, achieved:[], lifetime:0, playSec:0 };
   buildLevel(s);
-  for(let i=0;i<22;i++) spawnNode(s,'holz'); for(let i=0;i<14;i++) spawnNode(s,'stein'); for(let i=0;i<14;i++) spawnNode(s,'korn');  // mehr Start-Knoten für die große Insel
+  for(let i=0;i<40;i++) spawnNode(s,'holz'); for(let i=0;i<26;i++) spawnNode(s,'stein'); for(let i=0;i<26;i++) spawnNode(s,'korn');  // viele Start-Knoten für die große Insel (mid:6260)
   return s; }
 function addPop(s,x,y,color,text){ s.pops.push({x,y,color,text:text||null,age:0,max:text?1.1:0.6}); }
 /* ---------- Juice: Partikel ---------- */
@@ -589,7 +589,7 @@ function stateFromSave(d){ const s=freshState();  // frische Welt, dann Fortschr
   if(Array.isArray(d.builds)) s.builds=d.builds.map(b=>({type:b.type,seg:b.seg,tempo:b.tempo||0,menge:b.menge||0,workers:b.workers||0}));
   if(Array.isArray(d.outposts)) s.outposts=d.outposts.filter(o=>OUTPOST_TYPES[o.type]).map(o=>({type:o.type,x:o.x,y:o.y,store:o.store||0,tempoLvl:o.tempoLvl||0,mengeLvl:o.mengeLvl||0}));
   setRing(s);
-  s.nodes=[]; const n=40+s.areas*40; for(let i=0;i<n;i++) spawnNode(s);  // mehr Knoten gegen Scarcity (mid:6098)
+  s.nodes=[]; const n=70+s.areas*65; for(let i=0;i<n;i++) spawnNode(s);  // deutlich mehr Knoten (mid:6098/6260)
   return s; }
 // Offline-Ertrag: Auto-Producer voll, Helfer grob geschätzt (reduziert), gedeckelt
 function applyOffline(s, elapsedSec){ const t=Math.min(Math.max(0,elapsedSec), OFFLINE_CAP); if(t<30) return null;
@@ -796,7 +796,7 @@ const game={
     for(const r of s.respawns.filter(r=>r.t<=0)) spawnNode(s, Math.random()<0.5?r.type:null);
     s.respawns=s.respawns.filter(r=>r.t>0);
     // Nachwachsen bis zu einem hohen Gesamt-Cap, damit die Map nicht verarmt (v.a. höhere Zeitalter, mid:6098)
-    s.topupT=(s.topupT||0)+dt; const nodeCap=40+s.areas*40+s.era*8;
+    s.topupT=(s.topupT||0)+dt; const nodeCap=70+s.areas*65+s.era*12;
     if(s.topupT>1.5){ s.topupT=0; if(s.nodes.length<nodeCap) spawnNode(s); }
     for(const n of s.nodes){ if(n.scale<1) n.scale=Math.min(1,n.scale+dt*3); }
     // Produktionsgebäude (passives Einkommen, skaliert mit Tempo/Menge/Arbeitern); Konverter ziehen Input ab
@@ -1090,8 +1090,8 @@ function endPointer(){ if(!pDown) return;
     let hutIdx=-1, hutD=70;
     if(heroInVillage&&s.segSlots) for(let i=0;i<s.builds.length;i++){ const sl=s.segSlots[s.builds[i].seg]; if(!sl)continue; const d=dist(p.x,p.y,sl.x,sl.y); if(d<hutD){ hutD=d; hutIdx=i; } }
     // Außenposten angetippt (nur wenn der Held nah dran ist) → Außenposten-Panel (mid:6246)
-    let opIdx=-1, opD=85;
-    if(s.outposts) for(let i=0;i<s.outposts.length;i++){ const o=s.outposts[i], d=dist(p.x,p.y,o.x,o.y); if(d<opD && dist(s.player.x,s.player.y,o.x,o.y)<175){ opD=d; opIdx=i; } }
+    let opIdx=-1, opD=95;   // Außenposten antippen öffnet sein Panel unabhängig von der Held-Position (mid:6261); Abholen bleibt automatisch bei Annäherung
+    if(s.outposts) for(let i=0;i<s.outposts.length;i++){ const o=s.outposts[i], d=dist(p.x,p.y,o.x,o.y); if(d<opD){ opD=d; opIdx=i; } }
     const tappedBase=dist(p.x,p.y,BASE.x,BASE.y)<BASE_SOLID+85;
     if(opIdx>=0){ game.openPanelFor('op'+opIdx); }
     else if(hutIdx>=0){ game.openPanelFor(hutIdx); }

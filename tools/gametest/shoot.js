@@ -218,6 +218,10 @@ const VIEW = DEVICE === 'desktop'
       out.push(['Tempo-Upgrade hebt Sammelrate', outpostRate(o) > r0]);
       out.push(['Menge-Upgrade hebt Cap', outpostCap(o) > c0]);
     }
+    // Deko + Ressourcen-Knoten dürfen NICHT auf Sand oder Wasser liegen (mid:6260)
+    out.push(['keine Deko auf Sand', game.s.deco.filter(d => onSand(game.s, d.x, d.y)).length === 0]);
+    out.push(['keine Knoten auf Sand', game.s.nodes.filter(n => onSand(game.s, n.x, n.y)).length === 0]);
+    out.push(['keine Knoten im Wasser', game.s.nodes.filter(n => game.s.lakes.some(L => dist(n.x, n.y, L.x, L.y) < L.r)).length === 0]);
     // save round-trip
     saveGame(game.s);
     const raw = localStorage.getItem(SAVE_KEY);
