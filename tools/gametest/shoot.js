@@ -230,8 +230,8 @@ const VIEW = DEVICE === 'desktop'
     out.push(['keine Deko auf Sand', game.s.deco.filter(d => onSand(game.s, d.x, d.y)).length === 0]);
     out.push(['keine Knoten auf Sand', game.s.nodes.filter(n => onSand(game.s, n.x, n.y)).length === 0]);
     out.push(['keine Knoten im Wasser', game.s.nodes.filter(n => game.s.lakes.some(L => dist(n.x, n.y, L.x, L.y) < L.r)).length === 0]);
-    // Türme (mid:6357/6359)
-    game.s.towers = []; game.s.enemies = []; ALL.forEach(k => game.s.store[k] = 999999);
+    // Türme (mid:6357/6359/6385)
+    game.s.era = 6; game.s.towers = []; game.s.enemies = []; ALL.forEach(k => game.s.store[k] = 999999);
     game.panelFor = 'tb3'; game.buildTower('kaempfer');
     out.push(['Turm gebaut + Einheit gespawnt', game.s.towers.length === 1 && !!game.s.towers[0].unit]);
     if (game.s.towers.length && game.s.towers[0].unit) {
@@ -247,6 +247,12 @@ const VIEW = DEVICE === 'desktop'
     game.s.towers = []; game.panelFor = 'tb5'; game.buildTower('bogen'); const bt = game.s.towers[0];
     if (bt && bt.unit) { game.s.enemies = [{ kind: 'grunt', x: bt.unit.x + 130, y: bt.unit.y, home: { x: bt.unit.x + 130, y: bt.unit.y }, hp: 60, max: 60, base: 60, face: -1, animT: 0, atkT: 0, hurtT: 0, state: 'idle', moving: false, evo: 0, evoT: 0 }];
       for (let i = 0; i < 40; i++) updateTroops(game.s, 0.1); out.push(['Bogenschütze trifft auf Distanz', game.s.enemies[0].hp < 60]); }
+    // Lanze + Mönch (mid:6385): bauen + Mönch heilt verwundeten Verbündeten
+    game.s.towers = []; game.s.enemies = []; game.panelFor = 'tb1'; game.buildTower('lance'); game.panelFor = 'tb9'; game.buildTower('monk');
+    out.push(['Lanze + Mönch baubar (Stufe 5)', game.s.towers.length === 2 && game.s.towers.every(t => t.unit)]);
+    const mt = game.s.towers.find(t => t.type === 'monk');
+    if (mt && mt.unit) { game.s.player.hpmax = 100; game.s.player.hp = 40; game.s.player.x = game.s.player.tx = mt.unit.x + 20; game.s.player.y = game.s.player.ty = mt.unit.y;
+      for (let i = 0; i < 60; i++) updateTroops(game.s, 0.1); out.push(['Mönch heilt verwundeten Verbündeten', game.s.player.hp > 40]); }
     // save round-trip
     saveGame(game.s);
     const raw = localStorage.getItem(SAVE_KEY);

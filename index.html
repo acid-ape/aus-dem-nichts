@@ -209,14 +209,17 @@ function placeOutpost(s,type){ const T=OUTPOST_TYPES[type], r0=OUTER_R+70, r1=Ma
     if(!blocked(s,x,y,30)) return {type,x,y,store:0,tempoLvl:0,mengeLvl:0}; }
   const a=rnd(0,6.2832); return {type,x:BASE.x+Math.cos(a)*r1,y:BASE.y+Math.sin(a)*r1,store:0,tempoLvl:0,mengeLvl:0}; }
 // ----- Türme (mid:6357/6359): auf den 12 Ring-Slots, Waffenkammer (Stufe 7) als Gate. Je Turm 1 Einheit (Kämpfer=Nahkampf / Bogenschütze=Fernkampf), bewacht den Turm per Aggro oder folgt dem Held. Upgradebar. -----
-const TOWER_TYPES={
-  kaempfer:{name:'Kämpfer-Turm',     unit:'warrior_red',   melee:true,  range:240, atk:7, hp:95, speed:72, cd:0.7, cost:{holz:140,stein:90}},
-  bogen:   {name:'Bogenschütze-Turm', unit:'archer_purple', melee:false, range:340, atk:5, hp:60, speed:64, cd:1.0, cost:{holz:130,stein:70,gold:30}},
+const TOWER_TYPES={   // role: melee | ranged | heal. era = ab welcher internen Era baubar (Stufe = era+1). atkR = Wirk-/Heil-Reichweite.
+  kaempfer:{name:'Kämpfer-Turm',      unit:'warrior_red',  role:'melee',  era:2, range:240, atkR:44,  atk:7, hp:100, speed:74, cd:0.7,  cost:{holz:140,stein:90}},        // Stufe 3
+  bogen:   {name:'Bogenschütze-Turm', unit:'archer_purple',role:'ranged', era:2, range:340, atkR:340, atk:5, hp:60,  speed:64, cd:1.0,  cost:{holz:130,stein:70}},          // Stufe 3
+  lance:   {name:'Lanzen-Turm',       unit:'lance_blue',   role:'melee',  era:4, range:260, atkR:80,  atk:9, hp:95,  speed:70, cd:0.95, cost:{holz:200,stein:130,gold:30}},  // Stufe 5 — Reichweiten-Nahkampf
+  monk:    {name:'Mönch-Turm',        unit:'monk_blue',    role:'heal',   era:4, range:300, atkR:300, heal:9,hp:75,  speed:66, cd:1.3,  cost:{holz:200,stein:120,gold:40}},  // Stufe 5 — Heiler/Support
 };
-const TOWER_ORDER=['kaempfer','bogen'];
-function hasArmory(s){ return s.builds && s.builds.some(b=>b.type==='waffenkammer'); }   // Waffenkammer schaltet Türme frei
+const TOWER_ORDER=['kaempfer','bogen','lance','monk'];
+function hasArmory(s){ return s.builds && s.builds.some(b=>b.type==='waffenkammer'); }
+function towersUnlocked(s){ return s.era>=2; }   // Türme ab Stufe 3 (mid:6385/6387)
 function towerHp(t){ return Math.round(TOWER_TYPES[t.type].hp*(1+0.4*(t.lvl||0))); }
-function towerAtk(t){ return TOWER_TYPES[t.type].atk*(1+0.35*(t.lvl||0)); }
+function towerAtk(t){ const T=TOWER_TYPES[t.type]; return (T.atk||T.heal||5)*(1+0.35*(t.lvl||0)); }   // dient auch als Heil-Stärke beim Mönch
 function towerUpCost(t){ const base=TOWER_TYPES[t.type].cost, c={}; for(const k in base) c[k]=Math.round(base[k]*0.55*Math.pow(1.5,t.lvl||0)); return c; }
 function spawnTroop(s,t){ const sl=s.towerSlots[t.seg], h=towerHp(t); t.unit={x:sl.x,y:sl.y+24,tx:sl.x,ty:sl.y+24,hp:h,hpmax:h,atkT:0,face:1,animT:rnd(0,2),hurtT:0,moving:false}; }
 function towerAt(s,seg){ return s.towers && s.towers.find(t=>t.seg===seg); }
@@ -279,18 +282,28 @@ function updateTroops(s,dt){ if(!s.towers) return; const P=s.player;
   for(const t of s.towers){
     if(!t.unit){ t.downT=(t.downT||0)-dt; if(t.downT<=0) spawnTroop(s,t); continue; }
     const u=t.unit, TT=TOWER_TYPES[t.type]; u.animT+=dt; if(u.hurtT>0)u.hurtT-=dt; u.atkT=(u.atkT||0)-dt; u.attacking=false;
-    let tgt=null,td=TT.range; for(const e of s.enemies){ if(e.dead)continue; const d=dist(e.x,e.y,u.x,u.y); if(d<td){td=d;tgt=e;} }
     const home=(t.mode==='folgen')?{x:P.x,y:P.y}:{x:s.towerSlots[t.seg].x,y:s.towerSlots[t.seg].y+24};
-    if(tgt){ const dx=tgt.x-u.x; if(Math.abs(dx)>2)u.face=dx<0?-1:1;
-      if(TT.melee){
-        if(td>42){ u.moving=true; moveToward(u,tgt.x,tgt.y,TT.speed,dt); collide(s,u,ENEMY_R); }
-        else { u.moving=false; u.attacking=true; if(u.atkT<=0){ u.atkT=TT.cd; const dmg=Math.round(towerAtk(t)); tgt.hp-=dmg; tgt.hurtT=0.18; addPop(s,tgt.x,tgt.y-40,'#bfe9ff','-'+dmg); burst(s,tgt.x,tgt.y-10,'#bfe9ff',4); SFX.hit(); } }
-      } else {   // Fernkampf: hält Abstand, schiesst Pfeile
-        if(td<TT.range*0.55){ u.moving=true; moveToward(u,u.x*2-tgt.x,u.y*2-tgt.y,TT.speed*0.8,dt); collide(s,u,ENEMY_R); } else u.moving=false;
-        u.attacking=true; if(u.atkT<=0){ u.atkT=TT.cd; const dmg=Math.round(towerAtk(t)); tgt.hp-=dmg; tgt.hurtT=0.15;
-          (s.shots=s.shots||[]).push({x1:u.x,y1:u.y-12,x2:tgt.x,y2:tgt.y-12,age:0}); addPop(s,tgt.x,tgt.y-40,'#bfe9ff','-'+dmg); SFX.hit(); } }
-    } else {
-      if(dist(u.x,u.y,home.x,home.y)>16){ u.moving=true; const dx=home.x-u.x; if(Math.abs(dx)>2)u.face=dx<0?-1:1; moveToward(u,home.x,home.y,TT.speed,dt); collide(s,u,ENEMY_R); } else u.moving=false;
+    const goHome=()=>{ if(dist(u.x,u.y,home.x,home.y)>16){ u.moving=true; const dx=home.x-u.x; if(Math.abs(dx)>2)u.face=dx<0?-1:1; moveToward(u,home.x,home.y,TT.speed,dt); collide(s,u,ENEMY_R); } else u.moving=false; };
+    if(TT.role==='heal'){   // Mönch: nächsten verwundeten Verbündeten (Held oder Truppe) heilen
+      let tgt=null,td=TT.range;
+      if(P.hp<P.hpmax){ const d=dist(P.x,P.y,u.x,u.y); if(d<td){td=d;tgt=P;} }
+      for(const o of s.towers){ const ou=o.unit; if(ou&&ou!==u&&ou.hp<ou.hpmax){ const d=dist(ou.x,ou.y,u.x,u.y); if(d<td){td=d;tgt=ou;} } }
+      if(tgt){ const dx=tgt.x-u.x; if(Math.abs(dx)>2)u.face=dx<0?-1:1;
+        if(td>TT.atkR){ u.moving=true; moveToward(u,tgt.x,tgt.y,TT.speed,dt); collide(s,u,ENEMY_R); }
+        else { u.moving=false; u.attacking=true; if(u.atkT<=0){ u.atkT=TT.cd; const h=Math.round(towerAtk(t)); tgt.hp=Math.min(tgt.hpmax,tgt.hp+h); addFx(s,'heal',tgt.x,tgt.y-18,42); addPop(s,tgt.x,tgt.y-44,'#7dffa0','+'+h); } } }
+      else goHome();
+    } else {   // Kämpfer/Lanze (Nahkampf) + Bogenschütze (Fernkampf): nächsten Gegner angreifen
+      let tgt=null,td=TT.range; for(const e of s.enemies){ if(e.dead)continue; const d=dist(e.x,e.y,u.x,u.y); if(d<td){td=d;tgt=e;} }
+      if(tgt){ const dx=tgt.x-u.x; if(Math.abs(dx)>2)u.face=dx<0?-1:1;
+        if(TT.role==='ranged'){
+          if(td<TT.range*0.55){ u.moving=true; moveToward(u,u.x*2-tgt.x,u.y*2-tgt.y,TT.speed*0.8,dt); collide(s,u,ENEMY_R); } else u.moving=false;
+          u.attacking=true; if(u.atkT<=0){ u.atkT=TT.cd; const dmg=Math.round(towerAtk(t)); tgt.hp-=dmg; tgt.hurtT=0.15;
+            (s.shots=s.shots||[]).push({x1:u.x,y1:u.y-12,x2:tgt.x,y2:tgt.y-12,age:0}); addPop(s,tgt.x,tgt.y-40,'#bfe9ff','-'+dmg); SFX.hit(); }
+        } else {   // Nahkampf (Reichweite via atkR — Lanze sticht weiter)
+          if(td>TT.atkR){ u.moving=true; moveToward(u,tgt.x,tgt.y,TT.speed,dt); collide(s,u,ENEMY_R); }
+          else { u.moving=false; u.attacking=true; if(u.atkT<=0){ u.atkT=TT.cd; const dmg=Math.round(towerAtk(t)); tgt.hp-=dmg; tgt.hurtT=0.18; addPop(s,tgt.x,tgt.y-40,'#bfe9ff','-'+dmg); burst(s,tgt.x,tgt.y-10,'#bfe9ff',4); SFX.hit(); } }
+        }
+      } else goHome();
     }
     if(u.hp<=0){ burst(s,u.x,u.y-10,'#88aaff',12); addFx(s,'dust',u.x,u.y-4,60); t.unit=null; t.downT=8; }
   }
@@ -391,7 +404,7 @@ const A={};  // alle fertigen Sprites
 // Animierte Held-Sheets (Tiny Swords Warrior, 192px-Frames, 6 Spalten × 8 Reihen). Pro Startcharakter eine Farbe.
 // Animierte Einheiten (Tiny Swords v2 Free Pack): pro (Unit,Farbe) je Anim-Strip (idle/run/atk), 192px-Frames horizontal.
 const U={}, UFRAME=192;
-['warrior_red','warrior_black','pawn_blue','pawn_black','archer_purple'].forEach(p=>{
+['warrior_red','warrior_black','pawn_blue','pawn_black','archer_purple','lance_blue','monk_blue'].forEach(p=>{
   ['idle','run','atk'].forEach(a=>{ const k=p+'_'+a, i=new Image(); i.src='ts/u/'+k+'.png'; U[k]=i; }); });
 // One-shot-Effekte (Tiny Swords Particle FX): quadratische Frame-Strips (dust=Todes-Puff, heal=Heil-Funke)
 const FX={}; ['dust','heal'].forEach(k=>{ const i=new Image(); i.src='ts/u/fx_'+k+'.png'; FX[k]=i; });
@@ -682,7 +695,7 @@ function humanDur(mins){ if(mins<60) return mins+' Min'; const h=Math.floor(mins
 
 const scaled=(b,f,l)=>Math.round(b*Math.pow(f,l));
 // Helden-Upgrades sind pro Zeitalter gedeckelt (mid:6042) — kein 7×-Sofort-Maxen, Power ans Zeitalter gekoppelt
-function heroMaxLvl(s){ return 3 + s.era*2; }  // era0:3, era1:5, era2:7, era3:9, era4:11
+function heroMaxLvl(s){ return 2*(s.era+1); }  // 2 Upgrades pro Stufe (mid:6381): Stufe1=2, Stufe2=4 … Stufe7=14 (war 3+era*2)
 // ---- Two upgrade trees ----  (UP_HELD-Einträge tragen lvl:=aktuelles Level für den Era-Cap)
 // Kosten eskalieren mit dem Zeitalter (mid:6051/6052): jede Stufe nimmt eine höhere Ressource dazu, statt alles in Holz zu zahlen.
 const UP_HELD=[
@@ -992,12 +1005,12 @@ const game={
       label(T.name,o.x,o.y-88*VS); }
     // Türme/Bauplätze im äußeren Ring (mid:6357): gebauter Turm = Standarte am Posten; freier Slot = "+" wenn Waffenkammer steht
     if(s.towerSlots) for(let si=0;si<s.towerSlots.length;si++){ const ts=s.towerSlots[si]; if(!vis(ts.x,ts.y))continue; const tw=towerAt(s,si);
-      if(tw){ const col=tw.type==='kaempfer'?'#c0392b':'#7a4fd0';
+      if(tw){ const col={kaempfer:'#c0392b',bogen:'#7a4fd0',lance:'#3a78d0',monk:'#3aa84a'}[tw.type]||'#888';
         ctx.fillStyle='rgba(0,0,0,.18)'; ctx.beginPath(); ctx.ellipse(ts.x,ts.y,14*VS,7*VS,0,0,7); ctx.fill();
         ctx.strokeStyle='rgba(70,52,36,.85)'; ctx.lineWidth=4*VS; ctx.beginPath(); ctx.moveTo(ts.x,ts.y); ctx.lineTo(ts.x,ts.y-32*VS); ctx.stroke();
         ctx.fillStyle=col; ctx.beginPath(); ctx.moveTo(ts.x,ts.y-32*VS); ctx.lineTo(ts.x+18*VS,ts.y-27*VS); ctx.lineTo(ts.x,ts.y-20*VS); ctx.closePath(); ctx.fill();
         label(TOWER_TYPES[tw.type].name.split('-')[0],ts.x,ts.y-40*VS);
-      } else if(hasArmory(s)){
+      } else if(towersUnlocked(s)){
         ctx.save(); ctx.setLineDash([6*VS,5*VS]); ctx.lineWidth=2.5*VS; ctx.strokeStyle='rgba(60,45,25,.55)'; ctx.fillStyle='rgba(255,240,200,.18)';
         ctx.beginPath(); ctx.ellipse(ts.x,ts.y,17*VS,11*VS,0,0,7); ctx.fill(); ctx.stroke(); ctx.setLineDash([]);
         ctx.fillStyle='rgba(80,60,30,.5)'; ctx.font='bold '+Math.round(15*VS)+'px sans-serif'; ctx.textAlign='center'; ctx.fillText('+',ts.x,ts.y+5*VS); ctx.textAlign='left'; ctx.restore(); } }
@@ -1090,8 +1103,7 @@ const game={
       this.mkBtn(shop,'opmenge','',()=>this.upgOutpost('menge'));
     } else if(typeof this.panelFor==='string' && this.panelFor.slice(0,2)==='tb'){   // ----- TURM-BAU-MENÜ (mid:6357) -----
       tabsEl.style.display='none'; ph.textContent='Turm bauen';
-      this.mkBtn(shop,'tb_kaempfer','',()=>this.buildTower('kaempfer'));
-      this.mkBtn(shop,'tb_bogen','',()=>this.buildTower('bogen'));
+      for(const tt of TOWER_ORDER) this.mkBtn(shop,'tb_'+tt,'',()=>this.buildTower(tt));
     } else if(typeof this.panelFor==='string' && this.panelFor.slice(0,2)==='tw'){   // ----- TURM-PANEL -----
       const tw=towerAt(this.s,+this.panelFor.slice(2)); if(!tw){ this.panelFor='castle'; return this.buildShop(); }
       tabsEl.style.display='none'; ph.textContent=TOWER_TYPES[tw.type].name;
@@ -1126,15 +1138,17 @@ const game={
       set('opmenge',T.res,`Cap Lvl ${o.mengeLvl||0}/${mxL}`, mMax?'Max für diese Stufe — erst aufsteigen':`mehr Lager (jetzt ${outpostCap(o)} ${NAME[T.res]})`, mMax?'':'⤷ '+costStr(cm), mMax||!canAfford(s,cm));
       return;
     }
-    if(typeof this.panelFor==='string' && this.panelFor.slice(0,2)==='tb'){   // TURM-BAU-MENÜ refresh
-      const ck=TOWER_TYPES.kaempfer.cost, cb=TOWER_TYPES.bogen.cost;
-      set('tb_kaempfer','stein','Kämpfer-Turm','Nahkämpfer bewacht den Posten','⤷ '+costStr(ck),!canAfford(s,ck));
-      set('tb_bogen','kristall','Bogenschütze-Turm','Fernkämpfer, schiesst Pfeile','⤷ '+costStr(cb),!canAfford(s,cb));
+    if(typeof this.panelFor==='string' && this.panelFor.slice(0,2)==='tb'){   // TURM-BAU-MENÜ refresh (4 Typen, stufen-gated)
+      const ICON={kaempfer:'stein',bogen:'kristall',lance:'holz',monk:'korn'};
+      for(const tt of TOWER_ORDER){ const T=TOWER_TYPES[tt], locked=s.era<T.era, c=T.cost;
+        const role=T.role==='heal'?'Heiler/Support':T.role==='ranged'?'Fernkampf':(tt==='lance'?'Reichweiten-Nahkampf':'Nahkampf');
+        set('tb_'+tt, ICON[tt]||'stein', T.name, locked?('Ab Stufe '+(T.era+1)):role, locked?'':'⤷ '+costStr(c), locked||!canAfford(s,c)); }
       return;
     }
     if(typeof this.panelFor==='string' && this.panelFor.slice(0,2)==='tw'){   // TURM-PANEL refresh
       const tw=towerAt(s,+this.panelFor.slice(2)); if(!tw) return; const c=towerUpCost(tw), mx=(tw.lvl||0)>=buildMaxLvl(s);
-      set('tw_up','era1',`Einheit aufrüsten (Lvl ${tw.lvl||0}/${buildMaxLvl(s)})`, mx?'Max für diese Stufe — erst aufsteigen':`+HP & +Schaden (HP ${towerHp(tw)}, Schaden ${towerAtk(tw).toFixed(0)})`, mx?'':'⤷ '+costStr(c), mx||!canAfford(s,c));
+      const pw=TOWER_TYPES[tw.type].role==='heal'?'Heilung':'Schaden';
+      set('tw_up','era1',`Einheit aufrüsten (Lvl ${tw.lvl||0}/${buildMaxLvl(s)})`, mx?'Max für diese Stufe — erst aufsteigen':`+HP & +${pw} (HP ${towerHp(tw)}, ${pw} ${towerAtk(tw).toFixed(0)})`, mx?'':'⤷ '+costStr(c), mx||!canAfford(s,c));
       set('tw_mode','worker', tw.mode==='folgen'?'Modus: Folgen':'Modus: Wache', tw.mode==='folgen'?'Einheit folgt dir in den Kampf':'Einheit bewacht ihren Turm (Aggro)','',false);
       return;
     }
@@ -1155,7 +1169,8 @@ const game={
     const lk=kind==='tempo'?'tempoLvl':'mengeLvl'; if((o[lk]||0)>=buildMaxLvl(s)){ say('Max für diese Stufe erreicht — erst aufsteigen.'); return; }
     const c=outpostUpCost(o,kind,s); if(!canAfford(s,c)){ say('Dafür fehlen noch Ressourcen.'); return; } pay(s,c); o[lk]=(o[lk]||0)+1; SFX.buy(); this.updateShop(); saveGame(s); },
   buildTower(type){ const s=this.s; if(typeof this.panelFor!=='string'||this.panelFor.slice(0,2)!=='tb')return; const seg=+this.panelFor.slice(2);
-    if(towerAt(s,seg))return; const c=TOWER_TYPES[type].cost; if(!canAfford(s,c)){ say('Dafür fehlen noch Ressourcen.'); return; }
+    if(towerAt(s,seg))return; if(s.era<TOWER_TYPES[type].era){ say(TOWER_TYPES[type].name+' erst ab Stufe '+(TOWER_TYPES[type].era+1)); return; }
+    const c=TOWER_TYPES[type].cost; if(!canAfford(s,c)){ say('Dafür fehlen noch Ressourcen.'); return; }
     pay(s,c); if(!s.towers)s.towers=[]; const t={seg,type,lvl:0,mode:'wache',downT:0}; spawnTroop(s,t); s.towers.push(t);
     SFX.build(); say(TOWER_TYPES[type].name+' gebaut! Antippen für Aufrüsten/Modus.'); this.openPanelFor('tw'+seg); saveGame(s); },
   upgTower(){ const s=this.s, tw=towerAt(s,+this.panelFor.slice(2)); if(!tw)return; if((tw.lvl||0)>=buildMaxLvl(s)){ say('Max für diese Stufe erreicht — erst aufsteigen.'); return; }
@@ -1231,7 +1246,7 @@ function endPointer(){ if(!pDown) return;
     if(s.outposts) for(let i=0;i<s.outposts.length;i++){ const o=s.outposts[i], d=dist(p.x,p.y,o.x,o.y-31); if(d<opD){ opD=d; opIdx=i; } }   // -31 = Gebäude-Mitte (Sprite ist fußverankert)
     // Turm-Slot angetippt? (im äußeren Ring) → Turm-Panel (gebaut) / Bau-Menü (frei, wenn Waffenkammer steht) (mid:6357)
     let tsIdx=-1, tsD=58;
-    if(s.towerSlots) for(let i=0;i<s.towerSlots.length;i++){ const ts=s.towerSlots[i], d=dist(p.x,p.y,ts.x,ts.y-12); if(d<tsD && (towerAt(s,i)||hasArmory(s))){ tsD=d; tsIdx=i; } }
+    if(s.towerSlots) for(let i=0;i<s.towerSlots.length;i++){ const ts=s.towerSlots[i], d=dist(p.x,p.y,ts.x,ts.y-12); if(d<tsD && (towerAt(s,i)||towersUnlocked(s))){ tsD=d; tsIdx=i; } }
     const tappedBase=dist(p.x,p.y,BASE.x,BASE.y)<BASE_SOLID+85;
     if(opIdx>=0){ game.openPanelFor('op'+opIdx); }
     else if(tsIdx>=0){ game.openPanelFor((towerAt(s,tsIdx)?'tw':'tb')+tsIdx); }
