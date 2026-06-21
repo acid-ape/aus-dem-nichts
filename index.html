@@ -144,7 +144,7 @@
     <div class="grab"></div>
     <button id="closeShop" title="Schliessen"></button>
     <div class="ph">Aufbau &amp; Upgrades</div>
-    <div id="tabs"><button data-tab="held" class="on"></button><button data-tab="dorf"></button></div>
+    <div id="tabs"><button data-tab="held" class="on"></button><button data-tab="dorf"></button><button data-tab="kampf"></button></div>
     <div id="shop"></div>
     <button id="cheatBtn" title="Test-Cheat">+50 auf alle Ressourcen (Test)</button>
   </div>
@@ -219,23 +219,32 @@ function updateFreeWalkers(s,dt){
 const ENEMY_R=14, HERO_RANGE=72, HERO_ATK_CD=0.55, ENEMY_ATK_CD=1.0;
 // Zwei Gegner-Tiers: Grunt = leicht (klein), Brute = schwer (groß, stark) — fürs Era-gating
 const ETYPES={
-  grunt:{name:'Grunt', unit:'pawn_black',    hp:20, hpEra:7,  atk:5,  speed:58, size:74, atkRange:38, aggro:230, leash:560, bounty:2},
-  brute:{name:'Brute', unit:'warrior_black', hp:60, hpEra:20, atk:13, speed:42, size:104, atkRange:54, aggro:280, leash:660, bounty:7},
+  grunt:{name:'Grunt', unit:'pawn_black',    hp:20, hpEra:7,  atk:5,  speed:58, size:74, atkRange:38, aggro:290, leash:620, bounty:2},
+  brute:{name:'Brute', unit:'warrior_black', hp:60, hpEra:20, atk:13, speed:42, size:104, atkRange:54, aggro:380, leash:760, bounty:7},
 };
 // Gegner spawnt an ZUFÄLLIGER, gültiger Position (nicht Wasser/Fels/Dorf), bleibt dort stationär bis Aggro.
 function spawnEnemy(s,kind){ const T=ETYPES[kind], R=areaRadius(s);
   for(let t=0;t<40;t++){ const a=rnd(0,6.2832), d=rnd(VILLAGE_R+90, R-40), x=BASE.x+Math.cos(a)*d, y=BASE.y+Math.sin(a)*d;
     if(blocked(s,x,y,18)) continue;
+    if(s.enemies.some(e=>dist(x,y,e.x,e.y)<200)) continue;   // Gegner nicht zu nah beieinander spawnen ()
     const hp=T.hp+T.hpEra*s.era;
     s.enemies.push({kind,x,y,home:{x,y},hp,max:hp,face:-1,animT:rnd(0,2),atkT:rnd(0,1),hurtT:0,state:'idle',moving:false,life:rnd(32,48)}); return true; }
   return false; }
 function updateCombat(s,dt){ const P=s.player; P.attacking=false;
-  if(P.hurtT>0)P.hurtT-=dt; P.atkT=(P.atkT||0)-dt;
+  if(P.hurtT>0)P.hurtT-=dt; P.atkT=(P.atkT||0)-dt; if(P.invT>0)P.invT-=dt;
+  // Heilung NUR im Dorf (, Kombi A+B): außerhalb keine Regeneration; im Dorf Heil-Funke
+  if(dist(P.x,P.y,BASE.x,BASE.y)<VILLAGE_R && P.hp<P.hpmax){ P.hp=Math.min(P.hpmax,P.hp+14*dt);
+    P.healT=(P.healT||0)-dt; if(P.healT<=0){ P.healT=0.55; addFx(s,'heal',P.x,P.y-18,44); } }
+  // eingesammelte Drop-Säcke (vom Tod) wieder aufnehmen
+  for(const d of s.drops){ if(dist(P.x,P.y,d.x,d.y)<HARVEST_R+8){ let tot=0; ALL.forEach(k=>{ s.store[k]=(s.store[k]||0)+(d.carry[k]||0); tot+=d.carry[k]||0; });
+    addPop(s,d.x,d.y-20,'#fff','+'+Math.floor(tot)); burst(s,d.x,d.y-8,'#ffe9a8',8); SFX.deposit(); d.got=true; } }
+  s.drops=s.drops.filter(d=>!d.got);
   // Bestände skalieren mit der MAP-Größe (areas): Grunts ab Start (auch era0), Brutes erst ab Dorf-Era ()
   { s.spawnT+=dt;
-    const wantG=1+(s.areas||1), wantB=s.era>=1?(s.areas||1):0;
+    const wantG=3+(s.areas||1)*2, wantB=s.era>=1?(1+Math.floor((s.areas||1)/2)):0;   // deutlich mehr Gegner, gestreut ()
     const ng=s.enemies.filter(e=>e.kind==='grunt').length, nb=s.enemies.filter(e=>e.kind==='brute').length;
-    if(s.spawnT>3.5){ s.spawnT=0; if(nb<wantB) spawnEnemy(s,'brute'); else if(ng<wantG) spawnEnemy(s,'grunt'); } }
+    const every=s.enemies.length < (wantG+wantB)*0.5 ? 1.1 : 2.4;                      // anfangs schnell füllen, dann nachhalten
+    if(s.spawnT>every){ s.spawnT=0; if(nb<wantB) spawnEnemy(s,'brute'); else if(ng<wantG) spawnEnemy(s,'grunt'); } }
   for(const e of s.enemies){ const T=ETYPES[e.kind]; e.animT+=dt; if(e.hurtT>0)e.hurtT-=dt; e.life-=dt;
     const dP=dist(e.x,e.y,P.x,P.y);
     if(e.state==='idle'){ e.moving=false; if(dP<T.aggro) e.state='chase';                         // stationär bis Aggro
@@ -244,7 +253,7 @@ function updateCombat(s,dt){ const P=s.player; P.attacking=false;
       if(dP>T.leash) e.state='return';
       else if(dP>T.atkRange){ const dx=P.x-e.x; if(Math.abs(dx)>2)e.face=dx<0?-1:1; e.moving=true;
         moveToward(e,P.x,P.y, onSand(s,e.x,e.y)?T.speed*0.55:T.speed, dt); collide(s,e,ENEMY_R); }   // Terrain gilt für Gegner ()
-      else { e.moving=false; e.atkT-=dt; if(e.atkT<=0){ e.atkT=ENEMY_ATK_CD;
+      else { e.moving=false; e.atkT-=dt; if(e.atkT<=0 && P.invT<=0){ e.atkT=ENEMY_ATK_CD;   // kein Schaden während Respawn-Unverwundbarkeit
         const dmg=Math.max(1,Math.round(T.atk-(s.def||0))); P.hp-=dmg; P.hurtT=0.25; addPop(s,P.x,P.y-62,'#ff6a6a','-'+dmg); } } }
     else { const dx=e.home.x-e.x; if(Math.abs(dx)>2)e.face=dx<0?-1:1; e.moving=true;                // zurück zum Spawn-Punkt
       moveToward(e,e.home.x,e.home.y, onSand(s,e.x,e.y)?T.speed*0.55:T.speed, dt); collide(s,e,ENEMY_R);
@@ -256,11 +265,18 @@ function updateCombat(s,dt){ const P=s.player; P.attacking=false;
       addPop(s,near.x,near.y-42,'#ffe08a','-'+dmg); burst(s,near.x,near.y-10,'#ffd86b',5); SFX.harvest(); } }
   // Tod: besiegt → Effekt + Gold-Beute; abgelaufen (poof) → leise verschwinden
   for(const e of s.enemies){ if(e.hp<=0 && !e.dead){ e.dead=true; const T=ETYPES[e.kind]; burst(s,e.x,e.y-10,'#c0392b',16);
-      const bounty=T.bounty+Math.floor(s.era/2); s.store.gold=(s.store.gold||0)+bounty; addPop(s,e.x,e.y-34,'#e8c34a','+'+bounty+' Gold'); SFX.deposit(); }  // moderat + je Gegner-Typ ()
+      // Beute: zufällige Ressource ~1-3 Stufen unter dem aktuellen Zeitalter, Menge je Gegner-Typ ()
+      const lo=Math.max(0,s.era-3), hi=Math.max(0,s.era-1), cands=RES.filter(r=>r.unlock>=lo&&r.unlock<=hi);
+      const rk=cands.length?cands[Math.floor(rnd(0,cands.length))].key:'holz', amt=T.bounty+Math.floor(rnd(0,2));
+      s.store[rk]=(s.store[rk]||0)+amt; addPop(s,e.x,e.y-34,COL[rk]||'#fff','+'+amt+' '+NAME[rk]); SFX.deposit(); }
     else if(e.poof){ burst(s,e.x,e.y-10,'rgba(150,150,170,.8)',8); } }
   s.enemies=s.enemies.filter(e=>!e.dead);
-  if(P.hp<=0){ P.hp=P.hpmax; P.x=P.tx=BASE.x; P.y=P.ty=BASE.y+BASE_SOLID+30; s.enemies=[]; s.spawnT=-2;
-    burst(s,BASE.x,BASE.y-20,'#ff5a5a',24); say('Niedergeschlagen! Zurück an der Basis — sammel dich neu.'); } }
+  if(P.hp<=0 && P.invT<=0){                                    // Tod (Option A): Sack fällt, Respawn an Basis, kurz unverwundbar
+    addFx(s,'dust',P.x,P.y-4,84);
+    if(carryTotal(P.carry)>0.4){ const c={}; ALL.forEach(k=>{ c[k]=P.carry[k]; P.carry[k]=0; }); s.drops.push({x:P.x,y:P.y,carry:c}); }
+    P.hp=P.hpmax; P.x=P.tx=BASE.x; P.y=P.ty=BASE.y+BASE_SOLID+30; P.invT=2.5;
+    for(const e of s.enemies) e.state='return';               // Gegner ziehen sich zurück (Atempause statt Wave-Wipe)
+    burst(s,BASE.x,BASE.y-20,'#ff5a5a',16); say('Niedergeschlagen! Dein getragener Sack ist gefallen — hol ihn dir zurück.'); } }
 
 const VILLAGE_R=280;  // kleiner Dorf-KERN (passt mit Start-Zoom ganz aufs Bild = spätere Turm-Grenze)
 // Ressourcen/Wasser liegen DRAUSSEN im Land; der erschlossene Land-Radius wächst mit s.areas
@@ -276,6 +292,7 @@ const ICO={
   reset:'<path d="M4 12a8 8 0 1 0 2.5-5.8"/><polyline points="3.5 3 4 8 9 7.5"/>',
   person:'<circle cx="12" cy="8" r="3.3"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/>',
   house:'<path d="M4 11.5l8-6 8 6"/><path d="M6 10.5V19h12v-8.5"/>',
+  sword:'<path d="M14.5 4H20v5.5l-8 8-2.75-2.75z"/><path d="M4 20l3-1 1-3"/><path d="M8 16l-2.5 2.5"/>',
   close:'<line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/>',
   soundOn:'<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 8.5a4 4 0 0 1 0 7"/>',
   soundOff:'<path d="M4 9v6h4l5 4V5L8 9z"/><line x1="16" y1="9.5" x2="21" y2="14.5"/><line x1="21" y1="9.5" x2="16" y2="14.5"/>',
@@ -294,6 +311,14 @@ const A={};  // alle fertigen Sprites
 const U={}, UFRAME=192;
 ['warrior_red','warrior_black','pawn_blue','pawn_black','archer_purple'].forEach(p=>{
   ['idle','run','atk'].forEach(a=>{ const k=p+'_'+a, i=new Image(); i.src='ts/u/'+k+'.png'; U[k]=i; }); });
+// One-shot-Effekte (Tiny Swords Particle FX): quadratische Frame-Strips (dust=Todes-Puff, heal=Heil-Funke)
+const FX={}; ['dust','heal'].forEach(k=>{ const i=new Image(); i.src='ts/u/fx_'+k+'.png'; FX[k]=i; });
+const FXFPS={dust:18, heal:15};
+function addFx(s,kind,x,y,size){ if(!s.fx)s.fx=[]; const im=FX[kind], fr=im.naturalHeight?Math.max(1,Math.round(im.naturalWidth/im.naturalHeight)):8;
+  s.fx.push({kind,x,y,size:size||60,age:0,max:fr/(FXFPS[kind]||16)}); }
+function drawFx(s){ for(const e of s.fx){ const im=FX[e.kind]; if(!im.complete||!im.naturalWidth)continue;
+  const fh=im.naturalHeight, fr=Math.max(1,Math.round(im.naturalWidth/fh)), col=Math.min(fr-1,Math.floor(e.age/e.max*fr)), sc=e.size/fh;
+  ctx.drawImage(im, col*fh,0,fh,fh, e.x-fh*sc/2, e.y-fh*sc/2, fh*sc, fh*sc); } }
 // Charakter ~ Mitte-x 98 / Füße-y 137 / Höhe ~88 im 192-Frame (Pawn kleiner → erscheint natürlich kleiner)
 function drawUnit(unit,anim,t,x,y,dispH,flip){ const im=U[unit+'_'+anim]||U[unit+'_idle']; if(!im||!im.complete||!im.naturalWidth) return;
   const frames=Math.max(1,Math.round(im.naturalWidth/UFRAME)), col=Math.floor(t*8)%frames, sc=dispH/90, fw=UFRAME*sc;
@@ -481,8 +506,8 @@ function buildLevel(s){
 }
 
 function freshState(){ const store={},carry={}; ALL.forEach(k=>{store[k]=0;carry[k]=0;});
-  const s={ store, char:'krieger', charChosen:false, atk:1, def:0, enemies:[], spawnT:0,
-    player:{x:BASE.x,y:BASE.y+BASE_SOLID+30,tx:BASE.x,ty:BASE.y+BASE_SOLID+30,carry,face:1,hp:100,hpmax:100,atkT:0,hurtT:0},
+  const s={ store, char:'krieger', charChosen:false, atk:1, def:0, atkLvl:0, defLvl:0, hpLvl:0, enemies:[], spawnT:0, drops:[], fx:[],
+    player:{x:BASE.x,y:BASE.y+BASE_SOLID+30,tx:BASE.x,ty:BASE.y+BASE_SOLID+30,carry,face:1,hp:100,hpmax:100,atkT:0,hurtT:0,invT:0,healT:0},
     cap:10, speed:190, gather:BAL.heroGatherBase, capLvl:0,speedLvl:0,gatherLvl:0,steamLvl:0, wboost:1,
     workerPool:0, builds:[], freeWalkers:[], autoAcc:0, areas:1, areaLvl:0,
     era:0, nodes:[], pops:[], particles:[], loot:[], respawns:[], cam:{x:BASE.x,y:BASE.y}, paused:false, firstDeposit:false,
@@ -521,6 +546,7 @@ function serialize(s){ return { // nur Fortschritt (Welt/Knoten/Deko werden neu 
   store:s.store, cap:s.cap, speed:s.speed, gather:s.gather, wboost:s.wboost,
   capLvl:s.capLvl, speedLvl:s.speedLvl, gatherLvl:s.gatherLvl, steamLvl:s.steamLvl,
   workerPool:s.workerPool, builds:s.builds, char:s.char, charChosen:s.charChosen, atk:s.atk, def:s.def, hpmax:s.player.hpmax,
+  atkLvl:s.atkLvl, defLvl:s.defLvl, hpLvl:s.hpLvl,
   areas:s.areas, areaLvl:s.areaLvl, era:s.era, firstDeposit:s.firstDeposit,
   phase:s.phase, day:s.day, baseHP:s.baseHP, towers:s.towers, questIdx:s.questIdx,
   achieved:s.achieved, lifetime:s.lifetime, playSec:s.playSec }; }
@@ -536,6 +562,7 @@ function stateFromSave(d){ const s=freshState();  // frische Welt, dann Fortschr
   if(typeof d.charChosen==='boolean') s.charChosen=d.charChosen;
   if(typeof d.atk==='number') s.atk=d.atk;
   if(typeof d.def==='number') s.def=d.def;
+  ['atkLvl','defLvl','hpLvl'].forEach(k=>{ if(typeof d[k]==='number') s[k]=d[k]; });
   if(typeof d.hpmax==='number'){ s.player.hpmax=d.hpmax; s.player.hp=d.hpmax; }
   if(Array.isArray(d.achieved)) s.achieved=d.achieved.slice();
   if(typeof d.lifetime==='number') s.lifetime=d.lifetime;
@@ -594,7 +621,16 @@ function buildUpCost(b,kind,s){ const T=BUILD_TYPES[b.type], lvl=b[kind], era=s?
 // Caps pro Zeitalter (): kein Sofort-Maxen — Tempo/Menge + Arbeiter sind ans Zeitalter gekoppelt
 function buildMaxLvl(s){ return s.era+1; }                  // max Tempo-/Menge-Level je Hütte
 function buildMaxWorkers(s){ return Math.min(4, s.era+1); } // max zugewiesene Arbeiter je Hütte
-const ALLUP=[...UP_HELD,...UP_DORF];
+// Kampf-Upgrades (): Held skaliert auf der Kampf-Seite mit, parallel zu den era-skalierenden Gegnern. Pro Zeitalter gedeckelt.
+const UP_KAMPF=[
+  {id:'angriff', icon:'stein', name:()=>'Angriff schärfen', desc:s=>`Mehr Schaden gegen Gegner (Angriff ×${(s.atk||1).toFixed(2)})`, lvl:s=>s.atkLvl||0,
+   cost:s=>{ const l=s.atkLvl||0,c={gold:scaled(14,1.5,l)}; if(s.era>=1)c.stein=scaled(22,1.45,l); return c; }, apply:s=>{ s.atk=(s.atk||1)*1.18; s.atkLvl=(s.atkLvl||0)+1; }},
+  {id:'ruestung', icon:'era1', name:()=>'Rüstung verstärken', desc:s=>`Weniger Schaden pro Treffer (Rüstung ${s.def||0})`, lvl:s=>s.defLvl||0,
+   cost:s=>{ const l=s.defLvl||0,c={stein:scaled(20,1.5,l)}; if(s.era>=2)c.gold=scaled(16,1.45,l); return c; }, apply:s=>{ s.def=(s.def||0)+2; s.defLvl=(s.defLvl||0)+1; }},
+  {id:'vita', icon:'korn', name:()=>'Lebenskraft', desc:s=>`Max-HP +25 (jetzt ${s.player.hpmax})`, lvl:s=>s.hpLvl||0,
+   cost:s=>{ const l=s.hpLvl||0,c={korn:scaled(16,1.5,l)}; if(s.era>=2)c.beeren=scaled(10,1.45,l); return c; }, apply:s=>{ s.player.hpmax+=25; s.player.hp+=25; s.hpLvl=(s.hpLvl||0)+1; }},
+];
+const ALLUP=[...UP_HELD,...UP_DORF,...UP_KAMPF];
 const eraCost=e=>[null,{holz:55,korn:38},{holz:120,stein:85,pilze:28},{holz:180,stein:150,gold:38},{holz:240,beeren:55,gold:55}][e];
 const canAfford=(s,c)=>c&&Object.keys(c).every(k=>(s.store[k]||0)>=c[k]);
 const pay=(s,c)=>Object.keys(c).forEach(k=>{s.store[k]-=c[k];});
@@ -670,8 +706,9 @@ const game={
     document.getElementById('closeShop').innerHTML=svg('close');
     document.getElementById('closeShop').onclick=closeShop;
     document.querySelector('#panel .grab').onclick=closeShop;
-    for(const b of document.querySelectorAll('#tabs button')){ b.onclick=()=>this.setTab(b.dataset.tab);
-      b.innerHTML=svg(b.dataset.tab==='held'?'person':'house')+(b.dataset.tab==='held'?'Held':'Dorf'); }
+    const TABS={held:['person','Held'], dorf:['house','Dorf'], kampf:['sword','Kampf']};
+    for(const b of document.querySelectorAll('#tabs button')){ const td=TABS[b.dataset.tab]||['person','?'];
+      b.onclick=()=>this.setTab(b.dataset.tab); b.innerHTML=svg(td[0])+td[1]; }
     // Cheat-Button nur im Dev-Modus (URL ?dev=1) — normale Spieler sehen ihn nicht; Entwickler nutzt die Dev-URL.
     const DEV=new URLSearchParams(location.search).has('dev');
     const cb=document.getElementById('cheatBtn');
@@ -757,6 +794,7 @@ const game={
     s.particles=s.particles.filter(q=>q.age<q.max);
     // Loot-Pops (Ressourcen-Icons fliegen beim Sammeln hoch)
     for(const L of s.loot){ L.age+=dt; L.x+=L.vx*dt; L.y+=L.vy*dt; L.vy+=70*dt; } s.loot=s.loot.filter(L=>L.age<L.max);
+    for(const e of s.fx) e.age+=dt; s.fx=s.fx.filter(e=>e.age<e.max);  // one-shot-Effekte (Dust/Heal)
     if(this.flash>0) this.flash=Math.max(0,this.flash-dt*1.6);  // Era-Aufstieg-Blitz klingt ab
     // Panel schliesst sich, sobald der Held das Dorf verlässt (Burg + Hütten liegen im Kern)
     const panel=document.getElementById('panel');
@@ -799,6 +837,11 @@ const game={
       ctx.fillStyle='rgba(255,238,150,.20)'; ctx.beginPath(); ctx.ellipse(n.x,n.y+2,25,12,0,0,7); ctx.fill();
       ctx.strokeStyle='rgba(255,238,150,.6)'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.ellipse(n.x,n.y+2,25,12,0,0,7); ctx.stroke();
       shadow(n.x,n.y,16,6); worldSprite(n.type, n.x, n.y+6, 58*sc, true); amountBar(n); }  // etwas größer ()
+    // gefallene Säcke (vom Tod) — leuchtender Beutel, einsammelbar
+    for(const d of s.drops){ if(!vis(d.x,d.y))continue; const tk=ALL.find(k=>d.carry[k]>0.4)||'holz';
+      ctx.fillStyle='rgba(255,238,150,.3)'; ctx.beginPath(); ctx.ellipse(d.x,d.y,20,9,0,0,7); ctx.fill();
+      ctx.strokeStyle='rgba(255,222,128,.85)'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.ellipse(d.x,d.y,20,9,0,0,7); ctx.stroke();
+      shadow(d.x,d.y,12,4); worldSprite(tk,d.x,d.y-2,30,true); }
     // freie Arbeiter (laufender Schwarm, farmen selbstständig) + ggf. das was sie gerade tragen
     for(const w of s.freeWalkers){ if(!vis(w.x,w.y))continue; shadow(w.x,w.y,11,4); worldSprite('worker',w.x,w.y+2,32,true);
       if(w.carry>0.4&&w.type) worldSprite(w.type,w.x+12,w.y-26,18,true); }
@@ -808,6 +851,7 @@ const game={
     for(const L of s.loot){ if(!vis(L.x,L.y))continue; const f=L.age/L.max; ctx.globalAlpha=Math.max(0,1-f*f);
       worldSprite(L.type, L.x, L.y, L.sz*(1+f*0.35), false); } ctx.globalAlpha=1;
     for(const p of s.pops) pop(p);
+    drawFx(s);  // Dust-/Heal-Effekte
     if(dist(s.player.x,s.player.y,s.player.tx,s.player.ty)>5){ ctx.strokeStyle='rgba(255,79,216,.75)';ctx.lineWidth=3; ctx.beginPath();ctx.arc(s.player.tx,s.player.ty,12,0,7);ctx.stroke(); }
     // Gegner: Grunt (kleiner Pawn) / Brute (großer Warrior), dunkle „Black"-Faktion; gelber Ring = schläft, roter Ring = aggro
     for(const e of s.enemies){ if(!vis(e.x,e.y))continue; const T=ETYPES[e.kind];
@@ -818,10 +862,12 @@ const game={
       drawUnit(T.unit, anim, e.animT, e.x, e.y+4, T.size, e.face>0);   // Gegner schauen per Default nach links → face>0 spiegelt
       const w=Math.max(28,T.size*0.4),f=Math.max(0,e.hp/e.max); ctx.fillStyle='rgba(0,0,0,.55)'; rr(e.x-w/2,e.y-T.size*0.62,w,5,2.5); ctx.fill();
       ctx.fillStyle='#e0432f'; rr(e.x-w/2,e.y-T.size*0.62,w*f,5,2.5); ctx.fill(); }
-    // Held (animiert): Angriff > Laufen > Idle
+    // Held (animiert): Angriff > Laufen > Idle; blinkt während Respawn-Unverwundbarkeit
     shadow(s.player.x,s.player.y,24,9);
     { const anim = s.player.attacking?'atk' : (s.player.moving?'run':'idle');
-      drawUnit(CHARS[s.char].unit, anim, this.animT, s.player.x, s.player.y+6, 88, s.player.face<0); }
+      if(s.player.invT>0) ctx.globalAlpha = 0.4+0.3*Math.sin(this.animT*18);
+      drawUnit(CHARS[s.char].unit, anim, this.animT, s.player.x, s.player.y+6, 88, s.player.face<0);
+      ctx.globalAlpha=1; }
     // Held-HP-Balken (im Kampf oder wenn verletzt)
     if(s.player.hp<s.player.hpmax || s.enemies.length){ const w=46,f=Math.max(0,s.player.hp/s.player.hpmax);
       ctx.fillStyle='rgba(0,0,0,.6)'; rr(s.player.x-w/2,s.player.y-66,w,6,3); ctx.fill();
@@ -859,7 +905,7 @@ const game={
       this.mkBtn(shop,'assignRem','',()=>this.assign(-1));
     } else {                                        // ----- BURG-Panel (Held/Dorf) -----
       tabsEl.style.display='flex'; ph.textContent='Burg — Aufbau & Upgrades';
-      const list=this.tab==='held'?UP_HELD:UP_DORF;
+      const list=this.tab==='held'?UP_HELD:this.tab==='kampf'?UP_KAMPF:UP_DORF;
       for(const up of list) this.mkBtn(shop,up.id,'',()=>this.buy(up.id));
       if(this.tab==='dorf') this.mkBtn(shop,'era','era',()=>this.buyEra());
     }
@@ -878,7 +924,7 @@ const game={
       set('assignRem','worker','Arbeiter abziehen','zurück in den Pool der Burg','',b.workers<=0);
       return;
     }
-    const list=this.tab==='held'?UP_HELD:UP_DORF;
+    const list=this.tab==='held'?UP_HELD:this.tab==='kampf'?UP_KAMPF:UP_DORF;
     for(const up of list){ const el=this.btns[up.id]; if(!el)continue;
       if(up.show&&!up.show(s)){ el.style.display='none'; continue; }
       if(up.lvl){ const atMax=up.lvl(s)>=heroMaxLvl(s); const c=up.cost(s);
