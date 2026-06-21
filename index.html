@@ -121,6 +121,41 @@
   #tutBtn{padding:9px 20px;border-radius:12px;cursor:pointer;font-weight:800;font-size:14px;
     color:#fff;background:linear-gradient(180deg,#7a3df0,#5a23c0);border:1px solid #a05bff}
   #tutBtn:active{transform:scale(.98)}
+  #tutStepCard{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom) + 78px);transform:translateX(-50%);
+    width:min(420px,92vw);pointer-events:none;display:none;z-index:18;
+    background:linear-gradient(180deg,rgba(24,16,44,.96),rgba(14,10,26,.97));border:1px solid rgba(160,91,255,.5);
+    border-radius:16px;padding:11px 15px;box-shadow:0 8px 28px rgba(0,0,0,.5)}
+  #tutStepCard.show{display:block}
+  #tsTitle{font-weight:800;font-size:14.5px;color:#fff;margin-bottom:3px}
+  #tsBody{font-size:13px;color:#d8cdf6;line-height:1.4}
+  #tsHint{margin-top:6px;font-size:11.5px;color:#9fe0ff;font-weight:700}
+  #introOverlay,#nameOverlay{position:absolute;inset:0;background:rgba(6,4,14,.9);backdrop-filter:blur(6px);
+    display:none;align-items:center;justify-content:center;pointer-events:auto;z-index:31;padding:18px}
+  #introOverlay.open,#nameOverlay.open{display:flex}
+  #introCard,#nameCard{width:100%;max-width:460px;text-align:center;
+    background:linear-gradient(180deg,rgba(20,14,40,.98),rgba(12,9,22,.99));border:1px solid rgba(160,91,255,.4);
+    border-radius:20px;box-shadow:0 12px 40px rgba(0,0,0,.55);padding:22px 20px}
+  #introTitle{font-weight:900;font-size:27px;margin-bottom:14px;letter-spacing:.5px;line-height:1.1;
+    font-family:Georgia,'Times New Roman',serif;
+    background:linear-gradient(180deg,#fff2c8,#f4c45a 50%,#c8861f);-webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 2px 6px rgba(190,130,25,.35))}
+  #introPortrait{width:120px;height:120px;image-rendering:pixelated;object-fit:contain;margin:0 auto 10px;display:block;
+    background:rgba(0,0,0,.28);border-radius:16px;box-shadow:inset 0 0 0 1px rgba(160,91,255,.35);padding:6px}
+  #introText{font-size:15px;color:#e3d9fb;line-height:1.5;min-height:92px;display:flex;align-items:center;justify-content:center}
+  #introBtn,#nameBtn{margin-top:16px;width:100%;padding:11px;border-radius:13px;cursor:pointer;font-weight:800;font-size:15px;
+    color:#fff;background:linear-gradient(180deg,#7a3df0,#5a23c0);border:1px solid #a05bff}
+  #introBtn:active,#nameBtn:active{transform:scale(.99)} #nameBtn:disabled{opacity:.45;cursor:default}
+  #nameTitle{font-weight:800;font-size:20px;color:#fff;margin-bottom:3px}
+  #nameSub{font-size:12.5px;color:#cbb8ff;margin-bottom:14px}
+  #nameSlots{display:flex;gap:10px;justify-content:center;margin-bottom:14px}
+  .nslot{width:46px;height:54px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:26px;color:#fff;background:rgba(40,28,70,.8);border:2px solid #3a2a63}
+  .nslot.active{border-color:#a05bff;box-shadow:0 0 0 2px rgba(160,91,255,.3)}
+  #nameGrid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+  .nkey{padding:9px 0;border-radius:9px;cursor:pointer;font-weight:800;font-size:15px;color:#e7deff;
+    background:rgba(40,28,70,.7);border:1px solid #2f2152}
+  .nkey:active{transform:scale(.95)} .nkey.wide{grid-column:span 3;font-size:13px}
+  #nameWarn{font-size:12.5px;color:#ff8a8a;min-height:16px;margin-top:9px}
   #say{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom) + 14px);transform:translateX(-50%);
     max-width:88vw;text-align:center;color:#ffb0ec;font-size:13.5px;background:rgba(10,8,18,.62);
     backdrop-filter:blur(6px);border-radius:12px;padding:7px 13px;border:1px solid rgba(160,91,255,.25);
@@ -164,6 +199,21 @@
   <div id="tutOverlay"><div id="tutCard">
     <div id="tutTitle"></div><div id="tutBody"></div>
     <div id="tutFoot"><span id="tutStep"></span><button id="tutBtn">Weiter</button></div>
+  </div></div>
+  <div id="tutStepCard"><div id="tsTitle"></div><div id="tsBody"></div><div id="tsHint"></div></div>
+  <div id="introOverlay"><div id="introCard">
+    <div id="introTitle">Aus dem Nichts</div>
+    <img id="introPortrait" src="ts/u/portrait_aeltester.png">
+    <div id="introText"></div>
+    <button id="introBtn">Weiter</button>
+  </div></div>
+  <div id="nameOverlay"><div id="nameCard">
+    <div id="nameTitle">Wähle dein Kürzel</div>
+    <div id="nameSub">4 Buchstaben — so wirst du im Dorf gerufen</div>
+    <div id="nameSlots"></div>
+    <div id="nameGrid"></div>
+    <div id="nameWarn"></div>
+    <button id="nameBtn">Bestätigen</button>
   </div></div>
 </div>
 
@@ -383,7 +433,7 @@ function updateCombat(s,dt){ const P=s.player; P.attacking=false;
       moveToward(e,e.home.x,e.home.y, onSand(s,e.x,e.y)?T.speed*0.55:T.speed, dt); collide(s,e,ENEMY_R);
       if(dP<T.aggro) e.state='chase'; else if(dist(e.x,e.y,e.home.x,e.home.y)<10) e.state='idle'; } }
   // Held greift automatisch den nächsten Gegner in Reichweite an
-  let near=null,nd=HERO_RANGE; for(const e of s.enemies){ if(e.dead)continue; const dd=dist(e.x,e.y,P.x,P.y); if(dd<nd){nd=dd;near=e;} }
+  let near=null,nd=HERO_RANGE*(s.heroRangeMul||1); for(const e of s.enemies){ if(e.dead)continue; const dd=dist(e.x,e.y,P.x,P.y); if(dd<nd){nd=dd;near=e;} }
   if(near){ P.attacking=true; const dx=near.x-P.x; if(Math.abs(dx)>2)P.face=dx<0?-1:1;
     if(P.atkT<=0){ P.atkT=HERO_ATK_CD; const dmg=Math.round(8*(s.atk||1)); near.hp-=dmg; near.hurtT=0.18;
       addPop(s,near.x,near.y-42,'#ffe08a','-'+dmg); burst(s,near.x,near.y-10,'#ffd86b',5); SFX.hit(); } }
@@ -464,13 +514,14 @@ function drawUnit(unit,anim,t,x,y,dispH,flip){ const im=U[unit+'_'+anim]||U[unit
   ctx.drawImage(im, col*UFRAME,0,UFRAME,UFRAME, x-98*sc, y-137*sc, fw, fw);
   ctx.restore(); }
 // 3 Startcharaktere mit je EIGENER Einheit/Sprite + Basis-Fähigkeit (Steffen mid:6106 — 3 unterschiedliche Sprites)
+// Start-Klassen = die drei Schadensklassen mit je einem Bonus (mid:6449)
 const CHARS={
-  krieger: {name:'Krieger', unit:'warrior_red',   desc:'Kampf-Spezialist: +50% Angriff & deutlich mehr HP', icon:'stein',
-            apply:s=>{ s.atk=(s.atk||1)*1.5; s.def=(s.def||0)+1; s.player.hpmax=160; s.player.hp=160; }},
-  sammler: {name:'Sammler', unit:'pawn_blue',     desc:'Wirtschafts-Profi: sammelt 25% schneller', icon:'holz',
-            apply:s=>{ s.gather*=1.25; }},
-  spaeher: {name:'Späher',  unit:'archer_purple', desc:'Flink: 20% schneller über die Karte', icon:'korn',
-            apply:s=>{ s.speed*=1.2; }},
+  krieger: {name:'Krieger',       unit:'warrior_red',   desc:'Schild-Buff: +Rüstung & deutlich mehr HP — hält am meisten aus', icon:'stein',
+            apply:s=>{ s.def=(s.def||0)+2; s.player.hpmax=185; s.player.hp=185; }},
+  archer:  {name:'Bogenschütze',  unit:'archer_purple', desc:'Distanz-Angriff: trifft Gegner aus deutlich größerer Reichweite', icon:'kristall',
+            apply:s=>{ s.heroRangeMul=1.75; s.atk=(s.atk||1)*1.15; }},
+  lanzer:  {name:'Lanzenträger',  unit:'lance_blue',    desc:'Angriffs-Buff: +60% Schaden im Nahkampf', icon:'holz',
+            apply:s=>{ s.atk=(s.atk||1)*1.6; }},
 };
 // In-Game-Erzähler/Mentor (Steffen mid:6100 — nicht „Lucy")
 const GUIDE='Der Älteste';
@@ -631,7 +682,7 @@ function freshState(){ const store={},carry={}; ALL.forEach(k=>{store[k]=0;carry
     era:0, nodes:[], pops:[], particles:[], loot:[], respawns:[], cam:{x:BASE.x,y:BASE.y}, paused:false, firstDeposit:false,
     phase:'day', day:1, baseHP:100, baseHPmax:100, towers:[],  // Naht fuer spaetere Tag/Nacht-TD-Phase
     outposts:[],   // Außenposten-Sammler (mid:6246) — werden vom Spieler gebaut
-    questIdx:0, achieved:[], lifetime:0, playSec:0, tutShown:{} };
+    questIdx:0, achieved:[], lifetime:0, playSec:0, tutShown:{}, heroRangeMul:1, playerName:'', tutStep:-1, tutMoved:false, tutHarvested:false, tutMenu:false };
   buildLevel(s);
   for(let i=0;i<40;i++) spawnNode(s,'holz'); for(let i=0;i<26;i++) spawnNode(s,'stein'); for(let i=0;i<26;i++) spawnNode(s,'korn');  // viele Start-Knoten für die große Insel (mid:6260)
   return s; }
@@ -699,7 +750,7 @@ const SAVE_KEY='ausdemnichts_save', SAVE_VERSION=2, OFFLINE_CAP=8*3600; // v2: G
 function serialize(s){ return { // nur Fortschritt (Welt/Knoten/Deko werden neu erzeugt)
   store:s.store, cap:s.cap, speed:s.speed, gather:s.gather, wboost:s.wboost,
   capLvl:s.capLvl, speedLvl:s.speedLvl, gatherLvl:s.gatherLvl, steamLvl:s.steamLvl,
-  workerPool:s.workerPool, builds:s.builds, char:s.char, charChosen:s.charChosen, tutShown:s.tutShown||{}, atk:s.atk, def:s.def, hpmax:s.player.hpmax,
+  workerPool:s.workerPool, builds:s.builds, char:s.char, charChosen:s.charChosen, tutShown:s.tutShown||{}, tutStep:(s.tutStep===undefined?-1:s.tutStep), tutMoved:!!s.tutMoved, tutHarvested:!!s.tutHarvested, tutMenu:!!s.tutMenu, playerName:s.playerName||'', heroRangeMul:s.heroRangeMul||1, atk:s.atk, def:s.def, hpmax:s.player.hpmax,
   atkLvl:s.atkLvl, defLvl:s.defLvl, hpLvl:s.hpLvl,
   areas:s.areas, areaLvl:s.areaLvl, era:s.era, firstDeposit:s.firstDeposit,
   phase:s.phase, nightToken:!!s.nightToken, healBought:s.healBought||0, day:s.day, baseHP:s.baseHP, baseHPmax:s.baseHPmax, towers:(s.towers||[]).map(t=>({seg:t.seg,type:t.type,lvl:t.lvl||0,mode:t.mode||'wache'})), questIdx:s.questIdx, outposts:s.outposts,
@@ -710,13 +761,16 @@ function loadRaw(){ try{ const r=localStorage.getItem(SAVE_KEY); if(!r) return n
 function clearSave(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} }
 function stateFromSave(d){ const s=freshState();  // frische Welt, dann Fortschritt drüberlegen
   ALL.forEach(k=>{ if(typeof d.store[k]==='number') s.store[k]=d.store[k]; });
-  ['cap','speed','gather','wboost','capLvl','speedLvl','gatherLvl','steamLvl','workerPool','areas','areaLvl','era','firstDeposit','day','baseHP','baseHPmax','questIdx','nightToken','healBought'].forEach(k=>{ if(d[k]!==undefined) s[k]=d[k]; });
+  ['cap','speed','gather','wboost','capLvl','speedLvl','gatherLvl','steamLvl','workerPool','areas','areaLvl','era','firstDeposit','day','baseHP','baseHPmax','questIdx','nightToken','healBought','tutStep','tutMoved','tutHarvested','tutMenu'].forEach(k=>{ if(d[k]!==undefined) s[k]=d[k]; });
+  if(d.tutStep===undefined && d.charChosen) s.tutStep=TUT_STEPS.length;   // Altsave: interaktives Tutorial nicht nachträglich zeigen (mid:6450)
   s.phase='day';   // laufende Nacht beim Laden abbrechen (Nacht-Gegner werden nicht persistiert) — Token bleibt erhalten
   if(Array.isArray(d.towers)) s.towers=d.towers.filter(t=>TOWER_TYPES[t.type]&&typeof t.seg==='number').map(t=>{ const nt={seg:t.seg,type:t.type,lvl:t.lvl||0,mode:t.mode||'wache',downT:0}; spawnTroop(s,nt); return nt; });   // Einheit frisch (mid:6359)
   if(d.char && CHARS[d.char]) s.char=d.char;
   if(typeof d.charChosen==='boolean') s.charChosen=d.charChosen;
   if(d.tutShown && typeof d.tutShown==='object') s.tutShown=d.tutShown;   // Tutorials (mid:6438)
   else if(d.charChosen){ s.tutShown={}; Object.keys(TUT).forEach(k=>s.tutShown[k]=true); }   // Altsave: nicht nachträglich Tutorials zeigen
+  if(typeof d.playerName==='string') s.playerName=d.playerName;
+  if(typeof d.heroRangeMul==='number') s.heroRangeMul=d.heroRangeMul;
   if(typeof d.atk==='number') s.atk=d.atk;
   if(typeof d.def==='number') s.def=d.def;
   ['atkLvl','defLvl','hpLvl'].forEach(k=>{ if(typeof d[k]==='number') s[k]=d[k]; });
@@ -862,6 +916,8 @@ const game={
     window.addEventListener('pagehide',()=>{ if(bgm&&!bgm.paused) bgm.pause(); });   // iOS-Safari: zusätzlicher Hintergrund-Trigger
     document.getElementById('pauseBtn').onclick=()=>this.toggle();
     document.getElementById('tutBtn').onclick=()=>this.showNextTut();   // Tutorial weiter/schließen (mid:6438)
+    document.getElementById('introBtn').onclick=()=>this.nextIntro();   // Story-Intro (mid:6449)
+    document.getElementById('nameBtn').onclick=()=>this.confirmName();
     document.getElementById('quest').onclick=function(){ this.classList.toggle('expanded'); };   // Ziel ausklappen (mid:6371)
     document.getElementById('resetBtn').onclick=()=>this.reset();
     document.getElementById('pauseBtn').innerHTML=svg('pause');
@@ -892,13 +948,14 @@ const game={
     this.loop=this.loop.bind(this); requestAnimationFrame(this.loop);
     if(welcome) say('Willkommen zurück! In '+humanDur(welcome.mins)+' abwesend: '+welcome.txt+'.');
     else if(!this.s.firstDeposit) say(ERAS[0].say);
-    if(!this.s.charChosen) this.showCharSelect();  // neues Spiel → erst Held wählen
+    if(!this.s.charChosen) this.showIntro();  // neues Spiel → Story-Intro, dann Klasse + Name (mid:6449)
   },
   resize(){ this.dpr=Math.min(window.devicePixelRatio||1,2); this.vw=window.innerWidth; this.vh=window.innerHeight;
     cv.style.width=this.vw+'px'; cv.style.height=this.vh+'px'; cv.width=Math.round(this.vw*this.dpr); cv.height=Math.round(this.vh*this.dpr); },
-  reset(){ if(!confirm('Wirklich neu anfangen? Aller Fortschritt weg.'))return; clearSave(); this.s=freshState(); this.buildShop(); this.showCharSelect(); },
+  reset(){ if(!confirm('Wirklich neu anfangen? Aller Fortschritt weg.'))return; clearSave(); this.s=freshState(); this.buildShop(); this.showIntro(); },
   toggle(){ this.s.paused=!this.s.paused; document.getElementById('pauseBtn').innerHTML=svg(this.s.paused?'play':'pause'); },
-  setTab(t){ this.tab=t; for(const b of document.querySelectorAll('#tabs button')) b.classList.toggle('on',b.dataset.tab===t); this.buildShop(); },
+  setTab(t){ this.tab=t; if(t==='dorf') this.s.tutMenu=true;   // Tutorial-Schritt 4 (mid:6450)
+    for(const b of document.querySelectorAll('#tabs button')) b.classList.toggle('on',b.dataset.tab===t); this.buildShop(); },
   toggleAch(force){ this.achOpen=(force===undefined)?!this.achOpen:force;
     document.getElementById('achOverlay').classList.toggle('open',this.achOpen); if(this.achOpen) this.renderAch(); },
   renderAch(){ const s=this.s, list=document.getElementById('achList'); list.innerHTML='';
@@ -914,10 +971,27 @@ const game={
         +'<div><div class="ch-name">'+c.name+'</div><div class="ch-abil">'+c.desc+'</div></div>';
       card.onclick=()=>this.pickChar(key); row.appendChild(card); }
     document.getElementById('charSelect').classList.add('open'); },
-  pickChar(key){ const s=this.s; audioInit(); s.char=key; CHARS[key].apply(s); s.charChosen=true;
-    document.getElementById('charSelect').classList.remove('open'); this.renderRes(); saveGame(s);
-    SFX.era(); say(CHARS[key].name+' gewählt — '+CHARS[key].desc+'. Auf geht\'s!');
-    TUT_INTRO.forEach(k=>this.queueTut(k)); },   // Basis-Tutorial starten (mid:6438)
+  showIntro(){ this.introIdx=0; this.renderIntro(); document.getElementById('introOverlay').classList.add('open'); },
+  renderIntro(){ document.getElementById('introText').textContent=INTRO[this.introIdx];
+    document.getElementById('introBtn').textContent=(this.introIdx>=INTRO.length-1)?'Wer bin ich? →':'Weiter'; },
+  nextIntro(){ audioInit(); this.introIdx=(this.introIdx||0)+1;
+    if(this.introIdx>=INTRO.length){ document.getElementById('introOverlay').classList.remove('open'); this.showCharSelect(); }
+    else this.renderIntro(); },
+  pickChar(key){ audioInit(); this.pendingChar=key;   // Klasse erst bei Namens-Bestätigung anwenden (mid:6449)
+    document.getElementById('charSelect').classList.remove('open'); this.showNamePicker(); },
+  showNamePicker(){ this.nameBuf=this.s.playerName||''; const grid=document.getElementById('nameGrid'); grid.innerHTML='';
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach(ch=>{ const b=document.createElement('button'); b.className='nkey'; b.textContent=ch; b.onclick=()=>this.nameKey(ch); grid.appendChild(b); });
+    const del=document.createElement('button'); del.className='nkey wide'; del.textContent='⌫ Löschen'; del.onclick=()=>this.nameKey('DEL'); grid.appendChild(del);
+    this.renderName(); document.getElementById('nameOverlay').classList.add('open'); },
+  nameKey(ch){ if(ch==='DEL') this.nameBuf=(this.nameBuf||'').slice(0,-1); else if((this.nameBuf||'').length<4) this.nameBuf=(this.nameBuf||'')+ch; this.renderName(); },
+  renderName(){ const buf=this.nameBuf||'', slots=document.getElementById('nameSlots'); slots.innerHTML='';
+    for(let i=0;i<4;i++){ const d=document.createElement('div'); d.className='nslot'+(i===buf.length?' active':''); d.textContent=buf[i]||''; slots.appendChild(d); }
+    const bad=isBadName(buf); document.getElementById('nameWarn').textContent=bad?'Dieses Kürzel geht leider nicht — wähl ein anderes.':'';
+    document.getElementById('nameBtn').disabled=(buf.length<4||bad); },
+  confirmName(){ const buf=this.nameBuf||''; if(buf.length<4||isBadName(buf)) return; const s=this.s, key=this.pendingChar||'krieger';
+    s.char=key; CHARS[key].apply(s); s.playerName=buf; s.charChosen=true; s.tutStep=0;   // interaktives Basis-Tutorial startet (mid:6450)
+    document.getElementById('nameOverlay').classList.remove('open'); this.renderRes(); saveGame(s);
+    SFX.era(); say('Willkommen, '+buf+'! '+CHARS[key].name+' — '+CHARS[key].desc+'.'); this.renderTutStep(); },
   queueTut(key){ const s=this.s; if(!TUT[key]||(s.tutShown&&s.tutShown[key])) return;
     (s.tutShown||(s.tutShown={}))[key]=true; (this.tutQueue||(this.tutQueue=[])).push(key); saveGame(s);
     if(!this.tutOpen) this.showNextTut(); },
@@ -928,7 +1002,19 @@ const game={
     document.getElementById('tutStep').textContent=q.length?('noch '+q.length):'';
     document.getElementById('tutBtn').textContent=q.length?'Weiter':'Verstanden';
     ov.classList.add('open'); },
+  renderTutStep(){ const s=this.s, card=document.getElementById('tutStepCard');
+    if(typeof s.tutStep!=='number' || s.tutStep<0 || s.tutStep>=TUT_STEPS.length){ card.classList.remove('show'); return; }
+    const st=TUT_STEPS[s.tutStep];
+    document.getElementById('tsTitle').textContent=st.t; document.getElementById('tsBody').textContent=st.b;
+    document.getElementById('tsHint').textContent='Schritt '+(s.tutStep+1)+' von '+TUT_STEPS.length;
+    card.classList.add('show'); },
   checkTut(){ const s=this.s; if(!s.charChosen) return;
+    if(typeof s.tutStep==='number' && s.tutStep>=0 && s.tutStep<TUT_STEPS.length){   // interaktives Basis-Tutorial (mid:6450)
+      const st=TUT_STEPS[s.tutStep];
+      if(st && st.done(s)){ s.tutStep++; SFX.quest(); burst(s,s.player.x,s.player.y-30,'#9fe0ff',12); saveGame(s);
+        if(s.tutStep>=TUT_STEPS.length) say('Tutorial geschafft — bau dir was Schönes!'); }
+      this.renderTutStep(); return;   // während Basis-Tutorial keine Kontext-Tooltips
+    }
     if(s.era>=1) this.queueTut('era1'); if(towersUnlocked(s)) this.queueTut('towers'); if(nightPending(s)) this.queueTut('night1');
     if(s.era>=3) this.queueTut('era3'); if(s.era>=4) this.queueTut('era4'); if(s.era>=5) this.queueTut('era5'); },
   buy(id){ const s=this.s,up=ALLUP.find(u=>u.id===id); if(!up)return;
@@ -968,7 +1054,7 @@ const game={
     if(s.player.moving){ const dx=s.player.tx-s.player.x; if(Math.abs(dx)>2) s.player.face=dx<0?-1:1; }
     this.animT=(this.animT||0)+dt;
     if(carryTotal(s.player.carry)<s.cap){ for(const n of s.nodes){ if(n.amount>0.4 && dist(s.player.x,s.player.y,n.x,n.y)<HARVEST_R){
-      const amt=Math.min(s.gather*dt,n.amount,s.cap-carryTotal(s.player.carry)); if(amt>0){ n.amount-=amt; s.player.carry[n.type]+=amt;
+      const amt=Math.min(s.gather*dt,n.amount,s.cap-carryTotal(s.player.carry)); if(amt>0){ n.amount-=amt; s.player.carry[n.type]+=amt; s.tutHarvested=true;   // Tutorial-Schritt 2 (mid:6450)
         s.harvAcc=(s.harvAcc||0)+dt; if(s.harvAcc>0.18){ s.harvAcc=0; addParticle(s,n.x,n.y-6,COL[n.type]); addLoot(s,n.x,n.y,n.type); SFX.harvest(); } } break; } } }
     for(const n of s.nodes){ if(n.amount<=0.4&&!n.dead){ n.dead=true; addPop(s,n.x,n.y,COL[n.type]); burst(s,n.x,n.y-6,COL[n.type],7); s.respawns.push({type:n.type,t:rnd(3,5)}); } }
     s.nodes=s.nodes.filter(n=>!n.dead);
@@ -1197,7 +1283,7 @@ const game={
       this.mkBtn(shop,'tw_up','',()=>this.upgTower());
       this.mkBtn(shop,'tw_mode','',()=>this.toggleTowerMode());
     } else {                                        // ----- BURG-Panel (Held/Dorf) -----
-      tabsEl.style.display='flex'; ph.textContent='Burg — Aufbau & Upgrades';
+      tabsEl.style.display='flex'; ph.textContent=this.s.playerName?('Burg — '+this.s.playerName):'Burg — Aufbau & Upgrades';
       const list=this.tab==='held'?UP_HELD:this.tab==='kampf'?UP_KAMPF:UP_DORF;
       for(const up of list) this.mkBtn(shop,up.id,'',()=>this.buy(up.id));
       if(this.tab==='dorf'){ this.mkBtn(shop,'nacht','era',()=>this.startNight()); if(this.s.era>=3) this.mkBtn(shop,'heal','',()=>this.healVillage()); this.mkBtn(shop,'era','era',()=>this.buyEra()); }
@@ -1305,12 +1391,15 @@ function edgeArrow(key,wx,wy,offx,offy,VW,VH,z,color){ let sx=wx*z+offx, sy=wy*z
   worldSprite(key,px,py,22); }
 
 let sayT=null;
-// Tutorial-Tooltips (mid:6438): Basis-Tutorial am Start + je eine kurze Karte beim Freischalten von Neuem. Jede nur 1x (in s.tutShown persistiert).
+// INTERAKTIVES Basis-Tutorial (mid:6450): jeder Schritt rückt erst weiter, wenn die Aktion ausgeführt ist (nicht-blockierende Karte unten).
+const TUT_STEPS=[
+  {t:'🌱 Lauf los',b:'Tippe irgendwo auf die Karte — dein Held läuft dorthin.',done:s=>s.tutMoved},
+  {t:'⛏️ Sammeln',b:'Lauf zu einem leuchtenden Ressourcen-Knoten und bleib kurz daneben stehen. Du sammelst automatisch.',done:s=>s.tutHarvested},
+  {t:'🏰 Abladen',b:'Bring die Beute zur Basis in der Mitte — lauf einfach hinein, dann landet alles im Lager.',done:s=>s.firstDeposit},
+  {t:'⬆️ Aufbauen',b:'Tippe unten auf ☰ und öffne den Reiter „Dorf" — dort steigst du auf und baust. Viel Spaß!',done:s=>s.tutMenu},
+];
+// Kontext-Tooltips (mid:6438): je eine kurze Karte beim Freischalten von Neuem. Jede nur 1x (in s.tutShown persistiert).
 const TUT={
-  intro1:{t:'🌱 Willkommen!',b:'Tippe auf die Karte, um deinen Helden laufen zu lassen — er folgt deinem Finger.'},
-  intro2:{t:'⛏️ Sammeln',b:'Lauf zu den leuchtenden Ressourcen-Knoten und bleib kurz daneben stehen. Du sammelst automatisch, bis dein Beutel voll ist.'},
-  intro3:{t:'🏰 Abladen',b:'Bring die Beute zur Basis in der Mitte — lauf einfach hinein, dann landet alles im Lager.'},
-  intro4:{t:'⬆️ Aufsteigen',b:'Tippe unten auf ☰ und dann „Dorf", um aufzusteigen, Gebäude zu bauen und Helden-Upgrades zu kaufen. Viel Spaß!'},
   era1:{t:'🪓 Stufe 2',b:'Neu baubar: der Holzfäller (im Dorf-Menü) und der Kürbis-Sammler als Außenposten draußen im Feld. Sammler produzieren von allein — du holst die Ernte nur ab.'},
   towers:{t:'⚔️ Kampf-Türme',b:'Im äußeren Dorf-Ring kannst du jetzt Türme bauen — tippe einen freien Bauplatz an. Jeder Turm stellt eine Truppe, die das Dorf bewacht oder dir folgt (umschaltbar).'},
   night1:{t:'🌙 Die Nacht',b:'Vor dem Aufstieg auf Stufe 4 musst du eine Nacht überstehen: im Dorf-Menü „Nacht starten". Gegner stürmen das Dorf — halt sie mit Held und Türmen auf, sonst sinkt die Dorf-Lebensleiste!'},
@@ -1318,7 +1407,16 @@ const TUT={
   era4:{t:'💎 Stufe 5',b:'Der Juwelier veredelt Kristall — und du kannst jetzt auch Lanze und Mönch als Türme bauen (der Mönch heilt deine Truppen).'},
   era5:{t:'🫐 Stufe 6',b:'Goldmine und Beeren-Sammler sind freigeschaltet. Ab jetzt brauchst du für jeden weiteren Aufstieg eine frisch überstandene Nacht.'},
 };
-const TUT_INTRO=['intro1','intro2','intro3','intro4'];
+// Story-Intro vor der Klassenwahl, erzählt vom „Ältesten" (Mönch-Sprite) (mid:6449)
+const INTRO=[
+  'Du stehst auf leerem Land. Kein Dorf, kein Lärm — nur Erde, Wind und ein Anfang.',
+  'Ein alter Mönch tritt heran. „Ich bin der Älteste. Lange habe ich auf jemanden wie dich gewartet."',
+  '„Sammle, was die Wildnis hergibt, und lass aus dem Nichts ein Dorf wachsen — Stück für Stück."',
+  '„Doch wenn die Nacht kommt, kommen auch sie. Bau Türme, bau Mut. Sag mir nun — wer bist du?"',
+];
+// Anstößige Kürzel blocken (Substring-Match, Groß-/Kleinschreibung egal) (mid:6449)
+const BADTAGS=['FUCK','SHIT','FICK','FOTZ','HURE','ARSC','ARSH','NIGG','NIGR','FAGG','PISS','COCK','DICK','CUNT','TWAT','WICH','NUTT','PIMM','ANAL','NAZI','HITL','SHIZ','SLUT','RAPE'];
+function isBadName(t){ t=(t||'').toUpperCase(); return BADTAGS.some(w=>t.includes(w)); }
 function say(msg){ const el=document.getElementById('say'); el.style.opacity=0;
   setTimeout(()=>{ el.innerHTML='<b>'+GUIDE+':</b> '+msg; el.style.opacity=1; },120);
   if(sayT)clearTimeout(sayT); sayT=setTimeout(()=>{ el.style.opacity=0; },6000); }
@@ -1326,7 +1424,7 @@ function worldFromEvent(e){ const r=cv.getBoundingClientRect(), z=game.zoom;
   const cx=(e.touches?e.touches[0].clientX:e.clientX), cy=(e.touches?e.touches[0].clientY:e.clientY);
   return { x:(cx-r.left-game.vw/2)/z+game.s.cam.x, y:(cy-r.top-game.vh/2)/z+game.s.cam.y }; }
 function moveTo(p){ game.s.player.tx=Math.max(10,Math.min(WORLD-10,p.x)); game.s.player.ty=Math.max(10,Math.min(WORLD-10,p.y));
-  game.camFollow=true; }  // Held wird wohin geschickt → Kamera zieht wieder mit (matcht zurück)
+  game.camFollow=true; game.s.tutMoved=true; }  // Held wird wohin geschickt → Kamera zieht wieder mit; Tutorial-Schritt 1 (mid:6450)
 // Eingabe: kurzer Tap = laufen (oder Shop am Gebäude); Halten+Ziehen = Kamera schwenken (umschauen)
 let pDown=null, pLast=null;
 const pointers=new Map(); let pinched=false, pinchPrev=0;   // Multi-Touch für Pinch-Zoom (mid:6301)

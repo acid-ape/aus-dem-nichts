@@ -41,8 +41,9 @@ const VIEW = DEVICE === 'desktop'
     () => typeof game !== 'undefined' && game.s && typeof A !== 'undefined' && A.era2 && A.era2.complete && A.era2.naturalWidth > 0 && typeof U !== 'undefined' && U.warrior_red_idle && U.warrior_red_idle.complete && U.warrior_red_idle.naturalWidth > 0 && A.holz && A.holz.complete,
     { timeout: 15000 });
   await sleep(500);
-  await shot('00_charselect'); // Charakter-Auswahl beim Start (neues Spiel)
-  await page.evaluate(() => game.pickChar('krieger')); // Held wählen → Overlay zu, weiter im normalen Spiel
+  await shot('00_intro'); // Story-Intro beim Start (neues Spiel, mid:6449)
+  // Onboarding sauber durchlaufen: Intro zu → Klasse + Name bestätigen → Tutorial als erledigt markieren (für die folgenden Shots)
+  await page.evaluate(() => { document.getElementById('introOverlay').classList.remove('open'); game.pendingChar='krieger'; game.nameBuf='HELD'; game.confirmName(); game.s.tutStep=99; game.renderTutStep(); });
   await sleep(400); await frames(20);
   await shot('01_start'); // Burger-Menü eingeklappt (Default)
   // Burger öffnen → Button-Stack sichtbar (für die Zoom-Klicks weiter unten + Verifikation)
@@ -129,8 +130,19 @@ const VIEW = DEVICE === 'desktop'
   await sleep(400); await frames(20); await shot('12_nacht');
 
   // Tutorial-Tooltip Screenshot (mid:6438)
-  await page.evaluate(() => { document.getElementById('panel').classList.remove('open'); game.s.tutShown = {}; game.tutQueue = []; game.tutOpen = false; game.queueTut('night1'); });
+  await page.evaluate(() => { document.getElementById('panel').classList.remove('open'); game.s.tutShown = {}; game.tutQueue = []; game.tutOpen = false; game.s.tutStep = 99; game.queueTut('night1'); });
   await sleep(300); await frames(8); await shot('13_tutorial');
+
+  // Onboarding-Screenshots (mid:6449/6450): Intro, Klassenwahl, Namens-Picker, interaktiver Schritt
+  await page.evaluate(() => { document.getElementById('tutOverlay').classList.remove('open'); game.introIdx = 1; game.renderIntro(); document.getElementById('introOverlay').classList.add('open'); });
+  await sleep(250); await frames(6); await shot('14_intro');
+  await page.evaluate(() => { document.getElementById('introOverlay').classList.remove('open'); game.showCharSelect(); });
+  await sleep(250); await frames(6); await shot('15_charselect');
+  await page.evaluate(() => { document.getElementById('charSelect').classList.remove('open'); game.pendingChar = 'lanzer'; game.showNamePicker(); game.nameBuf = 'ANZU'; game.renderName(); });
+  await sleep(250); await frames(6); await shot('16_namepicker');
+  await page.evaluate(() => { document.getElementById('nameOverlay').classList.remove('open'); game.s.charChosen = true; game.s.tutStep = 1; game.renderTutStep(); });
+  await sleep(250); await frames(6); await shot('17_tutstep');
+  await page.evaluate(() => { document.getElementById('tutStepCard').classList.remove('show'); });
 
   // functional assertions: production scales, save round-trips the new model
   const checks = await page.evaluate(() => {
@@ -307,16 +319,28 @@ const VIEW = DEVICE === 'desktop'
     out.push(['Dorf-Heilung füllt Lebensleiste', game.s.baseHP === game.s.baseHPmax]);
     out.push(['Dorf-Heilung kostet Pilze', game.s.store.pilze === 999 - hc0]);
     out.push(['Heilung wird mit jedem Kauf teurer', healCost(game.s) > hc0]);
-    // --- Tutorial-Tooltips (mid:6438): zeigen, einmalig, Context-Trigger ---
-    game.s.tutShown = {}; game.s.charChosen = true; game.tutQueue = []; game.tutOpen = false; game.s.era = 0; game.s.nightToken = true;
-    game.queueTut('era1');
-    out.push(['Tooltip zeigt + wird als gesehen markiert', game.s.tutShown.era1 === true && game.tutOpen === true]);
-    game.queueTut('era3'); game.queueTut('era1');   // era3 neu, era1 schon gesehen
-    out.push(['gesehene Tooltips nicht erneut einreihen', game.tutQueue.length === 1 && game.tutQueue[0] === 'era3']);
-    game.showNextTut(); game.showNextTut();
-    out.push(['Tutorial-Queue schließt am Ende', game.tutOpen === false]);
-    game.s.era = 2; game.checkTut();
-    out.push(['Context-Tooltip feuert bei Freischaltung (Türme)', game.s.tutShown.towers === true]);
+    // --- Onboarding: 3 Schadensklassen + Boni, Bad-Word-Filter, Namens-Picker (mid:6449) ---
+    out.push(['3 Start-Klassen = Schadensklassen', Object.keys(CHARS).join(',') === 'krieger,archer,lanzer']);
+    out.push(['Bad-Word-Filter blockt', isBadName('FICK') === true && isBadName('SHIT') === true]);
+    out.push(['saubere Kürzel erlaubt', isBadName('ANZU') === false && isBadName('LUCY') === false]);
+    game.s.heroRangeMul = 1; game.s.atk = 1; CHARS.archer.apply(game.s); out.push(['Archer-Bonus: größere Reichweite', game.s.heroRangeMul > 1]);
+    game.s.atk = 1; CHARS.lanzer.apply(game.s); out.push(['Lanzer-Bonus: mehr Angriff', game.s.atk > 1]);
+    game.s.def = 0; CHARS.krieger.apply(game.s); out.push(['Krieger-Bonus: mehr Rüstung', game.s.def >= 2]);
+    game.s.charChosen = false; game.pendingChar = 'archer'; game.nameBuf = '';
+    ['T', 'E', 'S', 'T'].forEach(c => game.nameKey(c));
+    out.push(['Namens-Picker baut 4-Kürzel', game.nameBuf === 'TEST']);
+    game.confirmName();
+    out.push(['Name bestätigt → gespeichert + Klasse gesetzt', game.s.playerName === 'TEST' && game.s.char === 'archer' && game.s.charChosen === true]);
+    // --- Interaktives Basis-Tutorial (mid:6450): Schritt rückt erst nach ausgeführter Aktion ---
+    game.s.charChosen = true; game.s.tutStep = 0; game.s.tutMoved = false; game.s.tutHarvested = false; game.s.firstDeposit = false; game.s.tutMenu = false;
+    game.checkTut(); out.push(['Tutorial-Schritt wartet auf Aktion', game.s.tutStep === 0]);
+    game.s.tutMoved = true; game.checkTut(); out.push(['Schritt rückt nach „laufen"', game.s.tutStep === 1]);
+    game.s.tutHarvested = true; game.checkTut(); out.push(['Schritt rückt nach „sammeln"', game.s.tutStep === 2]);
+    game.s.firstDeposit = true; game.checkTut(); out.push(['Schritt rückt nach „abladen"', game.s.tutStep === 3]);
+    game.s.tutMenu = true; game.checkTut(); out.push(['Basis-Tutorial abgeschlossen', game.s.tutStep >= TUT_STEPS.length]);
+    // --- Kontext-Tooltips (mid:6438): erst NACH dem Basis-Tutorial, einmalig ---
+    game.s.tutShown = {}; game.tutQueue = []; game.tutOpen = false; game.s.era = 2; game.s.nightToken = true; game.checkTut();
+    out.push(['Context-Tooltip feuert nach Basis-Tutorial (Türme)', game.s.tutShown.towers === true]);
     out.push(['Tutorial-Stand wird gespeichert', (saveGame(game.s), JSON.parse(localStorage.getItem(SAVE_KEY)).d.tutShown.towers === true)]);
     // save round-trip
     saveGame(game.s);
