@@ -119,9 +119,10 @@ const VIEW = DEVICE === 'desktop'
 
   // Nacht-Modus Screenshot: Stufe 3, Nacht starten, abgedunkelte Karte + Welle + Dorf-Panel
   await page.evaluate(() => {
-    game.s.era = 2; game.s.nightToken = false; game.s.phase = 'day'; game.s.enemies = []; game.s.areas = 1;
+    game.s.era = 4; game.s.nightToken = false; game.s.phase = 'day'; game.s.enemies = []; game.s.areas = 1;
+    game.s.store.pilze = 200; game.s.healBought = 0;
     game.s.player.x = game.s.player.tx = BASE.x; game.s.player.y = game.s.player.ty = BASE.y + 40;
-    game.startNight();
+    game.startNight(); game.s.baseHP = Math.round((game.s.baseHPmax || 100) * 0.45);   // Dorf angeschlagen → Heal-Button + Teil-Leiste
     game.zoom = 0.32;
     document.getElementById('panel').classList.add('open'); game.setTab('dorf');
   });
@@ -257,6 +258,15 @@ const VIEW = DEVICE === 'desktop'
     game.s.towers = []; game.panelFor = 'tb5'; game.buildTower('bogen'); const bt = game.s.towers[0];
     if (bt && bt.unit) { game.s.enemies = [{ kind: 'grunt', x: bt.unit.x + 130, y: bt.unit.y, home: { x: bt.unit.x + 130, y: bt.unit.y }, hp: 60, max: 60, base: 60, face: -1, animT: 0, atkT: 0, hurtT: 0, state: 'idle', moving: false, evo: 0, evoT: 0 }];
       for (let i = 0; i < 40; i++) updateTroops(game.s, 0.1); out.push(['Bogenschütze trifft auf Distanz', game.s.enemies[0].hp < 60]); }
+    // Turm-Anzahl-Cap pro Stufe (mid:6420): Stufe 3 = 2, Stufe 5 = 4, ab Stufe 6 +2/Stufe bis 12
+    out.push(['Allowance-Staffel (2/2/4/6/8)', towerAllowance({era:2})===2 && towerAllowance({era:3})===2 && towerAllowance({era:4})===4 && towerAllowance({era:5})===6 && towerAllowance({era:6})===8]);
+    game.s.era = 2; game.s.towers = []; game.s.enemies = []; ALL.forEach(k => game.s.store[k] = 999999);
+    game.panelFor = 'tb0'; game.buildTower('kaempfer'); game.panelFor = 'tb2'; game.buildTower('bogen');
+    out.push(['Stufe 3: 2 Türme baubar', game.s.towers.length === 2]);
+    game.panelFor = 'tb4'; game.buildTower('kaempfer');
+    out.push(['Stufe 3: 3. Turm blockiert (Limit 2)', game.s.towers.length === 2]);
+    game.s.era = 4; game.panelFor = 'tb4'; game.buildTower('lance');
+    out.push(['Stufe 5: 3. Turm erlaubt (Limit 4)', game.s.towers.length === 3]);
     // Lanze + Mönch (mid:6385): bauen + Mönch heilt verwundeten Verbündeten
     game.s.towers = []; game.s.enemies = []; game.panelFor = 'tb1'; game.buildTower('lance'); game.panelFor = 'tb9'; game.buildTower('monk');
     out.push(['Lanze + Mönch baubar (Stufe 5)', game.s.towers.length === 2 && game.s.towers.every(t => t.unit)]);
@@ -272,6 +282,27 @@ const VIEW = DEVICE === 'desktop'
     out.push(['Nacht überstanden → phase=day + Token', game.s.phase === 'day' && game.s.nightToken === true]);
     ALL.forEach(k => game.s.store[k] = 999999); game.buyEra(); out.push(['Aufstieg auf Stufe 4 nach Nacht', game.s.era === 3]);
     out.push(['Stufe 5 NICHT nacht-gated', (game.s.nightToken = false, game.buyEra(), game.s.era === 4)]);
+    // --- Nacht-KI (mid:6426): Welle marschiert aufs Hauptgebäude, zieht Dorf-Leben; Held/Truppe lenkt ab; Überrannt = Rückschlag ---
+    game.s.era = 2; game.s.nightToken = false; game.s.phase = 'day'; game.s.enemies = []; game.s.towers = []; game.s.areas = 2;
+    game.s.player.x = game.s.player.tx = BASE.x + 99999; game.s.player.y = game.s.player.ty = BASE.y;   // Held weit weg → keine Aggro
+    game.startNight();   // era2: Aufstieg auf Stufe 4 ist nacht-gated → Welle spawnt
+    game.s.baseHP = game.s.baseHPmax || 100; const bhp0 = game.s.baseHP;   // Schaden persistiert über Nächte (mid:6431) → für den Test explizit voll setzen
+    game.s.enemies = game.s.enemies.slice(0, 1);   // 1 Gegner direkt ans Hauptgebäude
+    const ne = game.s.enemies[0]; ne.x = BASE.x + 30; ne.y = BASE.y; ne.atkT = 0;
+    for (let i = 0; i < 6; i++) game.step(0.1);
+    out.push(['Nacht-Welle zieht Dorf-Leben ab (kein Verteidiger)', game.s.baseHP < bhp0 && game.s.phase === 'night']);
+    game.s.player.x = game.s.player.tx = ne.x + 20; game.s.player.y = game.s.player.ty = ne.y;   // Held in Aggro-Reichweite
+    out.push(['Nacht-Gegner lässt sich von Held ablenken', nightTarget(game.s, ne) === game.s.player]);
+    game.s.player.x = game.s.player.tx = BASE.x + 99999; game.s.baseHP = 1;   // Held wieder weg, Dorf fast tot
+    game.s.enemies.forEach(e => { e.x = BASE.x + 20; e.y = BASE.y; e.atkT = 0; });
+    for (let i = 0; i < 16; i++) game.step(0.1);
+    out.push(['Dorf überrannt → Rückschlag (phase=day, kein Token, Leiste reset)', game.s.phase === 'day' && game.s.nightToken === false && game.s.baseHP === (game.s.baseHPmax || 100)]);
+    // --- Dorf-Heilung gegen Pilze, steigender Preis (mid:6431) ---
+    game.s.era = 4; game.s.baseHP = 30; game.s.baseHPmax = 100; game.s.healBought = 0; game.s.store.pilze = 999;
+    const hc0 = healCost(game.s); game.healVillage();
+    out.push(['Dorf-Heilung füllt Lebensleiste', game.s.baseHP === game.s.baseHPmax]);
+    out.push(['Dorf-Heilung kostet Pilze', game.s.store.pilze === 999 - hc0]);
+    out.push(['Heilung wird mit jedem Kauf teurer', healCost(game.s) > hc0]);
     // save round-trip
     saveGame(game.s);
     const raw = localStorage.getItem(SAVE_KEY);

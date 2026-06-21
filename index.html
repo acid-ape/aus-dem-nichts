@@ -218,6 +218,10 @@ const TOWER_TYPES={   // role: melee | ranged | heal. era = ab welcher internen 
 const TOWER_ORDER=['kaempfer','bogen','lance','monk'];
 function hasArmory(s){ return s.builds && s.builds.some(b=>b.type==='waffenkammer'); }
 function towersUnlocked(s){ return s.era>=2; }   // Türme ab Stufe 3 (mid:6385/6387)
+// Erlaubte Turm-Anzahl je Stufe (mid:6420): Stufe 3 → 2, Stufe 5 → 4, ab Stufe 6 jede Stufe +2 (bis 12 Slots voll)
+function towerAllowance(s){ if(s.era<2) return 0; if(s.era<4) return 2; return Math.min(12, 4+(s.era-4)*2); }
+// Dorf-Heilung (mid:6431): volle Lebensleiste gegen Pilze, mit jedem Kauf etwas teurer
+function healCost(s){ return Math.round(20*Math.pow(1.25, s.healBought||0)); }
 function towerHp(t){ return Math.round(TOWER_TYPES[t.type].hp*(1+0.4*(t.lvl||0))); }
 function towerAtk(t){ const T=TOWER_TYPES[t.type]; return (T.atk||T.heal||5)*(1+0.35*(t.lvl||0)); }   // dient auch als Heil-Stärke beim Mönch
 function towerUpCost(t){ const base=TOWER_TYPES[t.type].cost, c={}; for(const k in base) c[k]=Math.round(base[k]*0.55*Math.pow(1.5,t.lvl||0)); return c; }
@@ -277,6 +281,11 @@ function spawnEnemy(s,kind){ const T=ETYPES[kind], R=areaRadius(s), lo=enemyNoSp
 function enemyTarget(s,e){ let best=s.player, bd=dist(e.x,e.y,s.player.x,s.player.y);
   if(s.towers) for(const t of s.towers){ const u=t.unit; if(u){ const d=dist(e.x,e.y,u.x,u.y); if(d<bd){bd=d;best=u;} } }
   return best; }
+// Nacht-Gegner: nur ein Verteidiger (Held/Truppe) IN Aggro-Reichweite lenkt ab; sonst null → Marsch aufs Hauptgebäude (mid:6426)
+function nightTarget(s,e){ const T=ETYPES[e.kind]; let best=null,bd=T.aggro;
+  const cands=[s.player]; if(s.towers) for(const t of s.towers) if(t.unit) cands.push(t.unit);
+  for(const c of cands){ if(c.hp<=0) continue; const d=dist(e.x,e.y,c.x,c.y); if(d<bd){bd=d;best=c;} }
+  return best; }
 // Turm-Einheiten: bewachen ihren Turm per Aggro (Nahkampf/Fernkampf) oder folgen dem Held (mode 'folgen'). Fallen → respawnen am Turm.
 function updateTroops(s,dt){ if(!s.towers) return; const P=s.player;
   for(const t of s.towers){
@@ -335,6 +344,15 @@ function updateCombat(s,dt){ const P=s.player; P.attacking=false;
     // Entwicklung: je länger ein Mob lebt, desto stärker (HP+Schaden), Cap pro Zeitalter (mid:6137/6138) — wird zum „dicken Klopper"
     e.evoT+=dt; if(e.evoT>11 && e.evo<maxEvo(s)){ e.evoT=0; e.evo++; const old=e.max; e.max=Math.round(e.base*(1+0.28*e.evo)); e.hp+=e.max-old;
       burst(s,e.x,e.y-T.size*0.4,'#c0392b',10); addPop(s,e.x,e.y-T.size*0.6,'#ff8a4a','⬆ Stufe '+e.evo); }
+    if(e.night){   // NACHT-KI (mid:6426): marschiert aufs Hauptgebäude; nur Held/Truppe in Aggro-Reichweite lenkt ab; an der Basis sinkt die Dorf-Lebensleiste
+      const def=nightTarget(s,e), tx=def?def.x:BASE.x, ty=def?def.y:BASE.y;
+      const reach=def?T.atkRange:(BASE_SOLID+ENEMY_R+8), dT=dist(e.x,e.y,tx,ty);
+      if(dT>reach){ const dx=tx-e.x; if(Math.abs(dx)>2)e.face=dx<0?-1:1; e.moving=true; moveToward(e,tx,ty, onSand(s,e.x,e.y)?T.speed*0.55:T.speed, dt); collide(s,e,ENEMY_R); }
+      else { e.moving=false; e.atkT-=dt; if(e.atkT<=0){ e.atkT=ENEMY_ATK_CD;
+        if(def){ if(!(def===P&&P.invT>0)){ const dmg=Math.max(1,Math.round(T.atk*(1+0.15*e.evo)-(def===P?(s.def||0):0))); def.hp-=dmg; def.hurtT=0.25; if(def===P){ addPop(s,P.x,P.y-62,'#ff6a6a','-'+dmg); SFX.hurt(); } else addPop(s,def.x,def.y-44,'#ff9a6a','-'+dmg); } }
+        else { const dmg=Math.max(1,Math.round(T.atk*(1+0.15*e.evo))); s.baseHP=Math.max(0,(s.baseHP||100)-dmg); addPop(s,BASE.x,BASE.y-BASE_SOLID-12,'#ff6a6a','-'+dmg+' Dorf'); burst(s,BASE.x,BASE.y-10,'#ff5a5a',5); SFX.hurt(); } } }
+      continue;
+    }
     const tg=enemyTarget(s,e), isP=(tg===P), dP=dist(e.x,e.y,tg.x,tg.y);   // Ziel: Held oder nächste Turm-Einheit (mid:6359)
     if(e.state==='idle'){ e.moving=false; if(dP<T.aggro) e.state='chase'; }                         // stationär bis Aggro
     else if(e.state==='chase'){
@@ -363,10 +381,14 @@ function updateCombat(s,dt){ const P=s.player; P.attacking=false;
         s.store[rk]=(s.store[rk]||0)+amt; addPop(s,e.x,e.y-34,COL[rk]||'#fff','+'+amt+' '+NAME[rk]); SFX.deposit(); } }
     else if(e.poof){ burst(s,e.x,e.y-10,'rgba(150,150,170,.8)',8); } }
   s.enemies=s.enemies.filter(e=>!e.dead);
-  if(s.phase==='night' && !s.enemies.some(e=>e.night)){   // Nacht überstanden → Aufstiegs-Kredit (mid:6396)
-    s.phase='day'; s.nightToken=true; const rw=30+s.era*15; s.store.gold=(s.store.gold||0)+rw;
-    addPop(s,BASE.x,BASE.y-52,'#ffe08a','Nacht überstanden! +'+rw+' Gold'); burst(s,BASE.x,BASE.y-20,'#a05bff',28); SFX.era();
-    say('🌅 Nacht überstanden! Du kannst jetzt aufsteigen.'); saveGame(s); }
+  if(s.phase==='night'){
+    if((s.baseHP||0)<=0){   // Dorf überrannt → Rückschlag (kein Game-Over): Welle weg, Dorf heilt, Nacht erneut versuchen (mid:6426)
+      s.phase='day'; s.enemies=s.enemies.filter(e=>!e.night); s.baseHP=s.baseHPmax||100;
+      burst(s,BASE.x,BASE.y-20,'#ff5a5a',26); SFX.hurt(); say('💥 Das Dorf wurde überrannt! Stärke deine Verteidigung und starte die Nacht neu.'); saveGame(s); }
+    else if(!s.enemies.some(e=>e.night)){   // Welle geschlagen → Aufstiegs-Kredit (mid:6396)
+      s.phase='day'; s.nightToken=true; const rw=30+s.era*15; s.store.gold=(s.store.gold||0)+rw;
+      addPop(s,BASE.x,BASE.y-52,'#ffe08a','Nacht überstanden! +'+rw+' Gold'); burst(s,BASE.x,BASE.y-20,'#a05bff',28); SFX.era();
+      say('🌅 Nacht überstanden! Du kannst jetzt aufsteigen.'); saveGame(s); } }
   if(P.hp<=0 && P.invT<=0){                                    // Tod (Option A): Sack fällt, Respawn an Basis, kurz unverwundbar
     addFx(s,'dust',P.x,P.y-4,84);
     if(carryTotal(P.carry)>0.4){ const c={}; ALL.forEach(k=>{ c[k]=P.carry[k]; P.carry[k]=0; }); s.drops.push({x:P.x,y:P.y,carry:c}); }
@@ -663,7 +685,7 @@ function serialize(s){ return { // nur Fortschritt (Welt/Knoten/Deko werden neu 
   workerPool:s.workerPool, builds:s.builds, char:s.char, charChosen:s.charChosen, atk:s.atk, def:s.def, hpmax:s.player.hpmax,
   atkLvl:s.atkLvl, defLvl:s.defLvl, hpLvl:s.hpLvl,
   areas:s.areas, areaLvl:s.areaLvl, era:s.era, firstDeposit:s.firstDeposit,
-  phase:s.phase, nightToken:!!s.nightToken, day:s.day, baseHP:s.baseHP, towers:(s.towers||[]).map(t=>({seg:t.seg,type:t.type,lvl:t.lvl||0,mode:t.mode||'wache'})), questIdx:s.questIdx, outposts:s.outposts,
+  phase:s.phase, nightToken:!!s.nightToken, healBought:s.healBought||0, day:s.day, baseHP:s.baseHP, baseHPmax:s.baseHPmax, towers:(s.towers||[]).map(t=>({seg:t.seg,type:t.type,lvl:t.lvl||0,mode:t.mode||'wache'})), questIdx:s.questIdx, outposts:s.outposts,
   achieved:s.achieved, lifetime:s.lifetime, playSec:s.playSec }; }
 function saveGame(s){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify({v:SAVE_VERSION, t:Date.now(), d:serialize(s)})); }catch(e){} }
 function loadRaw(){ try{ const r=localStorage.getItem(SAVE_KEY); if(!r) return null; const o=JSON.parse(r);
@@ -671,7 +693,7 @@ function loadRaw(){ try{ const r=localStorage.getItem(SAVE_KEY); if(!r) return n
 function clearSave(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} }
 function stateFromSave(d){ const s=freshState();  // frische Welt, dann Fortschritt drüberlegen
   ALL.forEach(k=>{ if(typeof d.store[k]==='number') s.store[k]=d.store[k]; });
-  ['cap','speed','gather','wboost','capLvl','speedLvl','gatherLvl','steamLvl','workerPool','areas','areaLvl','era','firstDeposit','day','baseHP','questIdx','nightToken'].forEach(k=>{ if(d[k]!==undefined) s[k]=d[k]; });
+  ['cap','speed','gather','wboost','capLvl','speedLvl','gatherLvl','steamLvl','workerPool','areas','areaLvl','era','firstDeposit','day','baseHP','baseHPmax','questIdx','nightToken','healBought'].forEach(k=>{ if(d[k]!==undefined) s[k]=d[k]; });
   s.phase='day';   // laufende Nacht beim Laden abbrechen (Nacht-Gegner werden nicht persistiert) — Token bleibt erhalten
   if(Array.isArray(d.towers)) s.towers=d.towers.filter(t=>TOWER_TYPES[t.type]&&typeof t.seg==='number').map(t=>{ const nt={seg:t.seg,type:t.type,lvl:t.lvl||0,mode:t.mode||'wache',downT:0}; spawnTroop(s,nt); return nt; });   // Einheit frisch (mid:6359)
   if(d.char && CHARS[d.char]) s.char=d.char;
@@ -892,12 +914,17 @@ const game={
     this.updateShop(); saveGame(s); },
   startNight(){ const s=this.s; if(nightActive(s)){ say('Die Nacht läuft bereits.'); return; }
     if(!nightPending(s)){ say('Gerade ist keine Nacht nötig.'); return; }
-    s.phase='night'; const before=s.enemies.length, n=5+(s.areas||1)+s.era*2;   // Welle skaliert mit Map+Stufe
+    s.phase='night';   // Dorf-Lebensleiste persistiert über Nächte — Heilung via Pilze-Kauf (mid:6431)
+    const before=s.enemies.length, n=5+(s.areas||1)+s.era*2;   // Welle skaliert mit Map+Stufe
     for(let i=0;i<n;i++) spawnEnemy(s,(s.era>=3&&i%4===0)?'brute':'grunt');
     for(let i=before;i<s.enemies.length;i++){ const e=s.enemies[i]; e.night=true; e.state='chase'; }
     s.nightTotal=s.enemies.filter(e=>e.night).length;
     if(!s.nightTotal){ s.phase='day'; say('Kein Platz für die Welle — versuch es gleich nochmal.'); return; }
     say('🌙 Die Nacht bricht herein — schlag die Welle zurück, dann kannst du aufsteigen!'); SFX.era(); this.flash=1; this.updateShop(); saveGame(s); },
+  healVillage(){ const s=this.s; if((s.baseHP||0)>=(s.baseHPmax||100)){ say('Das Dorf ist schon bei voller Kraft.'); return; }
+    const c=healCost(s); if((s.store.pilze||0)<c){ say('Dafür brauchst du '+c+' Pilze.'); return; }
+    s.store.pilze-=c; s.baseHP=s.baseHPmax||100; s.healBought=(s.healBought||0)+1;
+    SFX.buy(); burst(s,BASE.x,BASE.y-20,'#5fd06a',22); addPop(s,BASE.x,BASE.y-52,'#5fd06a','Dorf geheilt!'); say('🌿 Dorf geheilt — Lebensleiste wieder voll.'); this.updateShop(); saveGame(s); },
 
   step(dt){ const s=this.s; s.playSec+=dt;
     const psp=onSand(s,s.player.x,s.player.y)?s.speed*0.55:s.speed;  // Sand bremst (mid:6060)
@@ -1088,7 +1115,11 @@ const game={
     if(carryTotal(s.player.carry)>0.4){ const c=s.player.carry, tk=ALL.find(k=>c[k]>0.4)||'holz'; worldSprite(tk, s.player.x+22, s.player.y-58, 28, true); }
     // overlay edge arrows
     ctx.setTransform(dpr,0,0,dpr,0,0); ctx.imageSmoothingEnabled=false;
-    if(nightActive(s)){ ctx.fillStyle='rgba(18,22,54,.42)'; ctx.fillRect(0,0,VW,VH); }   // Nacht: Karte abdunkeln (mid:6396)
+    if(nightActive(s)){ ctx.fillStyle='rgba(18,22,54,.42)'; ctx.fillRect(0,0,VW,VH);   // Nacht: Karte abdunkeln (mid:6396)
+      const bw=Math.min(260,VW*0.62), bx=(VW-bw)/2, by=52, hpf=Math.max(0,(s.baseHP||0)/(s.baseHPmax||100));   // Dorf-Lebensleiste (mid:6426)
+      ctx.fillStyle='rgba(0,0,0,.55)'; ctx.fillRect(bx-3,by-3,bw+6,18);
+      ctx.fillStyle='#5a1e1e'; ctx.fillRect(bx,by,bw,12); ctx.fillStyle=hpf>0.3?'#5fd06a':'#e0573a'; ctx.fillRect(bx,by,bw*hpf,12);
+      ctx.fillStyle='#fff'; ctx.font='bold 11px sans-serif'; ctx.textAlign='center'; ctx.fillText('🌙 Dorf  '+Math.ceil(hpf*100)+'%',VW/2,by+22); ctx.textAlign='left'; }
     edgeArrow('era'+s.era,BASE.x,BASE.y,offx,offy,VW,VH,z,'rgba(160,91,255,.95)');
     const nn=nearestNode(s.player.x,s.player.y,s.nodes);
     if(nn) edgeArrow(nn.type,nn.x,nn.y,offx,offy,VW,VH,z,COL[nn.type]);
@@ -1135,7 +1166,7 @@ const game={
       tabsEl.style.display='flex'; ph.textContent='Burg — Aufbau & Upgrades';
       const list=this.tab==='held'?UP_HELD:this.tab==='kampf'?UP_KAMPF:UP_DORF;
       for(const up of list) this.mkBtn(shop,up.id,'',()=>this.buy(up.id));
-      if(this.tab==='dorf'){ this.mkBtn(shop,'nacht','era',()=>this.startNight()); this.mkBtn(shop,'era','era',()=>this.buyEra()); }
+      if(this.tab==='dorf'){ this.mkBtn(shop,'nacht','era',()=>this.startNight()); if(this.s.era>=3) this.mkBtn(shop,'heal','',()=>this.healVillage()); this.mkBtn(shop,'era','era',()=>this.buyEra()); }
     }
     this.updateShop(); },
   updateShop(){ const s=this.s; if(!this.btns)return;
@@ -1162,9 +1193,11 @@ const game={
     }
     if(typeof this.panelFor==='string' && this.panelFor.slice(0,2)==='tb'){   // TURM-BAU-MENÜ refresh (4 Typen, stufen-gated)
       const ICON={kaempfer:'stein',bogen:'kristall',lance:'holz',monk:'korn'};
+      const full=(s.towers||[]).length>=towerAllowance(s);   // Stufen-Limit erreicht (mid:6420)
       for(const tt of TOWER_ORDER){ const T=TOWER_TYPES[tt], locked=s.era<T.era, c=T.cost;
         const role=T.role==='heal'?'Heiler/Support':T.role==='ranged'?'Fernkampf':(tt==='lance'?'Reichweiten-Nahkampf':'Nahkampf');
-        set('tb_'+tt, ICON[tt]||'stein', T.name, locked?('Ab Stufe '+(T.era+1)):role, locked?'':'⤷ '+costStr(c), locked||!canAfford(s,c)); }
+        const desc=locked?('Ab Stufe '+(T.era+1)):(full?('Limit '+towerAllowance(s)+'/Stufe erreicht — erst aufsteigen'):role);
+        set('tb_'+tt, ICON[tt]||'stein', T.name, desc, locked||full?'':'⤷ '+costStr(c), locked||full||!canAfford(s,c)); }
       return;
     }
     if(typeof this.panelFor==='string' && this.panelFor.slice(0,2)==='tw'){   // TURM-PANEL refresh
@@ -1184,6 +1217,9 @@ const game={
     if(nb){ if(nightActive(s)){ const left=s.enemies.filter(e=>e.night).length; set('nacht','era4','🌙 Nacht läuft','Schlag die Welle zurück','Gegner übrig: '+left,true); }
       else if(nightPending(s)) set('nacht','era4','🌙 Nacht starten','Überstehe die Welle, um aufzusteigen','Tippen zum Starten',false);
       else nb.style.display='none'; }
+    const hb=this.btns.heal;   // Dorf-Heilung gegen Pilze (mid:6431)
+    if(hb){ const hc=healCost(s), need=(s.baseHP||0)<(s.baseHPmax||100), pct=Math.ceil(100*(s.baseHP||0)/(s.baseHPmax||100));
+      set('heal','pilze','Dorf heilen',need?('Lebensleiste auf 100% (jetzt '+pct+'%)'):'Dorf ist voll',  '⤷ '+hc+' Pilze', !need||(s.store.pilze||0)<hc); }
     const eb=this.btns.era; if(!eb) return; const next=s.era+1;
     if(next<ERAS.length){ const ec=eraCost(next); const gate=nightGated(next)&&!s.nightToken;
       set('era','era'+Math.min(4,next),'Aufstieg → '+ERAS[next].name,gate?'🌙 Erst eine Nacht überstehen':'',(canAfford(s,ec)?'⤷ ':'⤷ fehlt: ')+costStr(ec),!canAfford(s,ec)||gate||nightActive(s)); }
@@ -1197,6 +1233,7 @@ const game={
     const c=outpostUpCost(o,kind,s); if(!canAfford(s,c)){ say('Dafür fehlen noch Ressourcen.'); return; } pay(s,c); o[lk]=(o[lk]||0)+1; SFX.buy(); this.updateShop(); saveGame(s); },
   buildTower(type){ const s=this.s; if(typeof this.panelFor!=='string'||this.panelFor.slice(0,2)!=='tb')return; const seg=+this.panelFor.slice(2);
     if(towerAt(s,seg))return; if(s.era<TOWER_TYPES[type].era){ say(TOWER_TYPES[type].name+' erst ab Stufe '+(TOWER_TYPES[type].era+1)); return; }
+    if((s.towers||[]).length>=towerAllowance(s)){ say('Turm-Limit für diese Stufe erreicht ('+towerAllowance(s)+') — erst aufsteigen für mehr.'); return; }
     const c=TOWER_TYPES[type].cost; if(!canAfford(s,c)){ say('Dafür fehlen noch Ressourcen.'); return; }
     pay(s,c); if(!s.towers)s.towers=[]; const t={seg,type,lvl:0,mode:'wache',downT:0}; spawnTroop(s,t); s.towers.push(t);
     SFX.build(); say(TOWER_TYPES[type].name+' gebaut! Antippen für Aufrüsten/Modus.'); this.openPanelFor('tw'+seg); saveGame(s); },
