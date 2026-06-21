@@ -333,10 +333,10 @@ function updateFreeWalkers(s,dt){
 const ENEMY_R=14, HERO_RANGE=72, HERO_ATK_CD=0.55, ENEMY_ATK_CD=1.0;
 // Zwei Gegner-Tiers: Grunt = leicht (klein), Brute = schwer (groß, stark) — fürs Era-gating
 const ETYPES={
-  grunt:{name:'Grunt', unit:'pawn_black',    hp:32, hpEra:10, atk:7,  speed:56, size:92,  atkRange:42, aggro:320, leash:640, bounty:2},
-  brute:{name:'Brute', unit:'warrior_black', hp:100,hpEra:30, atk:19, speed:42, size:134, atkRange:60, aggro:470, leash:820, bounty:7},
+  grunt:{name:'Grunt', unit:'goblin',     hp:32, hpEra:10, atk:7,  speed:56, size:92,  atkRange:42, aggro:320, leash:640, bounty:2},   // Torch-Goblin (Enemy-Pack, mid:6564)
+  brute:{name:'Brute', unit:'speargob',   hp:100,hpEra:30, atk:19, speed:42, size:138, atkRange:60, aggro:470, leash:820, bounty:7},   // Speer-Goblin
   // Miniboss ab Gebiet 3 (mid:6159): groß, knapp schaffbar, lohnt sich → schenkt einen Arbeiter
-  miniboss:{name:'Anführer', unit:'warrior_black', hp:300, hpEra:70, atk:24, speed:38, size:178, atkRange:70, aggro:560, leash:1000, bounty:0, boss:true},
+  miniboss:{name:'Anführer', unit:'troll', hp:300, hpEra:70, atk:24, speed:38, size:210, atkRange:70, aggro:560, leash:1000, bounty:0, boss:true},   // Troll-Boss (384→192 skaliert → größer dargestellt)
 };
 // Entwicklungs-Cap pro Zeitalter (mid:6137): era0=0 (keine Evo am Start) … era4=4. So bleibt jeder Einzelgegner mit voll
 // ausgebauten Kampf-Upgrades der Era besiegbar.
@@ -504,7 +504,7 @@ const A={};  // alle fertigen Sprites
 // Animierte Held-Sheets (Tiny Swords Warrior, 192px-Frames, 6 Spalten × 8 Reihen). Pro Startcharakter eine Farbe.
 // Animierte Einheiten (Tiny Swords v2 Free Pack): pro (Unit,Farbe) je Anim-Strip (idle/run/atk), 192px-Frames horizontal.
 const U={}, UFRAME=192;
-['warrior_red','warrior_black','pawn_blue','pawn_black','archer_purple','lance_blue','monk_blue'].forEach(p=>{
+['warrior_red','warrior_black','pawn_blue','pawn_black','archer_purple','lance_blue','monk_blue','goblin','speargob','troll'].forEach(p=>{
   ['idle','run','atk'].forEach(a=>{ const k=p+'_'+a, i=new Image(); i.src='ts/u/'+k+'.png'; U[k]=i; }); });
 // One-shot-Effekte (Tiny Swords Particle FX): quadratische Frame-Strips (dust=Todes-Puff, heal=Heil-Funke)
 const FX={}; ['dust','heal'].forEach(k=>{ const i=new Image(); i.src='ts/u/fx_'+k+'.png'; FX[k]=i; });
@@ -536,6 +536,8 @@ const GUIDE='Der Älteste';
 const GROUND={ grass:new Image(), sand:new Image(), water:new Image() };
 GROUND.grass.src='ts/grass.png'; GROUND.sand.src='ts/sand.png'; GROUND.water.src='ts/u/env_water.png';   // schönere Wasser-Textur (mid:6182)
 const ENVROCK={}; ['env_waterrock1','env_waterrock3'].forEach(k=>{ const i=new Image(); i.src='ts/u/'+k+'.png'; ENVROCK[k]=i; });   // animierte Wasser-Felsen (16 Frames @64)
+const CLOUD={}; for(let i=1;i<=8;i++){ const im=new Image(); im.src='ts/u/cloud_'+i+'.png'; CLOUD[i]=im; }   // Wolken übers Meer (mid:6503)
+const BUSH={}; for(let i=1;i<=4;i++){ const im=new Image(); im.src='ts/u/bush_'+i+'.png'; BUSH[i]=im; }   // animierte Sträucher (8 Frames @128, mid:6503)
 
 /* Ressourcen — jede mit eigenem Tiny-Swords-Sprite (siehe A-Loader oben). unlock = ab welchem Zeitalter sichtbar. */
 const RES=[
@@ -552,7 +554,7 @@ const COL=Object.fromEntries(RES.map(r=>[r.key,r.col]));
 const NAME=Object.fromEntries(RES.map(r=>[r.key,r.name]));
 const activeKeys=era=>RES.filter(r=>r.unlock<=era).map(r=>r.key);
 // Anzeigegröße der FARMBAREN Knoten je Typ — bewusst etwas größer als die normale Deko gleicher Art, damit man sie gut sieht (mid:6236)
-const NODE_SIZE={holz:142, stein:114, korn:60, pilze:54, gold:82, beeren:64, kristall:84};
+const NODE_SIZE={holz:210, stein:165, korn:95, pilze:88, gold:120, beeren:98, kristall:122};   // farmbare Knoten größer als ambiente Deko (mid:6523)
 // ★ Ökonomie-Fix: Holz ist die häufigste Ressource (am meisten gebraucht -> am häufigsten)
 const WEIGHT={holz:4.0,stein:2.2,korn:2.0,pilze:1.3,gold:1.0,beeren:1.0,kristall:0.8};
 function weightedKey(keys){ let tot=0; for(const k of keys) tot+=WEIGHT[k]||1; let r=Math.random()*tot;
@@ -664,21 +666,30 @@ function buildLevel(s){
   for(let i=0;i<NCL;i++){ const a=rnd(0,6.2832), d=Math.sqrt(Math.random())*FULLR, cx=BASE.x+Math.cos(a)*d, cy=BASE.y+Math.sin(a)*d;
     if(dist(cx,cy,BASE.x,BASE.y)<OUTER_R+30) continue;
     const bk=biomeAt(s,cx,cy);
-    if(bk==='wald'){            // Wäldchen: VIELE große Bäume eng zusammen + etwas Unterholz/Pilze (mid:6235 — mehr Bäume)
-      clump(cx,cy, 8+Math.floor(rnd(0,10)), rnd(80,190), (x,y)=> placeD('holz',x,y,rnd(82,132),false));
-      clump(cx,cy, 1+Math.floor(rnd(0,3)), rnd(60,150), (x,y)=> placeD(Math.random()<0.45?'deco_mushroom':'deco_bush',x,y,rnd(22,32),false));
-    } else if(bk==='gebirge'){  // Felsfeld: viele kleine/mittlere Brocken (Deko) + 1-2 große solide Felsen
-      clump(cx,cy, 5+Math.floor(rnd(0,7)), rnd(60,160), (x,y)=> placeD('deco_rock',x,y,rnd(34,58),false));
-      clump(cx,cy, 1+Math.floor(rnd(0,2)), rnd(40,110), (x,y)=> placeD('deco_rock',x,y,rnd(72,104),true));
-      clump(cx,cy, 0+Math.floor(rnd(0,2)), rnd(60,130), (x,y)=> placeD('deco_bush',x,y,rnd(20,30),false));
-    } else {                    // Wiesen: offener — Kürbisse + Pilze + Büschel in lockeren Tupfern, vereinzelt ein Baum
-      clump(cx,cy, 3+Math.floor(rnd(0,5)), rnd(80,180), (x,y)=>{ const r=Math.random(); placeD(r<0.4?'deco_pumpkin':(r<0.78?'deco_mushroom':'deco_bush'),x,y,rnd(24,36),false); });
-      if(Math.random()<0.45) clump(cx,cy, 1+Math.floor(rnd(0,3)), rnd(50,130), (x,y)=> placeD('holz',x,y,rnd(74,108),false));
+    if(bk==='wald'){            // Wäldchen: größere Bäume mit Variation (mid:6523) + Unterholz/Pilze
+      clump(cx,cy, 8+Math.floor(rnd(0,10)), rnd(90,205), (x,y)=> placeD('holz',x,y,rnd(120,240),false));
+      clump(cx,cy, 1+Math.floor(rnd(0,3)), rnd(60,150), (x,y)=> placeD(Math.random()<0.45?'deco_mushroom':'deco_bush',x,y,rnd(40,72),false));
+    } else if(bk==='gebirge'){  // Felsfeld: größere Brocken (mid:6523) + 1-2 große solide Felsen
+      clump(cx,cy, 5+Math.floor(rnd(0,7)), rnd(60,160), (x,y)=> placeD('deco_rock',x,y,rnd(48,88),false));
+      clump(cx,cy, 1+Math.floor(rnd(0,2)), rnd(40,110), (x,y)=> placeD('deco_rock',x,y,rnd(104,162),true));
+      clump(cx,cy, 0+Math.floor(rnd(0,2)), rnd(60,130), (x,y)=> placeD('deco_bush',x,y,rnd(38,64),false));
+    } else {                    // Wiesen: Kürbisse/Pilze/Büschel + vereinzelt größere Bäume (mid:6523)
+      clump(cx,cy, 3+Math.floor(rnd(0,5)), rnd(80,180), (x,y)=>{ const r=Math.random(); placeD(r<0.4?'deco_pumpkin':(r<0.78?'deco_mushroom':'deco_bush'),x,y,rnd(40,70),false); });
+      if(Math.random()<0.45) clump(cx,cy, 1+Math.floor(rnd(0,3)), rnd(50,130), (x,y)=> placeD('holz',x,y,rnd(110,205),false));
     }
   }
   // Wasser-Felsen als Ozean-Deko (immer im Wasser jenseits des Maximalausbaus FULLR)
   s.waterRocks=[]; const maxR=2400+3*2400;
   for(let i=0;i<26;i++){ const a=rnd(0,6.2832), d=rnd(maxR+120, maxR+900); s.waterRocks.push({x:BASE.x+Math.cos(a)*d, y:BASE.y+Math.sin(a)*d, kind:Math.random()<0.5?'env_waterrock1':'env_waterrock3', t:rnd(0,2)}); }
+  // Wolken (mid:6503): driften langsam übers Meer + bisschen über die Insel, leicht transparent
+  s.clouds=[]; s.cloudSpan=maxR+1600; const CGRID=4200, CR=maxR+1400;   // weniger, größer (mid:6513); jittert → immer welche im Bild
+  for(let gx=-CR; gx<=CR; gx+=CGRID) for(let gy=-CR; gy<=CR; gy+=CGRID){ if(Math.hypot(gx,gy)>CR) continue;
+    s.clouds.push({x:BASE.x+gx+rnd(-1400,1400), y:BASE.y+gy+rnd(-1400,1400), ci:1+Math.floor(rnd(0,8)), spd:rnd(6,15), sz:rnd(1.4,2.5), al:rnd(0.5,0.78)}); }
+  // animierte Sträucher/Büsche als Insel-Deko (mid:6503): mehr Leben, nicht auf Sand/Wasser/Dorf
+  s.bushes=[]; for(let i=0;i<120;i++){ const a=rnd(0,6.2832), dd=rnd(VILLAGE_R+60, FULLR*0.95), x=BASE.x+Math.cos(a)*dd, y=BASE.y+Math.sin(a)*dd;
+    if(dist(x,y,BASE.x,BASE.y)<OUTER_R+22||inLake(x,y,26)||onSand(s,x,y)||blocked(s,x,y,14)) continue;
+    s.bushes.push({x,y,bi:1+Math.floor(rnd(0,4)),t:rnd(0,3),sz:rnd(95,165)}); }   // größer + breite Variation (mid:6523)
+  // (Plateaus-Gen entfernt mid:6531 — kommt als echtes tile-basiertes Höhensystem mit dem Paid-Pack)
 }
 
 function freshState(){ const store={},carry={}; ALL.forEach(k=>{store[k]=0;carry[k]=0;});
@@ -691,7 +702,7 @@ function freshState(){ const store={},carry={}; ALL.forEach(k=>{store[k]=0;carry
     outposts:[],   // Außenposten-Sammler (mid:6246) — werden vom Spieler gebaut
     questIdx:0, achieved:[], lifetime:0, playSec:0, tutShown:{}, heroRangeMul:1, playerName:'', tutStep:-1, tutMoved:false, tutHarvested:false, tutMenu:false };
   buildLevel(s);
-  for(let i=0;i<40;i++) spawnNode(s,'holz'); for(let i=0;i<26;i++) spawnNode(s,'stein'); for(let i=0;i<26;i++) spawnNode(s,'korn');  // viele Start-Knoten für die große Insel (mid:6260)
+  for(let i=0;i<14;i++) spawnNode(s,'holz'); for(let i=0;i<9;i++) spawnNode(s,'stein'); for(let i=0;i<9;i++) spawnNode(s,'korn');  // weniger Start-Knoten (mid:6513)
   return s; }
 function addPop(s,x,y,color,text){ s.pops.push({x,y,color,text:text||null,age:0,max:text?1.1:0.6}); }
 /* ---------- Juice: Partikel ---------- */
@@ -790,7 +801,7 @@ function stateFromSave(d){ const s=freshState();  // frische Welt, dann Fortschr
   if(Array.isArray(d.builds)) s.builds=d.builds.filter(b=>BUILD_TYPES[b.type]).map(b=>({type:b.type,seg:b.seg,tempo:b.tempo||0,menge:b.menge||0,workers:b.workers||0}));   // unbekannte/entfernte Typen (z.B. altes Kürbisfeld) droppen (mid:6313)
   if(Array.isArray(d.outposts)) s.outposts=d.outposts.filter(o=>OUTPOST_TYPES[o.type]).map(o=>({type:o.type,x:o.x,y:o.y,store:o.store||0,tempoLvl:o.tempoLvl||0,mengeLvl:o.mengeLvl||0}));
   setRing(s);
-  s.nodes=[]; const n=70+s.areas*65; for(let i=0;i<n;i++) spawnNode(s);  // deutlich mehr Knoten (mid:6098/6260)
+  s.nodes=[]; const n=24+s.areas*16; for(let i=0;i<n;i++) spawnNode(s);  // weniger Sammel-Knoten (mid:6513)
   return s; }
 // Offline-Ertrag: Auto-Producer voll, Helfer grob geschätzt (reduziert), gedeckelt
 function applyOffline(s, elapsedSec){ const t=Math.min(Math.max(0,elapsedSec), OFFLINE_CAP); if(t<30) return null;
@@ -1076,7 +1087,7 @@ const game={
     for(const r of s.respawns.filter(r=>r.t<=0)) spawnNode(s, Math.random()<0.5?r.type:null);
     s.respawns=s.respawns.filter(r=>r.t>0);
     // Nachwachsen bis zu einem hohen Gesamt-Cap, damit die Map nicht verarmt (v.a. höhere Zeitalter, mid:6098)
-    s.topupT=(s.topupT||0)+dt; const nodeCap=70+s.areas*65+s.era*12;
+    s.topupT=(s.topupT||0)+dt; const nodeCap=24+s.areas*16+s.era*6;
     if(s.topupT>1.5){ s.topupT=0; if(s.nodes.length<nodeCap) spawnNode(s); }
     for(const n of s.nodes){ if(n.scale<1) n.scale=Math.min(1,n.scale+dt*3); }
     // Produktionsgebäude (passives Einkommen, skaliert mit Tempo/Menge/Arbeitern); Konverter ziehen Input ab
@@ -1140,20 +1151,21 @@ const game={
       const fr=Math.max(1,Math.round(im.naturalWidth/im.naturalHeight)), col=Math.floor((this.animT+wr.t)*5)%fr, fh=im.naturalHeight, sz=84;
       ctx.drawImage(im, col*fh,0,fh,fh, wr.x-sz/2, wr.y-sz/2, sz, sz); }
     ctx.save(); ctx.beginPath(); ctx.arc(BASE.x,BASE.y,lr,0,Math.PI*2); ctx.clip();   // ----- LAND-INSEL (rund) -----
-    ctx.fillStyle=this._gp||'#5fa148'; ctx.fillRect(RX,RY,RW,RH);
-    // Biom-Boden als Zell-Raster (wie im guten Original v30): pro Zelle die biomeAt-Farbe → organische, leicht durcheinander gehende Grenzen statt scharfer Tortenstücke (mid:6203)
-    if(s.biomes){ const CELL=42;
+    ctx.fillStyle=this._gp||'#5fa148'; ctx.fillRect(RX,RY,RW,RH);   // Gras-Basis (1 Pattern-Füllung = schnell, mid:6513)
+    // Biom-Boden (mid:6513, perf-fix): Wald/Felder = schnelle Solid-Tints über Gras; Gebirge = ECHTES Fels-Tile in EINER Pattern-Füllung (Pfad)
+    if(s.biomes){ const CELL=52;   // Biom-Tints über Gras (Steffen mid:6520 ok); echter Berg-Look kommt über Plateaus mit Felskante
       for(let gx=Math.floor(vx0/CELL)*CELL; gx<vx1; gx+=CELL) for(let gy=Math.floor(vy0/CELL)*CELL; gy<vy1; gy+=CELL){
         const cx=gx+CELL/2, cy=gy+CELL/2; if(dist(cx,cy,BASE.x,BASE.y)>lr) continue;
-        ctx.fillStyle=BIOMES[biomeAt(s,cx,cy)].ground; ctx.fillRect(gx,gy,CELL+1,CELL+1); } }
-    ctx.fillStyle=this._gp||'#5fa148'; ctx.beginPath(); ctx.arc(BASE.x,BASE.y,OUTER_R+10,0,Math.PI*2); ctx.fill();   // Dorf-Boden neutral bis zur äußeren Linie (mid:6280)
+        const bk=biomeAt(s,cx,cy); ctx.fillStyle=BIOMES[bk].ground; ctx.fillRect(gx,gy,CELL+1,CELL+1); } }
+    // (Plateaus entfernt mid:6531 — echtes Höhensystem mit Treppen/Kollision kommt mit dem Paid-Pack-Terrain)
+    ctx.fillStyle=this._gp||'#5fa148'; ctx.beginPath(); ctx.arc(BASE.x,BASE.y,OUTER_R+10,0,Math.PI*2); ctx.fill();   // Dorf-Boden neutral bis zur äußeren Linie
     ctx.fillStyle=this._sp||'#d8c08a'; ctx.globalAlpha=0.92; for(const B of s.sand){ if(dist(B.x,B.y,BASE.x,BASE.y)<lr+B.r){ blobPathCtx(B,1); ctx.fill(); } } ctx.globalAlpha=1;
     // Inland-Seen (mid:6213): Schaum-Rand + Wasser-Textur + Glitzer-Wellen
     ctx.fillStyle='#dff4f0'; for(const L of s.lakes){ if(dist(L.x,L.y,BASE.x,BASE.y)>lr+L.r) continue; blobPathCtx(L,1.05); ctx.fill(); }   // See-Schaum
     for(const L of s.lakes){ if(dist(L.x,L.y,BASE.x,BASE.y)>lr+L.r) continue;   // See-Wasser + Glitzer
       ctx.save(); blobPathCtx(L,0.99); ctx.clip();
       ctx.fillStyle=this._wp||'#3f9fb0'; ctx.fillRect(L.x-L.r*1.5,L.y-L.r*1.5,L.r*3,L.r*3);
-      ctx.fillStyle='rgba(255,255,255,.12)'; for(let i=0;i<7;i++){ const yy=L.y-L.r*0.55+i*L.r*0.2; ctx.beginPath(); ctx.ellipse(L.x,yy,L.r*0.3,3,0,0,7); ctx.fill(); } ctx.restore(); }
+      ctx.restore(); }   // weiße Glitzer-Striche entfernt (mid:6513)
     ctx.strokeStyle=this._sp||'#d8c08a'; ctx.lineWidth=56; ctx.lineCap='butt'; ctx.beginPath(); ctx.arc(BASE.x,BASE.y,lr-2,0,Math.PI*2); ctx.stroke();   // Strand-Ring am Rand
     // Dorf-Wege: 6 innere Speichen + 12 Band-Speichen + 2 Ringe (Speichen zuerst, Ringe drüber = bündig)
     { const sp=(a,r0,r1,w1,w2)=>{ const x0=BASE.x+Math.cos(a)*r0,y0=BASE.y+Math.sin(a)*r0,x1=BASE.x+Math.cos(a)*r1,y1=BASE.y+Math.sin(a)*r1;
@@ -1172,6 +1184,9 @@ const game={
     for(const v of s.village){ if(!vis(v.x,v.y))continue; shadow(v.x,v.y,v.size*0.32,v.size*0.12); worldSprite(v.key,v.x,v.y,v.size,true); }
     // Natur-Deko (Bäume/Felsen/Pilze) — nur auf der erschlossenen Insel (unerschlossenes liegt im Wasser)
     for(const d of s.deco){ if(!vis(d.x,d.y))continue; if(dist(d.x,d.y,BASE.x,BASE.y)>lr-8)continue; shadow(d.x,d.y,d.size*0.34,d.size*0.13); worldSprite(d.key,d.x,d.y,d.size,true); }
+    if(s.bushes) for(const b of s.bushes){ if(!vis(b.x,b.y))continue; if(dist(b.x,b.y,BASE.x,BASE.y)>lr-8)continue; const im=BUSH[b.bi];   // animierte Sträucher (mid:6503)
+      if(!im||!im.complete||!im.naturalWidth)continue; const fw=im.naturalHeight, fr=Math.max(1,Math.round(im.naturalWidth/fw)), col=Math.floor(this.animT*5+b.t*7)%fr;
+      const sc=b.sz*SC/fw*1.7, dw=fw*sc; shadow(b.x,b.y,b.sz*SC*0.34,b.sz*SC*0.12); ctx.drawImage(im,col*fw,0,fw,fw,b.x-dw/2,b.y-dw*0.84,dw,dw); }
     // base + era-Gebäude (unten verankert)
     shadow(BASE.x,BASE.y+22*VS,58,18); worldSprite('era'+Math.min(4,s.era), BASE.x, BASE.y+26*VS, 134, true); label(ERAS[s.era].name, BASE.x, BASE.y-94*VS);   // Basis-Sprite nur bis era4 vorhanden → clampen (mid:6315)
     // Produktionsgebäude (je in einem Kuchenstück) + zugewiesene Arbeiter-Pawns daneben
@@ -1247,6 +1262,11 @@ const game={
       ctx.fillStyle='rgba(0,0,0,.6)'; rr(s.player.x-w/2,s.player.y-66,w,6,3); ctx.fill();
       ctx.fillStyle=f>0.3?'#5ad65a':'#e0432f'; rr(s.player.x-w/2,s.player.y-66,w*f,6,3); ctx.fill(); }
     if(carryTotal(s.player.carry)>0.4){ const c=s.player.carry, tk=ALL.find(k=>c[k]>0.4)||'holz'; worldSprite(tk, s.player.x+22, s.player.y-58, 28, true); }
+    // Wolken (mid:6503): driften langsam ostwärts über Meer + Insel, leicht transparent, ganz oben
+    if(s.clouds){ const span=2*(s.cloudSpan||14000); for(const c of s.clouds){ const im=CLOUD[c.ci]; if(!im||!im.complete||!im.naturalWidth)continue;
+      let cx=BASE.x + (((((c.x-BASE.x)+this.animT*c.spd)+span/2) % span)+span)%span - span/2;   // ostwärts driften + wrappen (zentriert um BASE)
+      if(!vis(cx,c.y))continue; const dw=im.naturalWidth*c.sz*0.9, dh=im.naturalHeight*c.sz*0.9;
+      ctx.globalAlpha=c.al; ctx.drawImage(im, cx-dw/2, c.y-dh/2, dw, dh); ctx.globalAlpha=1; } }
     // overlay edge arrows
     ctx.setTransform(dpr,0,0,dpr,0,0); ctx.imageSmoothingEnabled=false;
     if(nightActive(s)){ ctx.fillStyle='rgba(18,22,54,.42)'; ctx.fillRect(0,0,VW,VH);   // Nacht: Karte abdunkeln (mid:6396)

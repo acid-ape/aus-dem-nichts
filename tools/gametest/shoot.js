@@ -43,7 +43,8 @@ const VIEW = DEVICE === 'desktop'
   await sleep(500);
   await shot('00_intro'); // Story-Intro beim Start (neues Spiel, mid:6449)
   // Onboarding sauber durchlaufen: Intro zu → Klasse + Name bestätigen → Tutorial als erledigt markieren (für die folgenden Shots)
-  await page.evaluate(() => { document.getElementById('introOverlay').classList.remove('open'); game.pendingChar='krieger'; game.nameBuf='HELD'; game.confirmName(); game.s.tutStep=99; game.renderTutStep(); });
+  await page.evaluate(() => { document.getElementById('introOverlay').classList.remove('open'); game.pendingChar='krieger'; game.nameBuf='HELD'; game.confirmName(); game.s.tutStep=99; game.renderTutStep();
+    Object.keys(TUT).forEach(k=>game.s.tutShown[k]=true); game.tutQueue=[]; game.tutOpen=false; document.getElementById('tutOverlay').classList.remove('open'); });   // keine Tutorial-Overlays in den Screenshots (mid:6516)
   await sleep(400); await frames(20);
   await shot('01_start'); // Burger-Menü eingeklappt (Default)
   // Burger öffnen → Button-Stack sichtbar (für die Zoom-Klicks weiter unten + Verifikation)
@@ -85,9 +86,22 @@ const VIEW = DEVICE === 'desktop'
   // zoom out to reveal the village border / roads
   await page.evaluate(() => { for (let i = 0; i < 4; i++) game.zoom = Math.max(0.06, game.zoom / 1.18); }); await sleep(120);
   await frames(12); await shot('06_world_zoomout');
+  // weit raus über den Ozean — Wolken + Strand + Wasserfelsen sichtbar (mid:6503); kleine Insel (areas=1) = viel Ozean
+  await page.evaluate(() => { game.s.areas = 1; game.zoom = 0.32; }); await sleep(150);
+  await frames(16); await shot('06c_ocean_clouds');
+  await page.evaluate(() => { game.s.areas = 4; game.zoom = 0.6; });
+  // Plateau-Nahaufnahme (mid:6523): Kamera auf ein Gebirgs-Plateau, moderater Zoom
+  await page.evaluate(() => { if (game.s.plateaus && game.s.plateaus.length) { const P = game.s.plateaus[0]; game.s.cam.x = P.x; game.s.cam.y = P.y; game.camFollow = false; game.zoom = 0.7; } });
+  await sleep(200); await frames(12); await shot('06d_plateau');
   // tap to move the hero, then a couple frames
   await page.mouse.click(VIEW.width * 0.7, VIEW.height * 0.4); await sleep(500); await frames(20);
   await shot('07_world_moving');
+  // Gegner-Showcase (Enemy-Pack, mid:6564): Goblin/Speer-Goblin/Troll nebeneinander
+  await page.evaluate(() => { game.s.era = 4; game.s.enemies = [];
+    const B = BASE, mk=(kind,dx)=>({kind,x:B.x+dx,y:B.y-120,home:{x:B.x+dx,y:B.y-120},hp:ETYPES[kind].hp,max:ETYPES[kind].hp,base:ETYPES[kind].hp,face:-1,animT:0,atkT:0,hurtT:0,state:'idle',moving:false,evo:0,evoT:0});
+    game.s.enemies.push(mk('grunt',-220),mk('brute',0),mk('miniboss',260));
+    game.s.player.x=game.s.player.tx=B.x; game.s.player.y=game.s.player.ty=B.y+40; game.s.cam.x=B.x; game.s.cam.y=B.y-90; game.camFollow=false; game.zoom=0.62; });
+  await sleep(300); await frames(16); await shot('07b_enemies');
   // endgame: max era + many upgrades
   await page.evaluate(() => {
     game.panelFor = 'castle';
