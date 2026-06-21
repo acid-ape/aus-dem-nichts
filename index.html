@@ -379,8 +379,11 @@ function updateTroops(s,dt){ if(!s.towers) return; const P=s.player;
         else { u.moving=false; u.attacking=true; if(u.atkT<=0){ u.atkT=TT.cd; const h=Math.round(towerAtk(t)); tgt.hp=Math.min(tgt.hpmax,tgt.hp+h); addFx(s,'heal',tgt.x,tgt.y-18,42); addPop(s,tgt.x,tgt.y-44,'#7dffa0','+'+h); } } }
       else goHome();
     } else {   // Kämpfer/Lanze (Nahkampf) + Bogenschütze (Fernkampf): nächsten Gegner angreifen
-      let tgt=null,td=TT.range; for(const e of s.enemies){ if(e.dead)continue; const d=dist(e.x,e.y,u.x,u.y); if(d<td){td=d;tgt=e;} }
-      if(tgt){ const dx=tgt.x-u.x; if(Math.abs(dx)>2)u.face=dx<0?-1:1;
+      const nightDef=nightActive(s)&&t.mode!=='folgen';   // nachts im Wach-Modus die ganze Dorfgrenz-Zone verteidigen, nicht nur Aggro-Range (mid:6605)
+      let tgt = (u.tgt&&u.tgt.hp>0&&s.enemies.indexOf(u.tgt)>=0 && (nightDef?dist(u.tgt.x,u.tgt.y,BASE.x,BASE.y)<OUTER_R+820:dist(u.tgt.x,u.tgt.y,u.x,u.y)<TT.range*1.5)) ? u.tgt : null;   // begonnenen Kampf zu Ende führen
+      if(!tgt){ let bd=nightDef?1e9:TT.range; for(const e of s.enemies){ if(e.dead)continue; if(nightDef&&dist(e.x,e.y,BASE.x,BASE.y)>OUTER_R+650)continue; const d=dist(e.x,e.y,u.x,u.y); if(d<bd){bd=d;tgt=e;} } }   // nächstes zuerst, im Nacht-Def alle nahe der Grenze
+      u.tgt=tgt;
+      if(tgt){ const td=dist(tgt.x,tgt.y,u.x,u.y); const dx=tgt.x-u.x; if(Math.abs(dx)>2)u.face=dx<0?-1:1;
         if(TT.role==='ranged'){
           if(td<TT.range*0.55){ u.moving=true; moveToward(u,u.x*2-tgt.x,u.y*2-tgt.y,TT.speed*0.8,dt); collide(s,u,ENEMY_R); } else u.moving=false;
           u.attacking=true; if(u.atkT<=0){ u.atkT=TT.cd; const dmg=Math.round(towerAtk(t)); tgt.hp-=dmg; tgt.hurtT=0.15;
@@ -477,7 +480,7 @@ const VILLAGE_R=Math.round(280*VS);  // innerer Dorf-KERN (Ring-Weg + Produktion
 const OUTER_R=Math.round(400*VS);    // äußerer Ring-Weg (mid:6176); Band VILLAGE_R..OUTER_R = 12 Turm-Bauplätze — skaliert mit VS
 const TOWER_N=12, TOWER_RAD=Math.round((280+400)/2*VS);   // 12 Turm-Bauplätze im äußeren Ring-Band — skaliert mit VS
 // Ressourcen/Wasser liegen DRAUSSEN im Land; der erschlossene Land-Radius wächst mit s.areas
-const areaRadius=s=>2400+(((s.areas||1)-1)*600);  // sanftere Erweiterung (mid:6596): 2400,3250,4100,4950 (vorher zu krass +2400/Schritt)
+const areaRadius=s=>2000+(((s.areas||1)-1)*600);  // sanftere Erweiterung (mid:6596): 2400,3250,4100,4950 (vorher zu krass +2400/Schritt)
 
 /* ---------- UI line-icons (statt Smartphone-Emojis, Dashboard-Stil) ---------- */
 const ICO={
@@ -639,7 +642,7 @@ function buildLevel(s){
   s.biomeRot=rnd(0,6.2832); s.biomeWarp=rnd(0,6.2832);
   // Seen + Sand über die GANZE später erschliessbare Karte verteilen (nicht nur das Start-Gebiet) — mid:6060.
   // Wasser = solides Hindernis (unbetretbar, r*0.9); Sand bremst (siehe onSand im step).
-  const FULLR=2400+3*600;  // Gebiet 4 = 4950 (mid:6596)
+  const FULLR=2000+3*600;  // Gebiet 4 = 4950 (mid:6596)
   s.lakes=[]; const lakeN=8+Math.floor(rnd(0,4));   // Inland-Seen (mid:6213/6224/6226) — 8-11, ein paar mehr (Flüsse gestrichen)
   for(let i=0;i<lakeN;i++){ const r=rnd(150,250); let x,y,t=0,ok=false;
     do{ const a=rnd(0,6.2832), d=rnd(Math.max(VILLAGE_R+r*1.3+70, 650+r), FULLR+140); x=BASE.x+Math.cos(a)*d; y=BASE.y+Math.sin(a)*d; t++;   // großer Mindestabstand: Wasser ragt nicht ins Dorf (mid:6224)
@@ -681,7 +684,7 @@ function buildLevel(s){
     }
   }
   // Wasser-Felsen als Ozean-Deko (immer im Wasser jenseits des Maximalausbaus FULLR)
-  s.waterRocks=[]; const maxR=2400+3*600;   // = FULLR (mid:6596)
+  s.waterRocks=[]; const maxR=2000+3*600;   // = FULLR (mid:6596)
   for(let i=0;i<26;i++){ const a=rnd(0,6.2832), d=rnd(maxR+120, maxR+900); s.waterRocks.push({x:BASE.x+Math.cos(a)*d, y:BASE.y+Math.sin(a)*d, kind:Math.random()<0.5?'env_waterrock1':'env_waterrock3', t:rnd(0,2)}); }
   // Wolken (mid:6503): driften langsam übers Meer + bisschen über die Insel, leicht transparent
   s.clouds=[]; s.cloudSpan=maxR+1600; const CGRID=4200, CR=maxR+1400;   // weniger, größer (mid:6513); jittert → immer welche im Bild
@@ -1062,11 +1065,12 @@ const game={
   startNight(){ const s=this.s; if(nightActive(s)){ say('Die Nacht läuft bereits.'); return; }
     if(!nightPending(s)){ say('Gerade ist keine Nacht nötig.'); return; }
     s.phase='night';   // Dorf-Lebensleiste persistiert über Nächte — Heilung via Pilze-Kauf (mid:6431)
-    const before=s.enemies.length, n=5+(s.areas||1)+s.era*2;   // Welle skaliert mit Map+Stufe
-    for(let i=0;i<n;i++) spawnEnemy(s,(s.era>=3&&i%4===0)?'brute':'grunt');
-    for(let i=before;i<s.enemies.length;i++){ const e=s.enemies[i]; e.night=true; e.state='chase'; }
-    s.nightTotal=s.enemies.filter(e=>e.night).length;
-    if(!s.nightTotal){ s.phase='day'; say('Kein Platz für die Welle — versuch es gleich nochmal.'); return; }
+    const n=5+(s.areas||1)+s.era*2;   // Welle skaliert mit Map+Stufe
+    // Nacht-Welle spawnt NAH am Dorf in einem Ring (mid:6605) → klar erkennbar + marschiert sicher rein
+    for(let i=0;i<n;i++){ const kind=(s.era>=3&&i%4===0)?'brute':'grunt', T=ETYPES[kind], hp=T.hp+T.hpEra*s.era;
+      const a=rnd(0,6.2832), d=OUTER_R+rnd(220,780), x=BASE.x+Math.cos(a)*d, y=BASE.y+Math.sin(a)*d;
+      s.enemies.push({kind,x,y,home:{x,y},hp,max:hp,base:hp,face:-1,animT:rnd(0,2),atkT:rnd(0,1),hurtT:0,state:'chase',moving:false,evo:0,evoT:0,night:true}); }
+    s.nightTotal=n;
     say('🌙 Die Nacht bricht herein — schlag die Welle zurück, dann kannst du aufsteigen!'); SFX.era(); this.flash=1; this.updateShop(); saveGame(s); },
   healVillage(){ const s=this.s; if((s.baseHP||0)>=(s.baseHPmax||100)){ say('Das Dorf ist schon bei voller Kraft.'); return; }
     const c=healCost(s); if((s.store.pilze||0)<c){ say('Dafür brauchst du '+c+' Pilze.'); return; }
@@ -1193,6 +1197,12 @@ const game={
       const sc=b.sz*SC/fw*1.7, dw=fw*sc; shadow(b.x,b.y,b.sz*SC*0.34,b.sz*SC*0.12); ctx.drawImage(im,col*fw,0,fw,fw,b.x-dw/2,b.y-dw*0.84,dw,dw); }
     // base + era-Gebäude (unten verankert)
     shadow(BASE.x,BASE.y+22*VS,58,18); worldSprite('era'+Math.min(4,s.era), BASE.x, BASE.y+26*VS, 134, true); label(ERAS[s.era].name, BASE.x, BASE.y-94*VS);   // Basis-Sprite nur bis era4 vorhanden → clampen (mid:6315)
+    if(nightActive(s)&&s.pois){ ctx.save(); ctx.globalCompositeOperation='lighter';   // Nacht-Fackeln am inneren Ring (mid:6605)
+      for(const poi of s.pois){ if(!vis(poi.x,poi.y))continue; const fl=0.62+0.38*Math.sin(this.animT*7+poi.x*0.03);
+        const g=ctx.createRadialGradient(poi.x,poi.y-12*VS,2, poi.x,poi.y-12*VS, 66*VS*fl); g.addColorStop(0,'rgba(255,186,86,'+(0.5*fl)+')'); g.addColorStop(1,'rgba(255,120,30,0)');
+        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(poi.x,poi.y-12*VS,66*VS*fl,0,7); ctx.fill();
+        ctx.fillStyle='#ffd870'; ctx.beginPath(); ctx.arc(poi.x,poi.y-16*VS,4.5*VS*fl,0,7); ctx.fill(); }
+      ctx.restore(); }
     // Produktionsgebäude (je in einem Kuchenstück) + zugewiesene Arbeiter-Pawns daneben
     for(const b of s.builds){ const p=s.segSlots[b.seg], T=BUILD_TYPES[b.type]; if(!vis(p.x,p.y))continue;
       shadow(p.x,p.y+20*VS,28,9); worldSprite(T.sprite,p.x,p.y,86,false); label(T.name,p.x,p.y-48*VS);   // zentriert auf dem Slot → mittig im Kuchenstück (mid:6350)
@@ -1497,10 +1507,12 @@ function endPointer(){ if(!pDown) return;
     let tsIdx=-1, tsD=58;
     if(s.towerSlots) for(let i=0;i<s.towerSlots.length;i++){ const ts=s.towerSlots[i], d=dist(p.x,p.y,ts.x,ts.y-12); if(d<tsD && (towerAt(s,i)||towersUnlocked(s))){ tsD=d; tsIdx=i; } }
     const tappedBase=dist(p.x,p.y,BASE.x,BASE.y)<BASE_SOLID+85;
-    if(opIdx>=0){ game.openPanelFor('op'+opIdx); }
-    else if(tsIdx>=0){ game.openPanelFor((towerAt(s,tsIdx)?'tw':'tb')+tsIdx); }
-    else if(hutIdx>=0){ game.openPanelFor(hutIdx); }
-    else if(tappedBase&&heroInVillage){ if(panel.classList.contains('open')&&game.panelFor==='castle') panel.classList.remove('open'); else game.openPanelFor('castle'); }
+    // Gebäude öffnen NUR wenn der Held nah dran steht (sonst = hinlaufen); verhindert versehentliches Auslösen beim Bewegen (mid:6605)
+    const P=s.player, NEAR=88, heroNear=(x,y)=>dist(P.x,P.y,x,y)<NEAR;
+    if(opIdx>=0 && heroNear(s.outposts[opIdx].x,s.outposts[opIdx].y-31)){ game.openPanelFor('op'+opIdx); }
+    else if(tsIdx>=0 && heroNear(s.towerSlots[tsIdx].x,s.towerSlots[tsIdx].y)){ game.openPanelFor((towerAt(s,tsIdx)?'tw':'tb')+tsIdx); }
+    else if(hutIdx>=0 && heroNear(s.segSlots[s.builds[hutIdx].seg].x,s.segSlots[s.builds[hutIdx].seg].y)){ game.openPanelFor(hutIdx); }
+    else if(tappedBase && heroNear(BASE.x,BASE.y)){ if(panel.classList.contains('open')&&game.panelFor==='castle') panel.classList.remove('open'); else game.openPanelFor('castle'); }
     else moveTo(p); }
   pDown=null; game.dragging=false; }
 function upPointer(e){ pointers.delete(e.pointerId);

@@ -141,9 +141,8 @@ const VIEW = DEVICE === 'desktop'
     game.s.era = 4; game.s.nightToken = false; game.s.phase = 'day'; game.s.enemies = []; game.s.areas = 1;
     game.s.store.pilze = 200; game.s.healBought = 0;
     game.s.player.x = game.s.player.tx = BASE.x; game.s.player.y = game.s.player.ty = BASE.y + 40;
-    game.startNight(); game.s.baseHP = Math.round((game.s.baseHPmax || 100) * 0.45);   // Dorf angeschlagen → Heal-Button + Teil-Leiste
-    game.zoom = 0.32;
-    document.getElementById('panel').classList.add('open'); game.setTab('dorf');
+    game.startNight(); game.s.baseHP = Math.round((game.s.baseHPmax || 100) * 0.45);   // Dorf angeschlagen
+    game.s.cam.x = BASE.x; game.s.cam.y = BASE.y; game.camFollow = false; game.zoom = 0.6;   // Dorf-Mitte → Fackeln sichtbar
   });
   await sleep(400); await frames(20); await shot('12_nacht');
 
