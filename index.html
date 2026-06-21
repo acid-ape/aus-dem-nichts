@@ -6,6 +6,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Aus dem Nichts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=MedievalSharp&display=swap" rel="stylesheet">
 <style>
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
   html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#10241a}
@@ -135,10 +137,9 @@
   #introCard,#nameCard{width:100%;max-width:460px;text-align:center;
     background:linear-gradient(180deg,rgba(20,14,40,.98),rgba(12,9,22,.99));border:1px solid rgba(160,91,255,.4);
     border-radius:20px;box-shadow:0 12px 40px rgba(0,0,0,.55);padding:22px 20px}
-  #introTitle{font-weight:900;font-size:27px;margin-bottom:14px;letter-spacing:.5px;line-height:1.1;
-    font-family:Georgia,'Times New Roman',serif;
-    background:linear-gradient(180deg,#fff2c8,#f4c45a 50%,#c8861f);-webkit-background-clip:text;background-clip:text;color:transparent;
-    filter:drop-shadow(0 2px 6px rgba(190,130,25,.35))}
+  #introTitle{font-family:'MedievalSharp',Georgia,serif;font-weight:400;font-size:34px;margin-bottom:14px;letter-spacing:1px;line-height:1.05;
+    background:linear-gradient(180deg,#fff4cf 0%,#f6cf6a 42%,#d99a2c 70%,#a86a16 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 1px 0 rgba(90,55,5,.6)) drop-shadow(0 3px 7px rgba(180,120,20,.4))}
   #introPortrait{width:120px;height:120px;image-rendering:pixelated;object-fit:contain;margin:0 auto 10px;display:block;
     background:rgba(0,0,0,.28);border-radius:16px;box-shadow:inset 0 0 0 1px rgba(160,91,255,.35);padding:6px}
   #introText{font-size:15px;color:#e3d9fb;line-height:1.5;min-height:92px;display:flex;align-items:center;justify-content:center}
@@ -1412,7 +1413,7 @@ const INTRO=[
   'Du stehst auf leerem Land. Kein Dorf, kein Lärm — nur Erde, Wind und ein Anfang.',
   'Ein alter Mönch tritt heran. „Ich bin der Älteste. Lange habe ich auf jemanden wie dich gewartet."',
   '„Sammle, was die Wildnis hergibt, und lass aus dem Nichts ein Dorf wachsen — Stück für Stück."',
-  '„Doch wenn die Nacht kommt, kommen auch sie. Bau Türme, bau Mut. Sag mir nun — wer bist du?"',
+  '„Doch wenn die Nacht kommt, kommen auch sie. Bau Mauern, stell Türme — und halt stand. Sag mir nun: wer bist du?"',
 ];
 // Anstößige Kürzel blocken (Substring-Match, Groß-/Kleinschreibung egal) (mid:6449)
 const BADTAGS=['FUCK','SHIT','FICK','FOTZ','HURE','ARSC','ARSH','NIGG','NIGR','FAGG','PISS','COCK','DICK','CUNT','TWAT','WICH','NUTT','PIMM','ANAL','NAZI','HITL','SHIZ','SLUT','RAPE'];
