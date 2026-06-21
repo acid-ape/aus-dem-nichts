@@ -310,7 +310,7 @@ function updateFreeWalkers(s,dt){
   while(s.freeWalkers.length<want) s.freeWalkers.push(makeWalker());
   if(s.freeWalkers.length>want) s.freeWalkers.length=want;          // gerade zugewiesene verschwinden aus dem freien Schwarm
   const range=areaRadius(s)+150, rate=BAL.heroGatherBase*BAL.workerEff, CAP=5;
-  for(const w of s.freeWalkers){
+  for(const w of s.freeWalkers){ w.harvesting=false;
     if(w.state==='seek'){
       if(!w.target || w.target.amount<=0.4){                         // ziellos/leer → neuen zufälligen Knoten in Reichweite picken
         const cand=s.nodes.filter(n=>n.amount>0.4 && dist(n.x,n.y,BASE.x,BASE.y)<range);
@@ -318,7 +318,7 @@ function updateFreeWalkers(s,dt){
       if(w.target){ w.tx=w.target.x; w.ty=w.target.y;
         if(dist(w.x,w.y,w.target.x,w.target.y)<HARVEST_R){
           const amt=Math.min(rate*dt, w.target.amount, CAP-w.carry);
-          if(amt>0){ w.target.amount-=amt; w.carry+=amt; w.type=w.target.type; }
+          if(amt>0){ w.target.amount-=amt; w.carry+=amt; w.type=w.target.type; w.harvesting=true; const wdx=w.target.x-w.x; if(Math.abs(wdx)>2)w.face=wdx<0?-1:1; }   // Schlag-Anim beim Ernten (mid:6582)
           if(w.carry>=CAP || w.target.amount<=0.4) w.state='return'; }
       } else { w.tx=BASE.x+(w.x<BASE.x?-50:50); w.ty=BASE.y; }       // nichts in Reichweite → bei der Basis tigern
     } else {                                                          // return: zur Basis, abliefern beim Übertreten der Dorfgrenze
@@ -1079,8 +1079,10 @@ const game={
     s.player.moving = dist(s.player.x,s.player.y,s.player.tx,s.player.ty)>4;
     if(s.player.moving){ const dx=s.player.tx-s.player.x; if(Math.abs(dx)>2) s.player.face=dx<0?-1:1; }
     this.animT=(this.animT||0)+dt;
+    s.player.harvesting=false;
     if(carryTotal(s.player.carry)<s.cap){ for(const n of s.nodes){ if(n.amount>0.4 && dist(s.player.x,s.player.y,n.x,n.y)<HARVEST_R){
       const amt=Math.min(s.gather*dt,n.amount,s.cap-carryTotal(s.player.carry)); if(amt>0){ n.amount-=amt; s.player.carry[n.type]+=amt; s.tutHarvested=true;   // Tutorial-Schritt 2 (mid:6450)
+        s.player.harvesting=true; const hdx=n.x-s.player.x; if(Math.abs(hdx)>2) s.player.face=hdx<0?-1:1;   // Schlag-Anim beim Ernten + zum Knoten drehen (mid:6582)
         s.harvAcc=(s.harvAcc||0)+dt; if(s.harvAcc>0.18){ s.harvAcc=0; addParticle(s,n.x,n.y-6,COL[n.type]); addLoot(s,n.x,n.y,n.type); SFX.harvest(); } } break; } } }
     for(const n of s.nodes){ if(n.amount<=0.4&&!n.dead){ n.dead=true; addPop(s,n.x,n.y,COL[n.type]); burst(s,n.x,n.y-6,COL[n.type],7); s.respawns.push({type:n.type,t:rnd(3,5)}); } }
     s.nodes=s.nodes.filter(n=>!n.dead);
@@ -1193,7 +1195,7 @@ const game={
     // Produktionsgebäude (je in einem Kuchenstück) + zugewiesene Arbeiter-Pawns daneben
     for(const b of s.builds){ const p=s.segSlots[b.seg], T=BUILD_TYPES[b.type]; if(!vis(p.x,p.y))continue;
       shadow(p.x,p.y+20*VS,28,9); worldSprite(T.sprite,p.x,p.y,86,false); label(T.name,p.x,p.y-48*VS);   // zentriert auf dem Slot → mittig im Kuchenstück (mid:6350)
-      for(let i=0;i<Math.min(b.workers,4);i++){ const wx=p.x-30*VS+i*24*VS, wy=p.y+30*VS; shadow(wx,wy,11,4); drawUnit('pawn_blue','idle', this.animT+i*0.5, wx, wy, 50, false); } }   // animierter Pawn statt statischem Worker (mid:6576)
+      for(let i=0;i<Math.min(b.workers,4);i++){ const wx=p.x-32*VS+i*26*VS, wy=p.y+30*VS; shadow(wx,wy,12,4); drawUnit('pawn_blue','idle', this.animT+i*0.5, wx, wy, 62, false); } }   // animierter Pawn statt statischem Worker (mid:6576/6582)
     // Außenposten-Sammler (mid:6246): Gebäude + Ressourcen-Marker + Füllbalken; glüht wenn was zum Abholen bereitliegt
     if(s.outposts) for(const o of s.outposts){ if(!vis(o.x,o.y))continue; const T=OUTPOST_TYPES[o.type], cap=outpostCap(o), frac=Math.min(1,(o.store||0)/cap), ready=(o.store||0)>=1;
       if(ready){ ctx.fillStyle='rgba(255,238,150,.18)'; ctx.beginPath(); ctx.ellipse(o.x,o.y+2*VS,40*VS,18*VS,0,0,7); ctx.fill();
@@ -1223,7 +1225,7 @@ const game={
       ctx.strokeStyle='rgba(255,222,128,.85)'; ctx.lineWidth=2.5*VS; ctx.beginPath(); ctx.ellipse(d.x,d.y,20*VS,9*VS,0,0,7); ctx.stroke();
       shadow(d.x,d.y,12,4); worldSprite(tk,d.x,d.y-2*VS,30,true); }
     // freie Arbeiter (laufender Schwarm, farmen selbstständig) + ggf. das was sie gerade tragen
-    for(const w of s.freeWalkers){ if(!vis(w.x,w.y))continue; shadow(w.x,w.y,13,5); drawUnit('pawn_blue', w.moving?'run':'idle', w.animT, w.x, w.y+4*VS, 64, w.face<0);   // animierter Pawn, größer (mid:6576)
+    for(const w of s.freeWalkers){ if(!vis(w.x,w.y))continue; shadow(w.x,w.y,14,5); drawUnit('pawn_blue', w.harvesting?'atk':(w.moving?'run':'idle'), w.animT, w.x, w.y+4*VS, 78, w.face<0);   // animierter Pawn: erntet=Schlag, größer (mid:6576/6582)
       if(w.carry>0.4&&w.type) worldSprite(w.type,w.x+16*VS,w.y-40*VS,22,true); }
     for(const q of s.particles){ const f=1-q.age/q.max; ctx.globalAlpha=f; ctx.fillStyle=q.color;
       ctx.beginPath(); ctx.arc(q.x,q.y,q.sz*f+1,0,7); ctx.fill(); } ctx.globalAlpha=1;
@@ -1254,9 +1256,9 @@ const game={
       if(u.hp<u.hpmax){ const w=30*VS,f=Math.max(0,u.hp/u.hpmax); ctx.fillStyle='rgba(0,0,0,.5)'; rr(u.x-w/2,u.y-48*VS,w,4*VS,2*VS); ctx.fill(); ctx.fillStyle='#5ad06a'; rr(u.x-w/2,u.y-48*VS,w*f,4*VS,2*VS); ctx.fill(); } }
     // Held (animiert): Angriff > Laufen > Idle; blinkt während Respawn-Unverwundbarkeit
     shadow(s.player.x,s.player.y,24,9);
-    { const anim = s.player.attacking?'atk' : (s.player.moving?'run':'idle');
+    { const anim = (s.player.attacking||s.player.harvesting)?'atk' : (s.player.moving?'run':'idle');   // Schlag-Anim auch beim Ernten (mid:6582)
       if(s.player.invT>0) ctx.globalAlpha = 0.4+0.3*Math.sin(this.animT*18);
-      drawUnit(CHARS[s.char].unit, anim, this.animT, s.player.x, s.player.y+6, 88, s.player.face<0);
+      drawUnit(CHARS[s.char].unit, anim, this.animT, s.player.x, s.player.y+6, 106, s.player.face<0);
       ctx.globalAlpha=1; }
     // Held-HP-Balken (im Kampf oder wenn verletzt)
     if(s.player.hp<s.player.hpmax || s.enemies.length){ const w=46,f=Math.max(0,s.player.hp/s.player.hpmax);
