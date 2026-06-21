@@ -650,7 +650,8 @@ function curVol(){ return bgmRouted&&bgmGain?bgmGain.gain.value:(bgm?bgm.volume:
 function playBgmTrack(i){ if(!bgm) return; bgmIdx=i; bgm.src=BGM_TRACKS[i]; if(!bgmRouted) bgm.volume=0; if(bgmWanted&&!muted){ const p=bgm.play(); if(p&&p.catch)p.catch(()=>{}); bgmFadeTo(BGM_VOL,1.4); } }
 function initMusic(){ if(bgm) return; try{ bgmIdx=Math.floor(Math.random()*BGM_TRACKS.length); bgm=new Audio(BGM_TRACKS[bgmIdx]); bgm.loop=false; bgm.volume=0;
   bgm.addEventListener('timeupdate',()=>{ if(bgm.duration && (bgm.duration-bgm.currentTime)<1.4 && curVol()>0.004) bgmFadeTo(0,1.2); });   // Fade-out kurz vorm Track-Ende
-  bgm.addEventListener('ended',()=>{ setTimeout(()=>{ if(bgmWanted&&!muted) playBgmTrack(nextBgmIdx()); }, 700); }); }catch(e){} }   // kurze Pause, dann shuffle-next mit Fade-in
+  bgm.addEventListener('ended',()=>{ setTimeout(()=>{ if(bgmWanted&&!muted) playBgmTrack(nextBgmIdx()); }, 700); });   // kurze Pause, dann shuffle-next mit Fade-in
+  bgm.addEventListener('error',()=>{ setTimeout(()=>{ if(bgmWanted&&!muted) playBgmTrack(nextBgmIdx()); }, 400); }); }catch(e){} }   // Track lädt nicht (404 o.ä.) → nächsten versuchen statt stumm bleiben (mid:6419)
 function startMusic(){ initMusic(); routeBgm(); bgmWanted=true; if(bgm && !muted){ const p=bgm.play(); if(p&&p.catch)p.catch(()=>{}); bgmFadeTo(BGM_VOL,1.4); } }
 function updateMusic(){ if(!bgm) return; if(muted){ if(!bgm.paused) bgm.pause(); } else if(bgmWanted && bgm.paused){ const p=bgm.play(); if(p&&p.catch)p.catch(()=>{}); bgmFadeTo(BGM_VOL,1.0); } }
 
