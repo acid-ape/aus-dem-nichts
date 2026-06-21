@@ -222,13 +222,16 @@ const ETYPES={
   grunt:{name:'Grunt', unit:'pawn_black',    hp:20, hpEra:7,  atk:5,  speed:58, size:74, atkRange:38, aggro:290, leash:620, bounty:2},
   brute:{name:'Brute', unit:'warrior_black', hp:60, hpEra:20, atk:13, speed:42, size:104, atkRange:54, aggro:380, leash:760, bounty:7},
 };
+// Entwicklungs-Cap pro Zeitalter (): era0=0 (keine Evo am Start) … era4=4. So bleibt jeder Einzelgegner mit voll
+// ausgebauten Kampf-Upgrades der Era besiegbar.
+function maxEvo(s){ return s.era; }
 // Gegner spawnt an ZUFÄLLIGER, gültiger Position (nicht Wasser/Fels/Dorf), bleibt dort stationär bis Aggro.
 function spawnEnemy(s,kind){ const T=ETYPES[kind], R=areaRadius(s);
   for(let t=0;t<40;t++){ const a=rnd(0,6.2832), d=rnd(VILLAGE_R+90, R-40), x=BASE.x+Math.cos(a)*d, y=BASE.y+Math.sin(a)*d;
     if(blocked(s,x,y,18)) continue;
     if(s.enemies.some(e=>dist(x,y,e.x,e.y)<200)) continue;   // Gegner nicht zu nah beieinander spawnen ()
     const hp=T.hp+T.hpEra*s.era;
-    s.enemies.push({kind,x,y,home:{x,y},hp,max:hp,face:-1,animT:rnd(0,2),atkT:rnd(0,1),hurtT:0,state:'idle',moving:false,life:rnd(32,48)}); return true; }
+    s.enemies.push({kind,x,y,home:{x,y},hp,max:hp,base:hp,face:-1,animT:rnd(0,2),atkT:rnd(0,1),hurtT:0,state:'idle',moving:false,evo:0,evoT:0}); return true; }
   return false; }
 function updateCombat(s,dt){ const P=s.player; P.attacking=false;
   if(P.hurtT>0)P.hurtT-=dt; P.atkT=(P.atkT||0)-dt; if(P.invT>0)P.invT-=dt;
@@ -240,21 +243,23 @@ function updateCombat(s,dt){ const P=s.player; P.attacking=false;
     addPop(s,d.x,d.y-20,'#fff','+'+Math.floor(tot)); burst(s,d.x,d.y-8,'#ffe9a8',8); SFX.deposit(); d.got=true; } }
   s.drops=s.drops.filter(d=>!d.got);
   // Bestände skalieren mit der MAP-Größe (areas): Grunts ab Start (auch era0), Brutes erst ab Dorf-Era ()
-  { s.spawnT+=dt;
-    const wantG=3+(s.areas||1)*2, wantB=s.era>=1?(1+Math.floor((s.areas||1)/2)):0;   // deutlich mehr Gegner, gestreut ()
-    const ng=s.enemies.filter(e=>e.kind==='grunt').length, nb=s.enemies.filter(e=>e.kind==='brute').length;
-    const every=s.enemies.length < (wantG+wantB)*0.5 ? 1.1 : 2.4;                      // anfangs schnell füllen, dann nachhalten
-    if(s.spawnT>every){ s.spawnT=0; if(nb<wantB) spawnEnemy(s,'brute'); else if(ng<wantG) spawnEnemy(s,'grunt'); } }
-  for(const e of s.enemies){ const T=ETYPES[e.kind]; e.animT+=dt; if(e.hurtT>0)e.hurtT-=dt; e.life-=dt;
+  { s.spawnT+=dt;   // max 7 gleichzeitig, EINER nach dem anderen (sequenziell), gut gestreut ()
+    if(s.enemies.length<7 && s.spawnT>3.5){ s.spawnT=0;
+      const nb=s.enemies.filter(e=>e.kind==='brute').length;
+      const kind=(s.era>=1 && nb<2 && Math.random()<0.4)?'brute':'grunt';   // Brutes seltener (max 2), ab Dorf-Era
+      spawnEnemy(s,kind); } }
+  for(const e of s.enemies){ const T=ETYPES[e.kind]; e.animT+=dt; if(e.hurtT>0)e.hurtT-=dt;
+    // Entwicklung: je länger ein Mob lebt, desto stärker (HP+Schaden), Cap pro Zeitalter () — wird zum „dicken Klopper"
+    e.evoT+=dt; if(e.evoT>11 && e.evo<maxEvo(s)){ e.evoT=0; e.evo++; const old=e.max; e.max=Math.round(e.base*(1+0.28*e.evo)); e.hp+=e.max-old;
+      burst(s,e.x,e.y-T.size*0.4,'#c0392b',10); addPop(s,e.x,e.y-T.size*0.6,'#ff8a4a','⬆ Stufe '+e.evo); }
     const dP=dist(e.x,e.y,P.x,P.y);
-    if(e.state==='idle'){ e.moving=false; if(dP<T.aggro) e.state='chase';                         // stationär bis Aggro
-      else if(e.life<=0){ e.dead=true; e.poof=true; } }                                            // nicht besiegt → verschwindet ()
+    if(e.state==='idle'){ e.moving=false; if(dP<T.aggro) e.state='chase'; }                         // stationär bis Aggro
     else if(e.state==='chase'){
       if(dP>T.leash) e.state='return';
       else if(dP>T.atkRange){ const dx=P.x-e.x; if(Math.abs(dx)>2)e.face=dx<0?-1:1; e.moving=true;
         moveToward(e,P.x,P.y, onSand(s,e.x,e.y)?T.speed*0.55:T.speed, dt); collide(s,e,ENEMY_R); }   // Terrain gilt für Gegner ()
       else { e.moving=false; e.atkT-=dt; if(e.atkT<=0 && P.invT<=0){ e.atkT=ENEMY_ATK_CD;   // kein Schaden während Respawn-Unverwundbarkeit
-        const dmg=Math.max(1,Math.round(T.atk-(s.def||0))); P.hp-=dmg; P.hurtT=0.25; addPop(s,P.x,P.y-62,'#ff6a6a','-'+dmg); } } }
+        const dmg=Math.max(1,Math.round(T.atk*(1+0.15*e.evo)-(s.def||0))); P.hp-=dmg; P.hurtT=0.25; addPop(s,P.x,P.y-62,'#ff6a6a','-'+dmg); } } }
     else { const dx=e.home.x-e.x; if(Math.abs(dx)>2)e.face=dx<0?-1:1; e.moving=true;                // zurück zum Spawn-Punkt
       moveToward(e,e.home.x,e.home.y, onSand(s,e.x,e.y)?T.speed*0.55:T.speed, dt); collide(s,e,ENEMY_R);
       if(dP<T.aggro) e.state='chase'; else if(dist(e.x,e.y,e.home.x,e.home.y)<10) e.state='idle'; } }
@@ -854,14 +859,16 @@ const game={
     drawFx(s);  // Dust-/Heal-Effekte
     if(dist(s.player.x,s.player.y,s.player.tx,s.player.ty)>5){ ctx.strokeStyle='rgba(255,79,216,.75)';ctx.lineWidth=3; ctx.beginPath();ctx.arc(s.player.tx,s.player.ty,12,0,7);ctx.stroke(); }
     // Gegner: Grunt (kleiner Pawn) / Brute (großer Warrior), dunkle „Black"-Faktion; gelber Ring = schläft, roter Ring = aggro
-    for(const e of s.enemies){ if(!vis(e.x,e.y))continue; const T=ETYPES[e.kind];
+    for(const e of s.enemies){ if(!vis(e.x,e.y))continue; const T=ETYPES[e.kind], sz=T.size*(1+0.06*e.evo);   // entwickelte Mobs sind größer
       ctx.fillStyle = e.state==='idle'?'rgba(228,182,44,.42)':'rgba(214,40,40,.5)';
-      ctx.beginPath(); ctx.ellipse(e.x,e.y,T.size*0.26,T.size*0.1,0,0,7); ctx.fill();
-      shadow(e.x,e.y,T.size*0.19,T.size*0.075);
+      ctx.beginPath(); ctx.ellipse(e.x,e.y,sz*0.26,sz*0.1,0,0,7); ctx.fill();
+      shadow(e.x,e.y,sz*0.19,sz*0.075);
       const anim=e.moving?'run':'idle';
-      drawUnit(T.unit, anim, e.animT, e.x, e.y+4, T.size, e.face>0);   // Gegner schauen per Default nach links → face>0 spiegelt
-      const w=Math.max(28,T.size*0.4),f=Math.max(0,e.hp/e.max); ctx.fillStyle='rgba(0,0,0,.55)'; rr(e.x-w/2,e.y-T.size*0.62,w,5,2.5); ctx.fill();
-      ctx.fillStyle='#e0432f'; rr(e.x-w/2,e.y-T.size*0.62,w*f,5,2.5); ctx.fill(); }
+      drawUnit(T.unit, anim, e.animT, e.x, e.y+4, sz, e.face>0);   // Gegner schauen per Default nach links → face>0 spiegelt
+      const w=Math.max(28,sz*0.4),f=Math.max(0,e.hp/e.max); ctx.fillStyle='rgba(0,0,0,.55)'; rr(e.x-w/2,e.y-sz*0.62,w,5,2.5); ctx.fill();
+      ctx.fillStyle='#e0432f'; rr(e.x-w/2,e.y-sz*0.62,w*f,5,2.5); ctx.fill();
+      for(let i=0;i<e.evo;i++){ ctx.fillStyle='#ff9a3c'; ctx.beginPath(); ctx.arc(e.x-w/2+4+i*8,e.y-sz*0.62-6,3,0,7); ctx.fill(); }  // Entwicklungs-Stufen-Pips
+    }
     // Held (animiert): Angriff > Laufen > Idle; blinkt während Respawn-Unverwundbarkeit
     shadow(s.player.x,s.player.y,24,9);
     { const anim = s.player.attacking?'atk' : (s.player.moving?'run':'idle');
