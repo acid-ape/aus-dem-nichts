@@ -167,14 +167,14 @@ const BAL={
 };
 // Produktionsgebäude: je 1 pro Zeitalter, steht in einem Kuchenstück. Arbeiter werden ihnen zugewiesen.
 const BUILD_TYPES={
-  holz:    {name:'Holzfäller', res:'holz', sprite:'sawmill', base:0.45, era:1, cost:{holz:50,korn:30}},
+  holz:    {name:'Holzfäller', res:'holz', sprite:'b_holz', base:0.45, era:1, cost:{holz:50,korn:30}},
   stein:   {name:'Steinbruch', res:'stein', sprite:'quarry', base:0.38, era:2, cost:{holz:120,stein:50}},
   // Produktionskette: Schmiede VERBRAUCHT Holz+Stein und veredelt sie zu Gold
-  schmiede:{name:'Schmiede',   res:'gold', sprite:'era2',    base:0.20, era:3, cost:{holz:160,stein:110}, consumes:{holz:1.4,stein:0.9}},
+  schmiede:{name:'Schmiede',   res:'gold', sprite:'b_schmiede', base:0.20, era:3, cost:{holz:160,stein:110}, consumes:{holz:1.4,stein:0.9}},
   // 2. Veredelungs-Stufe: Juwelier wandelt Gold+Stein → Kristall
-  juwelier:{name:'Juwelier',   res:'kristall', sprite:'era3', base:0.12, era:4, cost:{holz:220,stein:160,gold:60}, consumes:{gold:1.0,stein:1.3}},
+  juwelier:{name:'Juwelier',   res:'kristall', sprite:'b_juwelier', base:0.12, era:4, cost:{holz:220,stein:160,gold:60}, consumes:{gold:1.0,stein:1.3}},
   gold:    {name:'Goldmine',   res:'gold', sprite:'gold',    base:0.30, era:5, cost:{holz:300,stein:200,korn:140}},
-  waffenkammer:{name:'Waffenkammer', sprite:'era4', era:6, cost:{holz:360,stein:260,gold:160}, tower:true},   // Stufe 7: schaltet Kampf-Türme im äußeren Ring frei (Turm-System folgt)
+  waffenkammer:{name:'Waffenkammer', sprite:'b_waffen', era:6, cost:{holz:360,stein:260,gold:160}, tower:true},   // Stufe 7: schaltet Kampf-Türme im äußeren Ring frei (Turm-System folgt)
 };
 const BUILD_ORDER=['holz','stein','schmiede','juwelier','gold','waffenkammer'];  // 6 Dorf-Gebäude = 6 Kuchenstücke (Kürbisfeld ist jetzt Außenposten, mid:6313)
 // Produktionsrate eines Gebäudes: Basis × Tempo × Menge × Arbeiter-Boost × Dampf-Boost
@@ -190,9 +190,9 @@ function freeWorkers(s){ return s.workerPool-assignedWorkers(s); }
 function nextBuildType(s){ return BUILD_ORDER.find(t=>BUILD_TYPES[t].era<=s.era && !s.builds.some(b=>b.type===t)); }
 // ----- Außenposten-Sammler (mid:6246): im passenden Biom knapp außerhalb des Dorfs; sammeln Ressource über Zeit bis Cap; Held holt direkt ins Lager ab; upgradebar (Tempo=Rate, Menge=Cap) -----
 const OUTPOST_TYPES={
-  korn:   {name:'Kürbis-Sammler', res:'korn',   sprite:'era0', biome:'felder', era:1, cost:{holz:80},               rate:0.45, cap:55},   // Stufe 2 (Kürbisfeld ist jetzt hier, mid:6313)
-  pilze:  {name:'Pilz-Sammler',   res:'pilze',  sprite:'era1', biome:'wald',   era:3, cost:{holz:160,korn:70},      rate:0.45, cap:55},   // Stufe 4
-  beeren: {name:'Beeren-Sammler', res:'beeren', sprite:'era0', biome:'felder', era:5, cost:{holz:220,stein:90,korn:80}, rate:0.45, cap:72}, // Stufe 6 (Sprite Phase 2 noch eigen)
+  korn:   {name:'Kürbis-Sammler', res:'korn',   sprite:'b_korn',   biome:'felder', era:1, cost:{holz:80},               rate:0.45, cap:55},   // Stufe 2 (Kürbisfeld ist jetzt hier, mid:6313)
+  pilze:  {name:'Pilz-Sammler',   res:'pilze',  sprite:'b_pilze',  biome:'wald',   era:3, cost:{holz:160,korn:70},      rate:0.45, cap:55},   // Stufe 4
+  beeren: {name:'Beeren-Sammler', res:'beeren', sprite:'b_beeren', biome:'felder', era:5, cost:{holz:220,stein:90,korn:80}, rate:0.45, cap:72}, // Stufe 6
 };
 const OUTPOST_ORDER=['korn','pilze','beeren'];
 function nextOutpostType(s){ return OUTPOST_ORDER.find(t=>OUTPOST_TYPES[t].era<=s.era && !(s.outposts||[]).some(o=>o.type===t)); }
@@ -345,7 +345,8 @@ const A={};  // alle fertigen Sprites
 ['era0','era1','era2','era3','era4','sawmill','quarry','worker',
  'hero0','hero1','hero2','hero3','hero4',
  'holz','stein','korn','pilze','gold','beeren','kristall',
- 'deco_mushroom','deco_rock','deco_bush','deco_pumpkin','sheep'
+ 'deco_mushroom','deco_rock','deco_bush','deco_pumpkin','sheep',
+ 'b_holz','b_korn','b_pilze','b_beeren','b_schmiede','b_juwelier','b_waffen'   // eigene Produzenten-Sprites (mid:6317/6346)
 ].forEach(k=>{ const i=new Image(); i.src='ts/'+k+'.png'; A[k]=i; });
 // Animierte Held-Sheets (Tiny Swords Warrior, 192px-Frames, 6 Spalten × 8 Reihen). Pro Startcharakter eine Farbe.
 // Animierte Einheiten (Tiny Swords v2 Free Pack): pro (Unit,Farbe) je Anim-Strip (idle/run/atk), 192px-Frames horizontal.
@@ -493,7 +494,7 @@ function buildLevel(s){
   const inLake=(x,y,m)=>s.lakes.some(L=>dist(x,y,L.x,L.y)<L.r+m);
   s.rivers=[];   // Flüsse gestrichen (mid:6226) — bekamen wir visuell nicht sauber hin; stattdessen ein paar Seen mehr (s.o.)
   // 6 Kuchenstück-Slots (zwischen den Speichen): je 1 Produktionsgebäude, das pro Zeitalter dazukommt
-  s.segSlots=[]; for(let i=0;i<6;i++){ const a=(i+0.5)/6*6.2832-Math.PI/2, d=VILLAGE_R*0.55; s.segSlots.push({x:BASE.x+Math.cos(a)*d,y:BASE.y+Math.sin(a)*d}); }
+  s.segSlots=[]; for(let i=0;i<6;i++){ const a=(i+0.5)/6*6.2832-Math.PI/2, d=VILLAGE_R*0.62; s.segSlots.push({x:BASE.x+Math.cos(a)*d,y:BASE.y+Math.sin(a)*d}); }   // mittig im Kuchenstück (mid:6350)
   // 12 Turm-Bauplätze im äußeren Ring-Band (zwischen innerem Rad und äußerem Ring) — Tag/Nacht-TD (mid:6171)
   s.towerSlots=[]; for(let i=0;i<TOWER_N;i++){ const a=(i+0.5)/TOWER_N*6.2832-Math.PI/2; s.towerSlots.push({x:BASE.x+Math.cos(a)*TOWER_RAD,y:BASE.y+Math.sin(a)*TOWER_RAD,tower:null}); }
   // Dorf-Leben: nur Schafe (Deko-Hütten raus — Häuser kommen als Produktionsgebäude pro Zeitalter)
@@ -928,8 +929,8 @@ const game={
     shadow(BASE.x,BASE.y+22*VS,58,18); worldSprite('era'+Math.min(4,s.era), BASE.x, BASE.y+26*VS, 134, true); label(ERAS[s.era].name, BASE.x, BASE.y-94*VS);   // Basis-Sprite nur bis era4 vorhanden → clampen (mid:6315)
     // Produktionsgebäude (je in einem Kuchenstück) + zugewiesene Arbeiter-Pawns daneben
     for(const b of s.builds){ const p=s.segSlots[b.seg], T=BUILD_TYPES[b.type]; if(!vis(p.x,p.y))continue;
-      shadow(p.x,p.y,30,10); worldSprite(T.sprite,p.x,p.y,92,true); label(T.name,p.x,p.y-80*VS);
-      for(let i=0;i<Math.min(b.workers,4);i++){ const wx=p.x-28*VS+i*18*VS, wy=p.y+14*VS; shadow(wx,wy,9,3); worldSprite('worker',wx,wy,30,true); } }
+      shadow(p.x,p.y+20*VS,28,9); worldSprite(T.sprite,p.x,p.y,86,false); label(T.name,p.x,p.y-48*VS);   // zentriert auf dem Slot → mittig im Kuchenstück (mid:6350)
+      for(let i=0;i<Math.min(b.workers,4);i++){ const wx=p.x-28*VS+i*18*VS, wy=p.y+30*VS; shadow(wx,wy,9,3); worldSprite('worker',wx,wy,30,true); } }
     // Außenposten-Sammler (mid:6246): Gebäude + Ressourcen-Marker + Füllbalken; glüht wenn was zum Abholen bereitliegt
     if(s.outposts) for(const o of s.outposts){ if(!vis(o.x,o.y))continue; const T=OUTPOST_TYPES[o.type], cap=outpostCap(o), frac=Math.min(1,(o.store||0)/cap), ready=(o.store||0)>=1;
       if(ready){ ctx.fillStyle='rgba(255,238,150,.18)'; ctx.beginPath(); ctx.ellipse(o.x,o.y+2*VS,40*VS,18*VS,0,0,7); ctx.fill();
