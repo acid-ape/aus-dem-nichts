@@ -477,7 +477,7 @@ const VILLAGE_R=Math.round(280*VS);  // innerer Dorf-KERN (Ring-Weg + Produktion
 const OUTER_R=Math.round(400*VS);    // äußerer Ring-Weg (mid:6176); Band VILLAGE_R..OUTER_R = 12 Turm-Bauplätze — skaliert mit VS
 const TOWER_N=12, TOWER_RAD=Math.round((280+400)/2*VS);   // 12 Turm-Bauplätze im äußeren Ring-Band — skaliert mit VS
 // Ressourcen/Wasser liegen DRAUSSEN im Land; der erschlossene Land-Radius wächst mit s.areas
-const areaRadius=s=>2400+(((s.areas||1)-1)*850);  // sanftere Erweiterung (mid:6596): 2400,3250,4100,4950 (vorher zu krass +2400/Schritt)
+const areaRadius=s=>2400+(((s.areas||1)-1)*600);  // sanftere Erweiterung (mid:6596): 2400,3250,4100,4950 (vorher zu krass +2400/Schritt)
 
 /* ---------- UI line-icons (statt Smartphone-Emojis, Dashboard-Stil) ---------- */
 const ICO={
@@ -639,7 +639,7 @@ function buildLevel(s){
   s.biomeRot=rnd(0,6.2832); s.biomeWarp=rnd(0,6.2832);
   // Seen + Sand über die GANZE später erschliessbare Karte verteilen (nicht nur das Start-Gebiet) — mid:6060.
   // Wasser = solides Hindernis (unbetretbar, r*0.9); Sand bremst (siehe onSand im step).
-  const FULLR=2400+3*850;  // Gebiet 4 = 4950 (mid:6596)
+  const FULLR=2400+3*600;  // Gebiet 4 = 4950 (mid:6596)
   s.lakes=[]; const lakeN=8+Math.floor(rnd(0,4));   // Inland-Seen (mid:6213/6224/6226) — 8-11, ein paar mehr (Flüsse gestrichen)
   for(let i=0;i<lakeN;i++){ const r=rnd(150,250); let x,y,t=0,ok=false;
     do{ const a=rnd(0,6.2832), d=rnd(Math.max(VILLAGE_R+r*1.3+70, 650+r), FULLR+140); x=BASE.x+Math.cos(a)*d; y=BASE.y+Math.sin(a)*d; t++;   // großer Mindestabstand: Wasser ragt nicht ins Dorf (mid:6224)
@@ -665,31 +665,30 @@ function buildLevel(s){
   const placeD=(key,x,y,size,solid,obR)=>{ if(dist(x,y,BASE.x,BASE.y)<OUTER_R+22||inLake(x,y,26)||onSand(s,x,y)||blocked(s,x,y,16)) return;   // Deko: nicht im Dorf-Ring, nicht auf Wasser/Sand (mid:6258/6260)
     s.deco.push({key,x,y,size,solid:!!solid}); if(solid) s.obstacles.push({x,y,r:obR||size*0.30}); };
   const clump=(cx,cy,n,spread,fn)=>{ for(let j=0;j<n;j++){ const a=rnd(0,6.2832), d=Math.pow(Math.random(),0.7)*spread; fn(cx+Math.cos(a)*d, cy+Math.sin(a)*d); } };
-  const NCL=2600;   // viele Klumpen-Zentren, gleichmäßig über die Insel-Disk (sqrt → Flächentreue) — dichter (mid:6260)
+  const NCL=1400;   // weniger Klumpen-Zentren = weniger voll (mid:6600)
   for(let i=0;i<NCL;i++){ const a=rnd(0,6.2832), d=Math.sqrt(Math.random())*FULLR, cx=BASE.x+Math.cos(a)*d, cy=BASE.y+Math.sin(a)*d;
     if(dist(cx,cy,BASE.x,BASE.y)<OUTER_R+30) continue;
     const bk=biomeAt(s,cx,cy);
-    if(bk==='wald'){            // Wäldchen: größere Bäume mit Variation (mid:6523) + Unterholz/Pilze
-      clump(cx,cy, 8+Math.floor(rnd(0,10)), rnd(90,205), (x,y)=> placeD('holz',x,y,rnd(120,240),false));
-      clump(cx,cy, 1+Math.floor(rnd(0,3)), rnd(60,150), (x,y)=> placeD(Math.random()<0.45?'deco_mushroom':'deco_bush',x,y,rnd(40,72),false));
-    } else if(bk==='gebirge'){  // Felsfeld: größere Brocken (mid:6523) + 1-2 große solide Felsen
-      clump(cx,cy, 5+Math.floor(rnd(0,7)), rnd(60,160), (x,y)=> placeD('deco_rock',x,y,rnd(48,88),false));
+    if(bk==='wald'){            // Wäldchen: deutlich WENIGER Bäume (mid:6600) + Unterholz
+      clump(cx,cy, 2+Math.floor(rnd(0,3)), rnd(90,200), (x,y)=> placeD('holz',x,y,rnd(120,240),false));
+      clump(cx,cy, 1+Math.floor(rnd(0,2)), rnd(60,150), (x,y)=> placeD(Math.random()<0.45?'deco_mushroom':'deco_bush',x,y,rnd(40,72),false));
+    } else if(bk==='gebirge'){  // Felsfeld: Brocken + 1-2 große solide Felsen
+      clump(cx,cy, 3+Math.floor(rnd(0,5)), rnd(60,160), (x,y)=> placeD('deco_rock',x,y,rnd(48,88),false));
       clump(cx,cy, 1+Math.floor(rnd(0,2)), rnd(40,110), (x,y)=> placeD('deco_rock',x,y,rnd(104,162),true));
-      clump(cx,cy, 0+Math.floor(rnd(0,2)), rnd(60,130), (x,y)=> placeD('deco_bush',x,y,rnd(38,64),false));
-    } else {                    // Wiesen: Kürbisse/Pilze/Büschel + vereinzelt größere Bäume (mid:6523)
-      clump(cx,cy, 3+Math.floor(rnd(0,5)), rnd(80,180), (x,y)=>{ const r=Math.random(); placeD(r<0.4?'deco_pumpkin':(r<0.78?'deco_mushroom':'deco_bush'),x,y,rnd(40,70),false); });
-      if(Math.random()<0.45) clump(cx,cy, 1+Math.floor(rnd(0,3)), rnd(50,130), (x,y)=> placeD('holz',x,y,rnd(110,205),false));
+    } else {                    // Wiesen: Kürbisse/Pilze/Büschel + selten ein Baum (mid:6600)
+      clump(cx,cy, 3+Math.floor(rnd(0,4)), rnd(80,180), (x,y)=>{ const r=Math.random(); placeD(r<0.4?'deco_pumpkin':(r<0.78?'deco_mushroom':'deco_bush'),x,y,rnd(40,70),false); });
+      if(Math.random()<0.22) clump(cx,cy, 1+Math.floor(rnd(0,2)), rnd(50,130), (x,y)=> placeD('holz',x,y,rnd(110,205),false));
     }
   }
   // Wasser-Felsen als Ozean-Deko (immer im Wasser jenseits des Maximalausbaus FULLR)
-  s.waterRocks=[]; const maxR=2400+3*850;   // = FULLR (mid:6596)
+  s.waterRocks=[]; const maxR=2400+3*600;   // = FULLR (mid:6596)
   for(let i=0;i<26;i++){ const a=rnd(0,6.2832), d=rnd(maxR+120, maxR+900); s.waterRocks.push({x:BASE.x+Math.cos(a)*d, y:BASE.y+Math.sin(a)*d, kind:Math.random()<0.5?'env_waterrock1':'env_waterrock3', t:rnd(0,2)}); }
   // Wolken (mid:6503): driften langsam übers Meer + bisschen über die Insel, leicht transparent
   s.clouds=[]; s.cloudSpan=maxR+1600; const CGRID=4200, CR=maxR+1400;   // weniger, größer (mid:6513); jittert → immer welche im Bild
   for(let gx=-CR; gx<=CR; gx+=CGRID) for(let gy=-CR; gy<=CR; gy+=CGRID){ if(Math.hypot(gx,gy)>CR) continue;
     s.clouds.push({x:BASE.x+gx+rnd(-1400,1400), y:BASE.y+gy+rnd(-1400,1400), ci:1+Math.floor(rnd(0,8)), spd:rnd(6,15), sz:rnd(1.4,2.5), al:rnd(0.5,0.78)}); }
   // animierte Sträucher/Büsche als Insel-Deko (mid:6503): mehr Leben, nicht auf Sand/Wasser/Dorf
-  s.bushes=[]; for(let i=0;i<120;i++){ const a=rnd(0,6.2832), dd=rnd(VILLAGE_R+60, FULLR*0.95), x=BASE.x+Math.cos(a)*dd, y=BASE.y+Math.sin(a)*dd;
+  s.bushes=[]; for(let i=0;i<260;i++){ const a=rnd(0,6.2832), dd=rnd(VILLAGE_R+60, FULLR*0.95), x=BASE.x+Math.cos(a)*dd, y=BASE.y+Math.sin(a)*dd;   // mehr Büsche/Sträucher (mid:6600), 4 Sorten
     if(dist(x,y,BASE.x,BASE.y)<OUTER_R+22||inLake(x,y,26)||onSand(s,x,y)||blocked(s,x,y,14)) continue;
     s.bushes.push({x,y,bi:1+Math.floor(rnd(0,4)),t:rnd(0,3),sz:rnd(95,165)}); }   // größer + breite Variation (mid:6523)
   // (Plateaus-Gen entfernt mid:6531 — kommt als echtes tile-basiertes Höhensystem mit dem Paid-Pack)
