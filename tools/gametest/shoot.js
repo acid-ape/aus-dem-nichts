@@ -106,6 +106,13 @@ const VIEW = DEVICE === 'desktop'
   await page.evaluate(() => { game.s.era = 4; game.s.towers = []; game.openPanelFor('tb3'); document.getElementById('panel').classList.add('open'); });
   await sleep(300); await frames(8); await shot('07c_truppenmenu');
   await page.evaluate(() => { document.getElementById('panel').classList.remove('open'); game.panelFor = 'castle'; });
+  // 4 Truppen nebeneinander — Größen-Vergleich (mid:6611)
+  await page.evaluate(() => { game.s.era = 5; game.s.towers = []; game.s.enemies = [];
+    ['kaempfer','bogen','lance','monk'].forEach((ty,i)=>{ const t={seg:i*3,type:ty,lvl:0,mode:'wache',downT:0}; spawnTroop(game.s,t); game.s.towers.push(t); });
+    game.s.towers.forEach((t,i)=>{ const u=t.unit; u.x=u.tx=BASE.x-150+i*100; u.y=u.ty=BASE.y-30; });
+    game.s.player.x=game.s.player.tx=BASE.x+220; game.s.player.y=game.s.player.ty=BASE.y-30;
+    game.s.cam.x=BASE.x+30; game.s.cam.y=BASE.y-30; game.camFollow=false; game.zoom=0.62; });
+  await sleep(300); await frames(10); await shot('07d_truppen');
   // endgame: max era + many upgrades
   await page.evaluate(() => {
     game.panelFor = 'castle';

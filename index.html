@@ -520,11 +520,13 @@ function addFx(s,kind,x,y,size){ if(!s.fx)s.fx=[]; const im=FX[kind], fr=im.natu
 function drawFx(s){ for(const e of s.fx){ const im=FX[e.kind]; if(!im.complete||!im.naturalWidth)continue;
   const fh=im.naturalHeight, fr=Math.max(1,Math.round(im.naturalWidth/fh)), col=Math.min(fr-1,Math.floor(e.age/e.max*fr)), sc=e.size/fh;
   ctx.drawImage(im, col*fh,0,fh,fh, e.x-fh*sc/2, e.y-fh*sc/2, fh*sc, fh*sc); } }
-// Charakter ~ Mitte-x 98 / Füße-y 137 / Höhe ~88 im 192-Frame (Pawn kleiner → erscheint natürlich kleiner)
+// Per-Unit Größen-/Anker-Korrektur (mid:6611): Lance ist schmal+steht höher (Fuß 119), Mönch kürzer → angleichen, damit alle gleich groß/geerdet wirken
+const USCALE={lance_blue:1.5, monk_blue:1.2}, UFOOT={lance_blue:119, monk_blue:134, archer_purple:136}, UCX={lance_blue:89, monk_blue:96, archer_purple:93};
 function drawUnit(unit,anim,t,x,y,dispH,flip){ const im=U[unit+'_'+anim]||U[unit+'_idle']; if(!im||!im.complete||!im.naturalWidth) return;
-  dispH*=SC; const frames=Math.max(1,Math.round(im.naturalWidth/UFRAME)), col=Math.floor(t*8)%frames, sc=dispH/90, fw=UFRAME*sc;
+  dispH*=SC; const frames=Math.max(1,Math.round(im.naturalWidth/UFRAME)), col=Math.floor(t*8)%frames, sc=dispH/90*(USCALE[unit]||1), fw=UFRAME*sc;
+  const cx=UCX[unit]||98, fy=UFOOT[unit]||137;
   ctx.save(); if(flip){ ctx.translate(x,0); ctx.scale(-1,1); ctx.translate(-x,0); }
-  ctx.drawImage(im, col*UFRAME,0,UFRAME,UFRAME, x-98*sc, y-137*sc, fw, fw);
+  ctx.drawImage(im, col*UFRAME,0,UFRAME,UFRAME, x-cx*sc, y-fy*sc, fw, fw);
   ctx.restore(); }
 // 3 Startcharaktere mit je EIGENER Einheit/Sprite + Basis-Fähigkeit (Steffen mid:6106 — 3 unterschiedliche Sprites)
 // Start-Klassen = die drei Schadensklassen mit je einem Bonus (mid:6449)
@@ -544,6 +546,7 @@ GROUND.grass.src='ts/grass.png'; GROUND.sand.src='ts/sand.png'; GROUND.water.src
 const ENVROCK={}; ['env_waterrock1','env_waterrock3'].forEach(k=>{ const i=new Image(); i.src='ts/u/'+k+'.png'; ENVROCK[k]=i; });   // animierte Wasser-Felsen (16 Frames @64)
 const CLOUD={}; for(let i=1;i<=8;i++){ const im=new Image(); im.src='ts/u/cloud_'+i+'.png'; CLOUD[i]=im; }   // Wolken übers Meer (mid:6503)
 const BUSH={}; for(let i=1;i<=4;i++){ const im=new Image(); im.src='ts/u/bush_'+i+'.png'; BUSH[i]=im; }   // animierte Sträucher (8 Frames @128, mid:6503)
+const FIRE={}; for(let i=1;i<=3;i++){ const im=new Image(); im.src='ts/u/fire'+i+'.png'; FIRE[i]=im; }   // echte Feuer-FX fürs Nacht-Fackeln (mid:6612)
 
 /* Ressourcen — jede mit eigenem Tiny-Swords-Sprite (siehe A-Loader oben). unlock = ab welchem Zeitalter sichtbar. */
 const RES=[
@@ -624,6 +627,16 @@ function collide(s,o,r){ resolve(o,BASE.x,BASE.y,BASE_SOLID+r); for(const ob of 
   const lr=areaRadius(s)-r-6, dB=dist(o.x,o.y,BASE.x,BASE.y);
   if(dB>lr){ o.x=BASE.x+(o.x-BASE.x)/dB*lr; o.y=BASE.y+(o.y-BASE.y)/dB*lr; }
   o.x=Math.max(8,Math.min(WORLD-8,o.x)); o.y=Math.max(8,Math.min(WORLD-8,o.y)); }
+// Einheiten-Hitboxen (mid:6613): überlappende mobile Einheiten auseinanderdrücken (Held bleibt fix, schiebt nur andere)
+function separateUnits(s){ const L=[]; const add=(e,r,fix)=>{ if(e&&!e.dead) L.push({e,r,fix:!!fix}); };
+  add(s.player,15,true);
+  for(const e of s.enemies) add(e,13);
+  if(s.towers) for(const t of s.towers) add(t.unit,13);
+  if(s.freeWalkers) for(const w of s.freeWalkers) add(w,11);
+  for(let i=0;i<L.length;i++) for(let j=i+1;j<L.length;j++){ const a=L[i],b=L[j];
+    const dx=b.e.x-a.e.x, dy=b.e.y-a.e.y, d=Math.hypot(dx,dy)||0.01, min=a.r+b.r;
+    if(d<min){ const ov=min-d, nx=dx/d, ny=dy/d, aw=a.fix?0:(b.fix?1:0.5), bw=b.fix?0:(a.fix?1:0.5);
+      a.e.x-=nx*ov*aw; a.e.y-=ny*ov*aw; b.e.x+=nx*ov*bw; b.e.y+=ny*ov*bw; } } }
 // Terrain-Bedeutung (mid:6060): auf Sand läuft man langsamer; Wasser ist via obstacles ohnehin unbetretbar, Rasen normal.
 function onSand(s,x,y){ if(!s.sand)return false; for(const B of s.sand){ if(dist(x,y,B.x,B.y)<B.r*0.92) return true; } return false; }
 
@@ -1111,6 +1124,7 @@ const game={
     updateFreeWalkers(s,dt);  // freie Arbeiter farmen selbstständig in Dorfnähe; zugewiesene sind Boost-Pawns an den Hütten
     updateCombat(s,dt);       // Overworld-Gegner (Tag-Phase) + Held-Auto-Angriff + HP/Tod
     updateTroops(s,dt);       // Turm-Einheiten (mid:6357/6359)
+    separateUnits(s);         // Einheiten-Hitboxen: Freund+Feind stapeln sich nicht (mid:6613)
     for(const p of s.pops) p.age+=dt; s.pops=s.pops.filter(p=>p.age<p.max);
     // Partikel (Juice): bewegen, Schwerkraft, altern
     for(const q of s.particles){ q.age+=dt; q.x+=q.vx*dt; q.y+=q.vy*dt; q.vy+=260*dt; q.vx*=0.92; }
@@ -1197,12 +1211,12 @@ const game={
       const sc=b.sz*SC/fw*1.7, dw=fw*sc; shadow(b.x,b.y,b.sz*SC*0.34,b.sz*SC*0.12); ctx.drawImage(im,col*fw,0,fw,fw,b.x-dw/2,b.y-dw*0.84,dw,dw); }
     // base + era-Gebäude (unten verankert)
     shadow(BASE.x,BASE.y+22*VS,58,18); worldSprite('era'+Math.min(4,s.era), BASE.x, BASE.y+26*VS, 134, true); label(ERAS[s.era].name, BASE.x, BASE.y-94*VS);   // Basis-Sprite nur bis era4 vorhanden → clampen (mid:6315)
-    if(nightActive(s)&&s.pois){ ctx.save(); ctx.globalCompositeOperation='lighter';   // Nacht-Fackeln am inneren Ring (mid:6605)
-      for(const poi of s.pois){ if(!vis(poi.x,poi.y))continue; const fl=0.62+0.38*Math.sin(this.animT*7+poi.x*0.03);
-        const g=ctx.createRadialGradient(poi.x,poi.y-12*VS,2, poi.x,poi.y-12*VS, 66*VS*fl); g.addColorStop(0,'rgba(255,186,86,'+(0.5*fl)+')'); g.addColorStop(1,'rgba(255,120,30,0)');
-        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(poi.x,poi.y-12*VS,66*VS*fl,0,7); ctx.fill();
-        ctx.fillStyle='#ffd870'; ctx.beginPath(); ctx.arc(poi.x,poi.y-16*VS,4.5*VS*fl,0,7); ctx.fill(); }
-      ctx.restore(); }
+    if(nightActive(s)&&s.pois) for(let pi=0;pi<s.pois.length;pi++){ const poi=s.pois[pi]; if(!vis(poi.x,poi.y))continue;   // Nacht-Fackeln am inneren Ring: echtes Feuer-FX + warmer Glow (mid:6605/6612)
+      const fl=0.62+0.38*Math.sin(this.animT*7+pi);
+      ctx.save(); ctx.globalCompositeOperation='lighter';
+      const g=ctx.createRadialGradient(poi.x,poi.y-18*VS,2, poi.x,poi.y-18*VS, 72*VS*fl); g.addColorStop(0,'rgba(255,186,86,'+(0.42*fl)+')'); g.addColorStop(1,'rgba(255,120,30,0)');
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(poi.x,poi.y-18*VS,72*VS*fl,0,7); ctx.fill(); ctx.restore();
+      const im=FIRE[1+(pi%3)]; if(im&&im.complete&&im.naturalWidth){ const fh=im.naturalHeight, fr=Math.max(1,Math.round(im.naturalWidth/fh)), col=Math.floor(this.animT*10+pi*3)%fr, sz=52*VS; ctx.drawImage(im, col*fh,0,fh,fh, poi.x-sz/2, poi.y-sz, sz, sz); } }
     // Produktionsgebäude (je in einem Kuchenstück) + zugewiesene Arbeiter-Pawns daneben
     for(const b of s.builds){ const p=s.segSlots[b.seg], T=BUILD_TYPES[b.type]; if(!vis(p.x,p.y))continue;
       shadow(p.x,p.y+20*VS,28,9); worldSprite(T.sprite,p.x,p.y,86,false); label(T.name,p.x,p.y-48*VS);   // zentriert auf dem Slot → mittig im Kuchenstück (mid:6350)
@@ -1269,7 +1283,7 @@ const game={
     shadow(s.player.x,s.player.y,24,9);
     { const anim = (s.player.attacking||s.player.harvesting)?'atk' : (s.player.moving?'run':'idle');   // Schlag-Anim auch beim Ernten (mid:6582)
       if(s.player.invT>0) ctx.globalAlpha = 0.4+0.3*Math.sin(this.animT*18);
-      drawUnit(CHARS[s.char].unit, anim, this.animT, s.player.x, s.player.y+6, 106, s.player.face<0);
+      drawUnit(CHARS[s.char].unit, anim, this.animT, s.player.x, s.player.y+6, 106*(1+(s.era||0)*0.05), s.player.face<0);   // Held wächst pro Stufe (mid:6611)
       ctx.globalAlpha=1; }
     // Held-HP-Balken (im Kampf oder wenn verletzt)
     if(s.player.hp<s.player.hpmax || s.enemies.length){ const w=46,f=Math.max(0,s.player.hp/s.player.hpmax);
