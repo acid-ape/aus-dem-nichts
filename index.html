@@ -219,8 +219,8 @@ function updateFreeWalkers(s,dt){
 const ENEMY_R=14, HERO_RANGE=72, HERO_ATK_CD=0.55, ENEMY_ATK_CD=1.0;
 // Zwei Gegner-Tiers: Grunt = leicht (klein), Brute = schwer (groß, stark) — fürs Era-gating
 const ETYPES={
-  grunt:{name:'Grunt', unit:'pawn_black',    hp:20, hpEra:7,  atk:5,  speed:58, size:74, atkRange:38, aggro:290, leash:620, bounty:2},
-  brute:{name:'Brute', unit:'warrior_black', hp:60, hpEra:20, atk:13, speed:42, size:104, atkRange:54, aggro:380, leash:760, bounty:7},
+  grunt:{name:'Grunt', unit:'pawn_black',    hp:32, hpEra:10, atk:7,  speed:56, size:92,  atkRange:42, aggro:320, leash:640, bounty:2},
+  brute:{name:'Brute', unit:'warrior_black', hp:100,hpEra:30, atk:19, speed:42, size:134, atkRange:60, aggro:470, leash:820, bounty:7},
 };
 // Entwicklungs-Cap pro Zeitalter (): era0=0 (keine Evo am Start) … era4=4. So bleibt jeder Einzelgegner mit voll
 // ausgebauten Kampf-Upgrades der Era besiegbar.
@@ -229,7 +229,7 @@ function maxEvo(s){ return s.era; }
 function spawnEnemy(s,kind){ const T=ETYPES[kind], R=areaRadius(s);
   for(let t=0;t<40;t++){ const a=rnd(0,6.2832), d=rnd(VILLAGE_R+90, R-40), x=BASE.x+Math.cos(a)*d, y=BASE.y+Math.sin(a)*d;
     if(blocked(s,x,y,18)) continue;
-    if(s.enemies.some(e=>dist(x,y,e.x,e.y)<200)) continue;   // Gegner nicht zu nah beieinander spawnen ()
+    if(s.enemies.some(e=>dist(x,y,e.x,e.y)<300)) continue;   // Gegner nicht zu nah beieinander spawnen ()
     const hp=T.hp+T.hpEra*s.era;
     s.enemies.push({kind,x,y,home:{x,y},hp,max:hp,base:hp,face:-1,animT:rnd(0,2),atkT:rnd(0,1),hurtT:0,state:'idle',moving:false,evo:0,evoT:0}); return true; }
   return false; }
@@ -243,8 +243,8 @@ function updateCombat(s,dt){ const P=s.player; P.attacking=false;
     addPop(s,d.x,d.y-20,'#fff','+'+Math.floor(tot)); burst(s,d.x,d.y-8,'#ffe9a8',8); SFX.deposit(); d.got=true; } }
   s.drops=s.drops.filter(d=>!d.got);
   // Bestände skalieren mit der MAP-Größe (areas): Grunts ab Start (auch era0), Brutes erst ab Dorf-Era ()
-  { s.spawnT+=dt;   // max 7 gleichzeitig, EINER nach dem anderen (sequenziell), gut gestreut ()
-    if(s.enemies.length<7 && s.spawnT>3.5){ s.spawnT=0;
+  { s.spawnT+=dt;   // max 7, langsam+sequenziell → wenige verteilte Bedrohungen statt Dauer-Spawn ()
+    if(s.enemies.length<7 && s.spawnT>7){ s.spawnT=0;
       const nb=s.enemies.filter(e=>e.kind==='brute').length;
       const kind=(s.era>=1 && nb<2 && Math.random()<0.4)?'brute':'grunt';   // Brutes seltener (max 2), ab Dorf-Era
       spawnEnemy(s,kind); } }
