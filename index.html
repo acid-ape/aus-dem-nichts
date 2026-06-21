@@ -23,7 +23,7 @@
   #resbar .sack .bag{font-size:26px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.7))}
   #resbar .rdiv{width:62px;height:2px;border-radius:2px;background:rgba(255,255,255,.4);margin:5px 0 6px;
     box-shadow:0 1px 1px rgba(0,0,0,.5)}
-  /* zwischen Resbar (links) und Burger (rechts) gespannt → überlappt die Inventar-Zahl nicht mehr () */
+  /* zwischen Resbar (links) und Burger (rechts) gespannt → überlappt die Inventar-Zahl nicht mehr (mid:6063) */
   #quest{position:absolute;top:calc(env(safe-area-inset-top) + 8px);
     left:calc(env(safe-area-inset-left) + 138px);right:calc(env(safe-area-inset-right) + 64px);
     text-align:center;font-size:13.5px;font-weight:600;color:#fff;background:rgba(12,9,22,.7);backdrop-filter:blur(6px);
@@ -154,7 +154,9 @@
 <script>
 "use strict";
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
-const WORLD=2800, BASE={x:WORLD/2,y:WORLD/2}, HARVEST_R=58, BASE_R=96, BASE_SOLID=40;
+const VS=0.66;  // Gesamt-Maßstab Dorf+Sprites zusammen relativ zur Welt (mid:6199/6201/6202): ganze Anlage UND Sprites mit DEMSELBEN Faktor → mehr Karte, interne Proportion exakt wie im guten Original (SC=1 / VILLAGE_R=280)
+const WORLD=21000, BASE={x:WORLD/2,y:WORLD/2}, HARVEST_R=58, BASE_R=Math.round(96*VS), BASE_SOLID=Math.round(40*VS);  // deutlich größere runde Welt (mid:6171)
+const SC=VS;  // Sprites skalieren 1:1 mit der Dorf-Anlage
 const PR=13, WR=11;
 /* ---------- Balance (zentral, leicht tunebar) ----------
    Ziel: aktives Sammeln bleibt lange der STÄRKSTE Weg; Auto/Idle ist langsamer Bonus
@@ -187,7 +189,25 @@ function produce(s,b,dt){ const T=BUILD_TYPES[b.type]; let out=buildRate(s,b)*dt
 function assignedWorkers(s){ return s.builds.reduce((a,b)=>a+b.workers,0); }
 function freeWorkers(s){ return s.workerPool-assignedWorkers(s); }
 function nextBuildType(s){ return BUILD_ORDER.find(t=>BUILD_TYPES[t].era<=s.era && !s.builds.some(b=>b.type===t)); }
-// Freie (nicht zugewiesene) Arbeiter laufen selbstständig los und farmen zufällige Knoten in Dorfnähe ().
+// ----- Außenposten-Sammler (mid:6246): im passenden Biom knapp außerhalb des Dorfs; sammeln Ressource über Zeit bis Cap; Held holt direkt ins Lager ab; upgradebar (Tempo=Rate, Menge=Cap) -----
+const OUTPOST_TYPES={
+  pilze:  {name:'Pilz-Außenposten',   res:'pilze',  sprite:'sawmill', biome:'wald',   era:1, cost:{holz:90, korn:50},         rate:0.45, cap:55},
+  beeren: {name:'Beeren-Außenposten', res:'beeren', sprite:'era0',    biome:'felder', era:3, cost:{holz:180,stein:90,korn:80}, rate:0.45, cap:72},
+};
+const OUTPOST_ORDER=['pilze','beeren'];
+function nextOutpostType(s){ return OUTPOST_ORDER.find(t=>OUTPOST_TYPES[t].era<=s.era && !(s.outposts||[]).some(o=>o.type===t)); }
+function outpostRate(o){ return OUTPOST_TYPES[o.type].rate*(1+0.5*(o.tempoLvl||0)); }   // Tempo-Level erhöht Sammelrate
+function outpostCap(o){ return Math.round(OUTPOST_TYPES[o.type].cap*(1+0.6*(o.mengeLvl||0))); }   // Menge-Level erhöht Cap
+function outpostUpCost(o,kind,s){ const lvl=(kind==='tempo'?o.tempoLvl:o.mengeLvl)||0, base=OUTPOST_TYPES[o.type].cost, c={};
+  for(const k in base) c[k]=Math.round(base[k]*0.55*Math.pow(1.5,lvl)); return c; }
+// platziert einen Außenposten im passenden Biom im Ring knapp außerhalb des Dorfs (innerhalb des Gegner-Frei-Rings), frei von Hindernissen/Wasser
+function placeOutpost(s,type){ const T=OUTPOST_TYPES[type], r0=OUTER_R+70, r1=Math.max(r0+140, enemyNoSpawn(s)-40);
+  for(let t=0;t<240;t++){ const a=rnd(0,6.2832), d=rnd(r0,r1), x=BASE.x+Math.cos(a)*d, y=BASE.y+Math.sin(a)*d;
+    if(biomeAt(s,x,y)===T.biome && !blocked(s,x,y,30)) return {type,x,y,store:0,tempoLvl:0,mengeLvl:0}; }
+  for(let t=0;t<120;t++){ const a=rnd(0,6.2832), d=rnd(r0,r1), x=BASE.x+Math.cos(a)*d, y=BASE.y+Math.sin(a)*d;
+    if(!blocked(s,x,y,30)) return {type,x,y,store:0,tempoLvl:0,mengeLvl:0}; }
+  const a=rnd(0,6.2832); return {type,x:BASE.x+Math.cos(a)*r1,y:BASE.y+Math.sin(a)*r1,store:0,tempoLvl:0,mengeLvl:0}; }
+// Freie (nicht zugewiesene) Arbeiter laufen selbstständig los und farmen zufällige Knoten in Dorfnähe (mid:6048).
 // Zugewiesene Arbeiter bleiben Boost-Pawns an ihrer Hütte; nur der freie Pool wird als laufende Pawns abgebildet.
 function makeWalker(){ const a=rnd(0,6.2832), d=rnd(BASE_SOLID+24,BASE_SOLID+80);
   return {x:BASE.x+Math.cos(a)*d, y:BASE.y+Math.sin(a)*d, tx:BASE.x, ty:BASE.y, carry:0, type:null, state:'seek', target:null}; }
@@ -212,7 +232,7 @@ function updateFreeWalkers(s,dt){
       if(dist(w.x,w.y,BASE.x,BASE.y)<VILLAGE_R){
         if(w.carry>0&&w.type){ s.store[w.type]=(s.store[w.type]||0)+w.carry; addPop(s,w.x,w.y-18,COL[w.type]||'#fff','+'+Math.floor(w.carry)); }
         w.carry=0; w.type=null; w.state='seek'; w.target=null; } }
-    moveToward(w,w.tx,w.ty,onSand(s,w.x,w.y)?66:120,dt);  // Sand bremst auch die Helfer ()
+    moveToward(w,w.tx,w.ty,onSand(s,w.x,w.y)?66:120,dt);  // Sand bremst auch die Helfer (mid:6060)
   } }
 
 /* ---------- Kampf (Tag-Phase, Test-Bett fürs spätere Nacht-TD) ---------- */
@@ -221,35 +241,46 @@ const ENEMY_R=14, HERO_RANGE=72, HERO_ATK_CD=0.55, ENEMY_ATK_CD=1.0;
 const ETYPES={
   grunt:{name:'Grunt', unit:'pawn_black',    hp:32, hpEra:10, atk:7,  speed:56, size:92,  atkRange:42, aggro:320, leash:640, bounty:2},
   brute:{name:'Brute', unit:'warrior_black', hp:100,hpEra:30, atk:19, speed:42, size:134, atkRange:60, aggro:470, leash:820, bounty:7},
+  // Miniboss ab Gebiet 3 (mid:6159): groß, knapp schaffbar, lohnt sich → schenkt einen Arbeiter
+  miniboss:{name:'Anführer', unit:'warrior_black', hp:300, hpEra:70, atk:24, speed:38, size:178, atkRange:70, aggro:560, leash:1000, bounty:0, boss:true},
 };
-// Entwicklungs-Cap pro Zeitalter (): era0=0 (keine Evo am Start) … era4=4. So bleibt jeder Einzelgegner mit voll
+// Entwicklungs-Cap pro Zeitalter (mid:6137): era0=0 (keine Evo am Start) … era4=4. So bleibt jeder Einzelgegner mit voll
 // ausgebauten Kampf-Upgrades der Era besiegbar.
 function maxEvo(s){ return s.era; }
-// Gegner spawnt an ZUFÄLLIGER, gültiger Position (nicht Wasser/Fels/Dorf), bleibt dort stationär bis Aggro.
-function spawnEnemy(s,kind){ const T=ETYPES[kind], R=areaRadius(s);
-  for(let t=0;t<40;t++){ const a=rnd(0,6.2832), d=rnd(VILLAGE_R+90, R-40), x=BASE.x+Math.cos(a)*d, y=BASE.y+Math.sin(a)*d;
+// Gegner spawnen NICHT näher als dieser Ring ums Dorf (mid:6153); skaliert leicht mit der Map, aber großer Mindest-Puffer
+function enemyNoSpawn(s){ return 600; }   // No-Spawn = altes Gebiet 1 / grüner Ring (mid:6159)
+// Gegner spawnt an ZUFÄLLIGER, gültiger Position (nicht Wasser/Fels/Dorf, nicht im No-Spawn-Ring), bleibt dort stationär bis Aggro.
+function spawnEnemy(s,kind){ const T=ETYPES[kind], R=areaRadius(s), lo=enemyNoSpawn(s);
+  for(let t=0;t<40;t++){ const a=rnd(0,6.2832), d=rnd(lo, Math.max(lo+60,R-40)), x=BASE.x+Math.cos(a)*d, y=BASE.y+Math.sin(a)*d;
     if(blocked(s,x,y,18)) continue;
-    if(s.enemies.some(e=>dist(x,y,e.x,e.y)<300)) continue;   // Gegner nicht zu nah beieinander spawnen ()
+    if(s.enemies.some(e=>dist(x,y,e.x,e.y)<300)) continue;   // Gegner nicht zu nah beieinander spawnen (mid:6125)
     const hp=T.hp+T.hpEra*s.era;
     s.enemies.push({kind,x,y,home:{x,y},hp,max:hp,base:hp,face:-1,animT:rnd(0,2),atkT:rnd(0,1),hurtT:0,state:'idle',moving:false,evo:0,evoT:0}); return true; }
   return false; }
 function updateCombat(s,dt){ const P=s.player; P.attacking=false;
   if(P.hurtT>0)P.hurtT-=dt; P.atkT=(P.atkT||0)-dt; if(P.invT>0)P.invT-=dt;
-  // Heilung NUR im Dorf (, Kombi A+B): außerhalb keine Regeneration; im Dorf Heil-Funke
+  // Heilung NUR im Dorf (mid:6124, Kombi A+B): außerhalb keine Regeneration; im Dorf Heil-Funke
   if(dist(P.x,P.y,BASE.x,BASE.y)<VILLAGE_R && P.hp<P.hpmax){ P.hp=Math.min(P.hpmax,P.hp+14*dt);
     P.healT=(P.healT||0)-dt; if(P.healT<=0){ P.healT=0.55; addFx(s,'heal',P.x,P.y-18,44); } }
   // eingesammelte Drop-Säcke (vom Tod) wieder aufnehmen
   for(const d of s.drops){ if(dist(P.x,P.y,d.x,d.y)<HARVEST_R+8){ let tot=0; ALL.forEach(k=>{ s.store[k]=(s.store[k]||0)+(d.carry[k]||0); tot+=d.carry[k]||0; });
     addPop(s,d.x,d.y-20,'#fff','+'+Math.floor(tot)); burst(s,d.x,d.y-8,'#ffe9a8',8); SFX.deposit(); d.got=true; } }
   s.drops=s.drops.filter(d=>!d.got);
-  // Bestände skalieren mit der MAP-Größe (areas): Grunts ab Start (auch era0), Brutes erst ab Dorf-Era ()
-  { s.spawnT+=dt;   // max 7, langsam+sequenziell → wenige verteilte Bedrohungen statt Dauer-Spawn ()
-    if(s.enemies.length<7 && s.spawnT>7){ s.spawnT=0;
-      const nb=s.enemies.filter(e=>e.kind==='brute').length;
-      const kind=(s.era>=1 && nb<2 && Math.random()<0.4)?'brute':'grunt';   // Brutes seltener (max 2), ab Dorf-Era
+  // Außenposten-Sammler (mid:6246): sammeln ihre Ressource über Zeit bis Cap; Held holt sie ab (direkt ins Lager) sobald er nah genug ist
+  if(s.outposts) for(const o of s.outposts){ o.store=Math.min(outpostCap(o),(o.store||0)+outpostRate(o)*dt);
+    if(o.store>=1 && dist(P.x,P.y,o.x,o.y)<HARVEST_R+14){ const res=OUTPOST_TYPES[o.type].res, amt=Math.floor(o.store);
+      s.store[res]=(s.store[res]||0)+amt; o.store-=amt; addPop(s,o.x,o.y-30,'#fff','+'+amt+' '+NAME[res]); burst(s,o.x,o.y-8,'#ffe9a8',8); SFX.deposit(); } }
+  // Bestände skalieren mit der MAP-Größe (areas): Grunts ab Start (auch era0), Brutes erst ab Dorf-Era (mid:6108)
+  { s.spawnT+=dt;   // langsam+sequenziell; Cap skaliert mit Map-Größe (mid:6233/6242): Gebiet 1-4 → 10/15/20/25 (Floor 10, sonst trifft man zu selten einen)
+    const CAP=5+((s.areas||1))*5;
+    if(s.enemies.length<CAP && s.spawnT>7){ s.spawnT=0;
+      const nb=s.enemies.filter(e=>e.kind==='brute').length, nboss=s.enemies.filter(e=>e.kind==='miniboss').length;
+      let kind='grunt';
+      if(s.areas>=3 && nboss<1 && Math.random()<0.45) kind='miniboss';       // genau 1 Anführer auf der Karte
+      else if(s.era>=1 && nb<2 && Math.random()<0.4) kind='brute';           // Brutes seltener (max 2)
       spawnEnemy(s,kind); } }
   for(const e of s.enemies){ const T=ETYPES[e.kind]; e.animT+=dt; if(e.hurtT>0)e.hurtT-=dt;
-    // Entwicklung: je länger ein Mob lebt, desto stärker (HP+Schaden), Cap pro Zeitalter () — wird zum „dicken Klopper"
+    // Entwicklung: je länger ein Mob lebt, desto stärker (HP+Schaden), Cap pro Zeitalter (mid:6137/6138) — wird zum „dicken Klopper"
     e.evoT+=dt; if(e.evoT>11 && e.evo<maxEvo(s)){ e.evoT=0; e.evo++; const old=e.max; e.max=Math.round(e.base*(1+0.28*e.evo)); e.hp+=e.max-old;
       burst(s,e.x,e.y-T.size*0.4,'#c0392b',10); addPop(s,e.x,e.y-T.size*0.6,'#ff8a4a','⬆ Stufe '+e.evo); }
     const dP=dist(e.x,e.y,P.x,P.y);
@@ -257,7 +288,7 @@ function updateCombat(s,dt){ const P=s.player; P.attacking=false;
     else if(e.state==='chase'){
       if(dP>T.leash) e.state='return';
       else if(dP>T.atkRange){ const dx=P.x-e.x; if(Math.abs(dx)>2)e.face=dx<0?-1:1; e.moving=true;
-        moveToward(e,P.x,P.y, onSand(s,e.x,e.y)?T.speed*0.55:T.speed, dt); collide(s,e,ENEMY_R); }   // Terrain gilt für Gegner ()
+        moveToward(e,P.x,P.y, onSand(s,e.x,e.y)?T.speed*0.55:T.speed, dt); collide(s,e,ENEMY_R); }   // Terrain gilt für Gegner (mid:6102)
       else { e.moving=false; e.atkT-=dt; if(e.atkT<=0 && P.invT<=0){ e.atkT=ENEMY_ATK_CD;   // kein Schaden während Respawn-Unverwundbarkeit
         const dmg=Math.max(1,Math.round(T.atk*(1+0.15*e.evo)-(s.def||0))); P.hp-=dmg; P.hurtT=0.25; addPop(s,P.x,P.y-62,'#ff6a6a','-'+dmg); } } }
     else { const dx=e.home.x-e.x; if(Math.abs(dx)>2)e.face=dx<0?-1:1; e.moving=true;                // zurück zum Spawn-Punkt
@@ -270,10 +301,13 @@ function updateCombat(s,dt){ const P=s.player; P.attacking=false;
       addPop(s,near.x,near.y-42,'#ffe08a','-'+dmg); burst(s,near.x,near.y-10,'#ffd86b',5); SFX.harvest(); } }
   // Tod: besiegt → Effekt + Gold-Beute; abgelaufen (poof) → leise verschwinden
   for(const e of s.enemies){ if(e.hp<=0 && !e.dead){ e.dead=true; const T=ETYPES[e.kind]; burst(s,e.x,e.y-10,'#c0392b',16);
-      // Beute: zufällige Ressource ~1-3 Stufen unter dem aktuellen Zeitalter, Menge je Gegner-Typ ()
-      const lo=Math.max(0,s.era-3), hi=Math.max(0,s.era-1), cands=RES.filter(r=>r.unlock>=lo&&r.unlock<=hi);
-      const rk=cands.length?cands[Math.floor(rnd(0,cands.length))].key:'holz', amt=T.bounty+Math.floor(rnd(0,2));
-      s.store[rk]=(s.store[rk]||0)+amt; addPop(s,e.x,e.y-34,COL[rk]||'#fff','+'+amt+' '+NAME[rk]); SFX.deposit(); }
+      if(T.boss){   // Miniboss-Belohnung: ein Arbeiter geschenkt + etwas Gold (mid:6159)
+        s.workerPool=(s.workerPool||0)+1; s.store.gold=(s.store.gold||0)+15+s.era*5;
+        addPop(s,e.x,e.y-44,'#9fe0ff','Anführer besiegt! +1 Arbeiter'); burst(s,e.x,e.y-12,'#9fe0ff',24); SFX.era(); say('Anführer besiegt — ein Arbeiter schließt sich dir an!'); }
+      else {   // Beute: zufällige Ressource ~1-3 Stufen unter dem aktuellen Zeitalter, Menge je Gegner-Typ (mid:6126)
+        const lo=Math.max(0,s.era-3), hi=Math.max(0,s.era-1), cands=RES.filter(r=>r.unlock>=lo&&r.unlock<=hi);
+        const rk=cands.length?cands[Math.floor(rnd(0,cands.length))].key:'holz', amt=T.bounty+Math.floor(rnd(0,2));
+        s.store[rk]=(s.store[rk]||0)+amt; addPop(s,e.x,e.y-34,COL[rk]||'#fff','+'+amt+' '+NAME[rk]); SFX.deposit(); } }
     else if(e.poof){ burst(s,e.x,e.y-10,'rgba(150,150,170,.8)',8); } }
   s.enemies=s.enemies.filter(e=>!e.dead);
   if(P.hp<=0 && P.invT<=0){                                    // Tod (Option A): Sack fällt, Respawn an Basis, kurz unverwundbar
@@ -283,9 +317,11 @@ function updateCombat(s,dt){ const P=s.player; P.attacking=false;
     for(const e of s.enemies) e.state='return';               // Gegner ziehen sich zurück (Atempause statt Wave-Wipe)
     burst(s,BASE.x,BASE.y-20,'#ff5a5a',16); say('Niedergeschlagen! Dein getragener Sack ist gefallen — hol ihn dir zurück.'); } }
 
-const VILLAGE_R=280;  // kleiner Dorf-KERN (passt mit Start-Zoom ganz aufs Bild = spätere Turm-Grenze)
+const VILLAGE_R=Math.round(280*VS);  // innerer Dorf-KERN (Ring-Weg + Produktionsgebäude) — skaliert mit VS
+const OUTER_R=Math.round(400*VS);    // äußerer Ring-Weg (mid:6176); Band VILLAGE_R..OUTER_R = 12 Turm-Bauplätze — skaliert mit VS
+const TOWER_N=12, TOWER_RAD=Math.round((280+400)/2*VS);   // 12 Turm-Bauplätze im äußeren Ring-Band — skaliert mit VS
 // Ressourcen/Wasser liegen DRAUSSEN im Land; der erschlossene Land-Radius wächst mit s.areas
-const areaRadius=s=>600+(((s.areas||1)-1)*230);  // areas 1..4 -> 600,830,1060,1290
+const areaRadius=s=>2400+(((s.areas||1)-1)*2400);  // nochmal groesser (mid:6190): 2400,4800,7200,9600
 
 /* ---------- UI line-icons (statt Smartphone-Emojis, Dashboard-Stil) ---------- */
 const ICO={
@@ -326,11 +362,11 @@ function drawFx(s){ for(const e of s.fx){ const im=FX[e.kind]; if(!im.complete||
   ctx.drawImage(im, col*fh,0,fh,fh, e.x-fh*sc/2, e.y-fh*sc/2, fh*sc, fh*sc); } }
 // Charakter ~ Mitte-x 98 / Füße-y 137 / Höhe ~88 im 192-Frame (Pawn kleiner → erscheint natürlich kleiner)
 function drawUnit(unit,anim,t,x,y,dispH,flip){ const im=U[unit+'_'+anim]||U[unit+'_idle']; if(!im||!im.complete||!im.naturalWidth) return;
-  const frames=Math.max(1,Math.round(im.naturalWidth/UFRAME)), col=Math.floor(t*8)%frames, sc=dispH/90, fw=UFRAME*sc;
+  dispH*=SC; const frames=Math.max(1,Math.round(im.naturalWidth/UFRAME)), col=Math.floor(t*8)%frames, sc=dispH/90, fw=UFRAME*sc;
   ctx.save(); if(flip){ ctx.translate(x,0); ctx.scale(-1,1); ctx.translate(-x,0); }
   ctx.drawImage(im, col*UFRAME,0,UFRAME,UFRAME, x-98*sc, y-137*sc, fw, fw);
   ctx.restore(); }
-// 3 Startcharaktere mit je EIGENER Einheit/Sprite + Basis-Fähigkeit ( — 3 unterschiedliche Sprites)
+// 3 Startcharaktere mit je EIGENER Einheit/Sprite + Basis-Fähigkeit (Steffen mid:6106 — 3 unterschiedliche Sprites)
 const CHARS={
   krieger: {name:'Krieger', unit:'warrior_red',   desc:'Kampf-Spezialist: +50% Angriff & deutlich mehr HP', icon:'stein',
             apply:s=>{ s.atk=(s.atk||1)*1.5; s.def=(s.def||0)+1; s.player.hpmax=160; s.player.hp=160; }},
@@ -339,13 +375,12 @@ const CHARS={
   spaeher: {name:'Späher',  unit:'archer_purple', desc:'Flink: 20% schneller über die Karte', icon:'korn',
             apply:s=>{ s.speed*=1.2; }},
 };
-// In-Game-Erzähler/Mentor ( — nicht „der Erzähler")
+// In-Game-Erzähler/Mentor (Steffen mid:6100 — nicht „Lucy")
 const GUIDE='Der Älteste';
 // Boden-Texturen (für Pattern-Fill); Terrain neu bauen sobald geladen
 const GROUND={ grass:new Image(), sand:new Image(), water:new Image() };
-GROUND.grass.src='ts/grass.png'; GROUND.sand.src='ts/sand.png'; GROUND.water.src='ts/water.png';
-GROUND.grass.onload=()=>{ if(game.s) game.rebuildTerrain(); };
-GROUND.water.onload=()=>{ if(game.s) game.rebuildTerrain(); };
+GROUND.grass.src='ts/grass.png'; GROUND.sand.src='ts/sand.png'; GROUND.water.src='ts/u/env_water.png';   // schönere Wasser-Textur (mid:6182)
+const ENVROCK={}; ['env_waterrock1','env_waterrock3'].forEach(k=>{ const i=new Image(); i.src='ts/u/'+k+'.png'; ENVROCK[k]=i; });   // animierte Wasser-Felsen (16 Frames @64)
 
 /* Ressourcen — jede mit eigenem Tiny-Swords-Sprite (siehe A-Loader oben). unlock = ab welchem Zeitalter sichtbar. */
 const RES=[
@@ -361,22 +396,24 @@ const ALL=RES.map(r=>r.key);
 const COL=Object.fromEntries(RES.map(r=>[r.key,r.col]));
 const NAME=Object.fromEntries(RES.map(r=>[r.key,r.name]));
 const activeKeys=era=>RES.filter(r=>r.unlock<=era).map(r=>r.key);
+// Anzeigegröße der FARMBAREN Knoten je Typ — bewusst etwas größer als die normale Deko gleicher Art, damit man sie gut sieht (mid:6236)
+const NODE_SIZE={holz:142, stein:114, korn:60, pilze:54, gold:82, beeren:64, kristall:84};
 // ★ Ökonomie-Fix: Holz ist die häufigste Ressource (am meisten gebraucht -> am häufigsten)
 const WEIGHT={holz:4.0,stein:2.2,korn:2.0,pilze:1.3,gold:1.0,beeren:1.0,kristall:0.8};
 function weightedKey(keys){ let tot=0; for(const k of keys) tot+=WEIGHT[k]||1; let r=Math.random()*tot;
   for(const k of keys){ r-=(WEIGHT[k]||1); if(r<=0) return k; } return keys[keys.length-1]; }
-/* ---------- Biome (Level-Design, ): die Welt in sinnvolle Regionen statt random verstreut ----------
+/* ---------- Biome (Level-Design, mid:6049): die Welt in sinnvolle Regionen statt random verstreut ----------
    Jede Region führt typische Ressourcen + passende Deko. Vorbereitung für gezielte Gegner-Platzierung im Day-Cycle. */
 const BIOMES={
-  // ground = klar unterscheidbare Boden-Grundfarbe je Region (über die Gras-Textur gelegt), damit Biome auf einen Blick lesbar sind ()
-  wald:    {name:'Wald',    ground:'rgba(34,84,42,0.46)',    res:{holz:6, pilze:2.5},          tree:0.62, rock:0.04, small:['deco_mushroom','deco_bush']},
+  // ground = klar unterscheidbare Boden-Grundfarbe je Region (über die Gras-Textur gelegt), damit Biome auf einen Blick lesbar sind (mid:6056)
+  wald:    {name:'Wald',    ground:'rgba(34,84,42,0.46)',    res:{holz:6, pilze:2.5},          tree:0.72, rock:0.04, small:['deco_mushroom','deco_bush']},
   gebirge: {name:'Gebirge', ground:'rgba(126,130,138,0.50)', res:{stein:5, gold:2, kristall:1.3}, tree:0.04, rock:0.58, small:['deco_rock','deco_bush']},
   felder:  {name:'Felder',  ground:'rgba(206,188,84,0.42)',  res:{korn:5, beeren:2.5},          tree:0.12, rock:0.03, small:['deco_pumpkin','deco_bush']},
 };
 const BIOME_CYCLE=['wald','gebirge','felder'];
 // Biom an einer Weltposition: 6 Sektoren um die Basis, mit leicht organisch gewellten Grenzen
 function biomeAt(s,x,y){ const N=(s.biomes&&s.biomes.length)||6, dx=x-BASE.x, dy=y-BASE.y;
-  let a=Math.atan2(dy,dx)-(s.biomeRot||0)+0.22*Math.sin(Math.hypot(dx,dy)/300+(s.biomeWarp||0));
+  let a=Math.atan2(dy,dx)-(s.biomeRot||0)+0.30*Math.sin(Math.hypot(dx,dy)/260+(s.biomeWarp||0))+0.20*Math.sin(x/200+0.6*(s.biomeWarp||0))*Math.cos(y/190);  // organisch gewellte + leicht durcheinander gehende Grenzen statt scharfer Sektoren (mid:6203)
   a=((a%(2*Math.PI))+2*Math.PI)%(2*Math.PI);
   return s.biomes? s.biomes[Math.floor(a/(2*Math.PI)*N)%N] : 'wald'; }
 // gewichtete Ressourcen-Wahl aus der Biom-Tabelle, gefiltert nach freigeschalteten Zeitaltern
@@ -412,63 +449,23 @@ function spawnNode(s,type,ringMin){ const R=areaRadius(s), lo=ringMin||(VILLAGE_
     if(type){ if(!bt.res[type]) continue; chosen=type; }       // Knoten nur in ein Biom legen, das diesen Typ führt
     else { chosen=weightedFromTable(bt.res, allowed); if(!chosen) continue; }
     if(s.nodes.every(n=>dist(x,y,n.x,n.y)>104) && !blocked(s,x,y,40)){
-      const amt=Math.round(rnd(12,18)); s.nodes.push({id:++nodeId,type:chosen,x,y,amount:amt,max:amt,scale:0}); return; }  // langlebiger ()
+      const amt=Math.round(rnd(12,18)); s.nodes.push({id:++nodeId,type:chosen,x,y,amount:amt,max:amt,scale:0}); return; }  // langlebiger (mid:6098)
   } }
 
 function resolve(o,cx,cy,R){ const d=dist(o.x,o.y,cx,cy); if(d<R){ if(d<0.01){o.x=cx+R;return;} o.x=cx+(o.x-cx)/d*R; o.y=cy+(o.y-cy)/d*R; } }
 function collide(s,o,r){ resolve(o,BASE.x,BASE.y,BASE_SOLID+r); for(const ob of s.obstacles) resolve(o,ob.x,ob.y,ob.r+r);
+  // runde Karte (mid:6176): innerhalb des erschlossenen Land-Kreises bleiben (nicht ins Wasser laufen)
+  const lr=areaRadius(s)-r-6, dB=dist(o.x,o.y,BASE.x,BASE.y);
+  if(dB>lr){ o.x=BASE.x+(o.x-BASE.x)/dB*lr; o.y=BASE.y+(o.y-BASE.y)/dB*lr; }
   o.x=Math.max(8,Math.min(WORLD-8,o.x)); o.y=Math.max(8,Math.min(WORLD-8,o.y)); }
-// Terrain-Bedeutung (): auf Sand läuft man langsamer; Wasser ist via obstacles ohnehin unbetretbar, Rasen normal.
+// Terrain-Bedeutung (mid:6060): auf Sand läuft man langsamer; Wasser ist via obstacles ohnehin unbetretbar, Rasen normal.
 function onSand(s,x,y){ if(!s.sand)return false; for(const B of s.sand){ if(dist(x,y,B.x,B.y)<B.r*0.92) return true; } return false; }
 
-function buildTerrain(s){ const c=document.createElement('canvas'); c.width=WORLD; c.height=WORLD; const t=c.getContext('2d');
-  t.imageSmoothingEnabled=false;
-  // Boden: echte Tiny-Swords-Gras-Textur als Pattern (Fallback solides Grün)
-  const gReady=GROUND.grass.complete&&GROUND.grass.naturalWidth>0;
-  if(gReady){ const pat=t.createPattern(GROUND.grass,'repeat'); t.fillStyle=pat; t.fillRect(0,0,WORLD,WORLD); }
-  else { t.fillStyle='#5fa148'; t.fillRect(0,0,WORLD,WORLD); }
-  // sanfte Schattierungs-Flecken für Tiefe
-  for(let i=0;i<Math.round(WORLD*WORLD/16000);i++){ const x=rnd(0,WORLD),y=rnd(0,WORLD),r=rnd(20,64);
-    t.fillStyle=Math.random()<0.5?'rgba(60,110,48,.13)':'rgba(150,196,110,.10)';
-    t.beginPath(); t.ellipse(x,y,r,r*rnd(.6,1),0,0,7); t.fill(); }
-  // Biom-Boden: jede Region kriegt eine deutlich andere Grundfarbe (über die Gras-Textur), Grenzen organisch via biomeAt-Raster.
-  // Dorf-Kern bleibt neutrales Gras. So sind Wald/Gebirge/Felder auf einen Blick unterscheidbar ().
-  if(s.biomes){ const CELL=34;
-    for(let gx=0; gx<WORLD; gx+=CELL){ for(let gy=0; gy<WORLD; gy+=CELL){ const cx=gx+CELL/2, cy=gy+CELL/2;
-      if(dist(cx,cy,BASE.x,BASE.y)<VILLAGE_R+10) continue;
-      t.fillStyle=BIOMES[biomeAt(s,cx,cy)].ground; t.fillRect(gx,gy,CELL+1,CELL+1); } } }
-  t.lineCap='round'; t.lineJoin='round';
-  const sandReady=GROUND.sand.complete&&GROUND.sand.naturalWidth>0;
-  const sandPat=sandReady? t.createPattern(GROUND.sand,'repeat') : '#d8c08a';
-  const wReady=GROUND.water.complete&&GROUND.water.naturalWidth>0;
-  // organischen Blob-Pfad bauen (Sand-Flächen + Seen)
-  const blobPath=(B,scale)=>{ const N=B.pts.length; t.beginPath();
-    const pt=i=>{ const a=i/N*6.2832, rr=B.r*B.pts[((i%N)+N)%N]*scale; return [B.x+Math.cos(a)*rr, B.y+Math.sin(a)*rr*0.92]; };
-    const p0=pt(N-1), p1=pt(0); t.moveTo((p0[0]+p1[0])/2,(p0[1]+p1[1])/2);
-    for(let i=0;i<N;i++){ const c=pt(i), nx=pt(i+1); t.quadraticCurveTo(c[0],c[1],(c[0]+nx[0])/2,(c[1]+nx[1])/2); } t.closePath(); };
-  // Sand-Flächen (Terrain-Abwechslung) — unter Wege/Seen
-  t.globalAlpha=0.92; t.fillStyle=sandPat; for(const B of s.sand){ blobPath(B,1); t.fill(); } t.globalAlpha=1;
-  // dünne Sand-Speichen vom Kern zur Grenze
-  const line=(a,b,w,style)=>{ t.strokeStyle=style; t.lineWidth=w; t.beginPath(); t.moveTo(a.x,a.y); t.lineTo(b.x,b.y); t.stroke(); };
-  // Speichen enden INNERHALB des Rings (nicht drüber hinaus)
-  for(const p of s.pois){ const e={x:BASE.x+(p.x-BASE.x)*0.84, y:BASE.y+(p.y-BASE.y)*0.84}; line(BASE,e,20,'rgba(90,70,40,.5)'); line(BASE,e,13,sandPat); }
-  // kleiner Dorf-Ring (= spätere Turm-Grenze für die Nacht-Phase)
-  const ringPath=()=>{ const n=s.pois.length; t.beginPath();
-    t.moveTo((s.pois[n-1].x+s.pois[0].x)/2,(s.pois[n-1].y+s.pois[0].y)/2);
-    for(let i=0;i<n;i++){ const c=s.pois[i], nx=s.pois[(i+1)%n]; t.quadraticCurveTo(c.x,c.y,(c.x+nx.x)/2,(c.y+nx.y)/2); } t.closePath(); };
-  t.strokeStyle='rgba(90,70,40,.5)'; t.lineWidth=34; ringPath(); t.stroke();
-  t.strokeStyle=sandPat; t.lineWidth=25; ringPath(); t.stroke();
-  // Seen draussen im Land: Schaum-Rand + Wasser-Textur + Wellen
-  for(const L of s.lakes){
-    t.fillStyle='#dff4f0'; blobPath(L,1.04); t.fill();
-    t.save(); blobPath(L,0.96); t.clip();
-    t.fillStyle=wReady? t.createPattern(GROUND.water,'repeat') : '#3f9fb0';
-    t.fillRect(L.x-L.r*1.4,L.y-L.r*1.4,L.r*2.8,L.r*2.8);
-    t.fillStyle='rgba(255,255,255,.13)';
-    for(let i=0;i<7;i++){ const yy=L.y-L.r*.55+i*L.r*.2; t.beginPath(); t.ellipse(L.x+rnd(-L.r*.3,L.r*.3),yy,L.r*rnd(.2,.4),3,0,0,7); t.fill(); }
-    t.restore();
-  }
-  s.terrain=c; }
+// organischer Blob-Pfad (Sand-Flächen) auf dem GLOBALEN ctx — fürs pro-Frame-Terrain (mid:6182, kein Riesen-Canvas mehr → Karte beliebig groß)
+function blobPathCtx(B,scale){ const N=B.pts.length;
+  const pt=i=>{ const a=i/N*6.2832, rr=B.r*B.pts[((i%N)+N)%N]*scale; return [B.x+Math.cos(a)*rr, B.y+Math.sin(a)*rr*0.92]; };
+  ctx.beginPath(); const p0=pt(N-1), p1=pt(0); ctx.moveTo((p0[0]+p1[0])/2,(p0[1]+p1[1])/2);
+  for(let i=0;i<N;i++){ const c=pt(i), nx=pt(i+1); ctx.quadraticCurveTo(c[0],c[1],(c[0]+nx[0])/2,(c[1]+nx[1])/2); } ctx.closePath(); }
 
 function setRing(s){ s.pois=[]; const RR=VILLAGE_R; for(let i=0;i<6;i++){ const a=i/6*6.2832-Math.PI/2; s.pois.push({x:BASE.x+Math.cos(a)*RR,y:BASE.y+Math.sin(a)*RR}); } }
 function organicBlob(x,y,r){ const pts=[]; for(let i=0;i<11;i++) pts.push(rnd(0.62,1.28)); return {x,y,r,pts}; }
@@ -477,37 +474,53 @@ function buildLevel(s){
   // Biom-Layout: 6 Sektoren um die Basis, zyklisch Wald/Gebirge/Felder, je Spiel zufällig rotiert/versetzt
   const start=Math.floor(rnd(0,3)); s.biomes=[]; for(let i=0;i<6;i++) s.biomes.push(BIOME_CYCLE[(i+start)%3]);
   s.biomeRot=rnd(0,6.2832); s.biomeWarp=rnd(0,6.2832);
-  // Seen + Sand über die GANZE später erschliessbare Karte verteilen (nicht nur das Start-Gebiet) — .
+  // Seen + Sand über die GANZE später erschliessbare Karte verteilen (nicht nur das Start-Gebiet) — mid:6060.
   // Wasser = solides Hindernis (unbetretbar, r*0.9); Sand bremst (siehe onSand im step).
-  const FULLR=600+3*230;  // Radius bei Gebiet 4 (Maximalausbau) → Terrain ist von Anfang an überall, wird nur freigeschaltet
-  s.lakes=[]; const lakeN=4+(Math.random()<0.5?1:0);
+  const FULLR=2400+3*2400;  // Gebiet 4 = 9600
+  s.lakes=[]; const lakeN=8+Math.floor(rnd(0,4));   // Inland-Seen (mid:6213/6224/6226) — 8-11, ein paar mehr (Flüsse gestrichen)
   for(let i=0;i<lakeN;i++){ const r=rnd(150,250); let x,y,t=0,ok=false;
-    do{ const a=rnd(0,6.2832), d=rnd(VILLAGE_R+r*1.3+70, FULLR+140); x=BASE.x+Math.cos(a)*d; y=BASE.y+Math.sin(a)*d; t++;
+    do{ const a=rnd(0,6.2832), d=rnd(Math.max(VILLAGE_R+r*1.3+70, 650+r), FULLR+140); x=BASE.x+Math.cos(a)*d; y=BASE.y+Math.sin(a)*d; t++;   // großer Mindestabstand: Wasser ragt nicht ins Dorf (mid:6224)
         ok = x>r+50&&x<WORLD-r-50&&y>r+50&&y<WORLD-r-50 && !s.lakes.some(L=>dist(x,y,L.x,L.y)<L.r+r+120);
     } while(!ok && t<40); if(!ok) continue;
     const L=organicBlob(x,y,r); s.lakes.push(L); s.obstacles.push({x:L.x,y:L.y,r:L.r*0.9}); }
   // Sand-Flächen: Strände an den Seen + frei verstreut über die ganze Karte
   s.sand=[];
   for(const L of s.lakes){ const a=rnd(0,6.2832); s.sand.push(organicBlob(L.x+Math.cos(a)*L.r*0.95, L.y+Math.sin(a)*L.r*0.95, rnd(120,190))); }
-  for(let i=0;i<7;i++){ const r=rnd(110,200), a=rnd(0,6.2832), d=rnd(VILLAGE_R+r*1.1+50, FULLR+60); s.sand.push(organicBlob(BASE.x+Math.cos(a)*d, BASE.y+Math.sin(a)*d, r)); }
+  for(let i=0;i<26;i++){ const r=rnd(120,240), a=rnd(0,6.2832), d=rnd(VILLAGE_R+r*1.1+50, FULLR-r); s.sand.push(organicBlob(BASE.x+Math.cos(a)*d, BASE.y+Math.sin(a)*d, r)); }
   const inLake=(x,y,m)=>s.lakes.some(L=>dist(x,y,L.x,L.y)<L.r+m);
+  s.rivers=[];   // Flüsse gestrichen (mid:6226) — bekamen wir visuell nicht sauber hin; stattdessen ein paar Seen mehr (s.o.)
   // 6 Kuchenstück-Slots (zwischen den Speichen): je 1 Produktionsgebäude, das pro Zeitalter dazukommt
   s.segSlots=[]; for(let i=0;i<6;i++){ const a=(i+0.5)/6*6.2832-Math.PI/2, d=VILLAGE_R*0.55; s.segSlots.push({x:BASE.x+Math.cos(a)*d,y:BASE.y+Math.sin(a)*d}); }
+  // 12 Turm-Bauplätze im äußeren Ring-Band (zwischen innerem Rad und äußerem Ring) — Tag/Nacht-TD (mid:6171)
+  s.towerSlots=[]; for(let i=0;i<TOWER_N;i++){ const a=(i+0.5)/TOWER_N*6.2832-Math.PI/2; s.towerSlots.push({x:BASE.x+Math.cos(a)*TOWER_RAD,y:BASE.y+Math.sin(a)*TOWER_RAD,tower:null}); }
   // Dorf-Leben: nur Schafe (Deko-Hütten raus — Häuser kommen als Produktionsgebäude pro Zeitalter)
   s.village=[];
   for(let i=0;i<4;i++){ const a=rnd(0,6.28),d=rnd(60,VILLAGE_R-95); s.village.push({key:'sheep',x:BASE.x+Math.cos(a)*d,y:BASE.y+Math.sin(a)*d,size:32,wob:rnd(0,6.28)}); }
   s.deco=[];
-  // Biom-abhängige Deko: dichter Wald im Wald, Felsfelder im Gebirge, offene Wiesen+Kürbisse in den Feldern.
-  // Eine Stichprobe über die ganze Karte; Sprite-Wahl je nach Biom an der Position → die Welt „ergibt Sinn".
-  for(let i=0;i<1100;i++){ const x=rnd(60,WORLD-60), y=rnd(60,WORLD-60);
-    if(dist(x,y,BASE.x,BASE.y)<VILLAGE_R+12||inLake(x,y,28)||blocked(s,x,y,26)) continue;
-    const b=BIOMES[biomeAt(s,x,y)], roll=Math.random();
-    if(roll<b.tree){ s.deco.push({key:'holz',x,y,size:rnd(44,62),solid:false}); }                 // Baum
-    else if(roll<b.tree+b.rock){ const sz=rnd(40,56); s.deco.push({key:'deco_rock',x,y,size:sz,solid:true}); s.obstacles.push({x,y,r:sz*0.34}); } // solider Felsen
-    else if(roll<b.tree+b.rock+0.20){ const k=b.small[Math.floor(Math.random()*b.small.length)]; s.deco.push({key:k,x,y,size:rnd(20,30),solid:false}); } // kleine Biom-Deko
-    // sonst: offene Fläche (Dichte-Variation, damit Wald/Feld sich unterscheiden)
+  // Deko in NATÜRLICHEN KLUMPEN statt gleichmäßigem Streuen (mid:6229): Wäldchen mit großen Bäumen eng zusammen,
+  // Felsfelder (viele Brocken + ein paar große solide), Wiesen offener mit Kürbissen/Pilzen. → volle, „gebaute" Karte.
+  const placeD=(key,x,y,size,solid,obR)=>{ if(dist(x,y,BASE.x,BASE.y)<VILLAGE_R+18||inLake(x,y,26)||blocked(s,x,y,16)) return;
+    s.deco.push({key,x,y,size,solid:!!solid}); if(solid) s.obstacles.push({x,y,r:obR||size*0.30}); };
+  const clump=(cx,cy,n,spread,fn)=>{ for(let j=0;j<n;j++){ const a=rnd(0,6.2832), d=Math.pow(Math.random(),0.7)*spread; fn(cx+Math.cos(a)*d, cy+Math.sin(a)*d); } };
+  const NCL=1700;   // viele Klumpen-Zentren, gleichmäßig über die Insel-Disk (sqrt → Flächentreue)
+  for(let i=0;i<NCL;i++){ const a=rnd(0,6.2832), d=Math.sqrt(Math.random())*FULLR, cx=BASE.x+Math.cos(a)*d, cy=BASE.y+Math.sin(a)*d;
+    if(dist(cx,cy,BASE.x,BASE.y)<VILLAGE_R+60) continue;
+    const bk=biomeAt(s,cx,cy);
+    if(bk==='wald'){            // Wäldchen: VIELE große Bäume eng zusammen + etwas Unterholz/Pilze (mid:6235 — mehr Bäume)
+      clump(cx,cy, 8+Math.floor(rnd(0,10)), rnd(80,190), (x,y)=> placeD('holz',x,y,rnd(82,132),false));
+      clump(cx,cy, 1+Math.floor(rnd(0,3)), rnd(60,150), (x,y)=> placeD(Math.random()<0.45?'deco_mushroom':'deco_bush',x,y,rnd(22,32),false));
+    } else if(bk==='gebirge'){  // Felsfeld: viele kleine/mittlere Brocken (Deko) + 1-2 große solide Felsen
+      clump(cx,cy, 5+Math.floor(rnd(0,7)), rnd(60,160), (x,y)=> placeD('deco_rock',x,y,rnd(34,58),false));
+      clump(cx,cy, 1+Math.floor(rnd(0,2)), rnd(40,110), (x,y)=> placeD('deco_rock',x,y,rnd(72,104),true));
+      clump(cx,cy, 0+Math.floor(rnd(0,2)), rnd(60,130), (x,y)=> placeD('deco_bush',x,y,rnd(20,30),false));
+    } else {                    // Wiesen: offener — Kürbisse + Pilze + Büschel in lockeren Tupfern, vereinzelt ein Baum
+      clump(cx,cy, 3+Math.floor(rnd(0,5)), rnd(80,180), (x,y)=>{ const r=Math.random(); placeD(r<0.4?'deco_pumpkin':(r<0.78?'deco_mushroom':'deco_bush'),x,y,rnd(24,36),false); });
+      if(Math.random()<0.45) clump(cx,cy, 1+Math.floor(rnd(0,3)), rnd(50,130), (x,y)=> placeD('holz',x,y,rnd(74,108),false));
+    }
   }
-  buildTerrain(s);
+  // Wasser-Felsen als Ozean-Deko (immer im Wasser jenseits des Maximalausbaus FULLR)
+  s.waterRocks=[]; const maxR=2400+3*2400;
+  for(let i=0;i<26;i++){ const a=rnd(0,6.2832), d=rnd(maxR+120, maxR+900); s.waterRocks.push({x:BASE.x+Math.cos(a)*d, y:BASE.y+Math.sin(a)*d, kind:Math.random()<0.5?'env_waterrock1':'env_waterrock3', t:rnd(0,2)}); }
 }
 
 function freshState(){ const store={},carry={}; ALL.forEach(k=>{store[k]=0;carry[k]=0;});
@@ -517,9 +530,10 @@ function freshState(){ const store={},carry={}; ALL.forEach(k=>{store[k]=0;carry
     workerPool:0, builds:[], freeWalkers:[], autoAcc:0, areas:1, areaLvl:0,
     era:0, nodes:[], pops:[], particles:[], loot:[], respawns:[], cam:{x:BASE.x,y:BASE.y}, paused:false, firstDeposit:false,
     phase:'day', day:1, baseHP:100, baseHPmax:100, towers:[],  // Naht fuer spaetere Tag/Nacht-TD-Phase
+    outposts:[],   // Außenposten-Sammler (mid:6246) — werden vom Spieler gebaut
     questIdx:0, achieved:[], lifetime:0, playSec:0 };
   buildLevel(s);
-  for(let i=0;i<6;i++) spawnNode(s,'holz'); for(let i=0;i<3;i++) spawnNode(s,'stein'); for(let i=0;i<3;i++) spawnNode(s,'korn');
+  for(let i=0;i<22;i++) spawnNode(s,'holz'); for(let i=0;i<14;i++) spawnNode(s,'stein'); for(let i=0;i<14;i++) spawnNode(s,'korn');  // mehr Start-Knoten für die große Insel
   return s; }
 function addPop(s,x,y,color,text){ s.pops.push({x,y,color,text:text||null,age:0,max:text?1.1:0.6}); }
 /* ---------- Juice: Partikel ---------- */
@@ -527,7 +541,7 @@ function addParticle(s,x,y,color){ if(s.particles.length>140) return;
   const a=rnd(0,6.2832), sp=rnd(40,130);
   s.particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-rnd(40,90),color,age:0,max:rnd(0.5,0.9),sz:rnd(3,6)}); }
 function burst(s,x,y,color,n){ for(let i=0;i<n;i++) addParticle(s,x,y,color); }
-// Loot-Pop beim Sammeln: das Ressourcen-Icon springt aus dem Knoten, fliegt hoch + verblasst ()
+// Loot-Pop beim Sammeln: das Ressourcen-Icon springt aus dem Knoten, fliegt hoch + verblasst (mid:6108)
 function addLoot(s,x,y,type){ if(!s.loot)s.loot=[]; if(s.loot.length>60) return;
   s.loot.push({x:x+rnd(-8,8), y:y-8, type, age:0, max:0.8, vx:rnd(-22,22), vy:rnd(-95,-62), sz:rnd(22,28)}); }
 /* ---------- Juice: Sound (synthetisiert, keine Dateien) ---------- */
@@ -553,7 +567,7 @@ function serialize(s){ return { // nur Fortschritt (Welt/Knoten/Deko werden neu 
   workerPool:s.workerPool, builds:s.builds, char:s.char, charChosen:s.charChosen, atk:s.atk, def:s.def, hpmax:s.player.hpmax,
   atkLvl:s.atkLvl, defLvl:s.defLvl, hpLvl:s.hpLvl,
   areas:s.areas, areaLvl:s.areaLvl, era:s.era, firstDeposit:s.firstDeposit,
-  phase:s.phase, day:s.day, baseHP:s.baseHP, towers:s.towers, questIdx:s.questIdx,
+  phase:s.phase, day:s.day, baseHP:s.baseHP, towers:s.towers, questIdx:s.questIdx, outposts:s.outposts,
   achieved:s.achieved, lifetime:s.lifetime, playSec:s.playSec }; }
 function saveGame(s){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify({v:SAVE_VERSION, t:Date.now(), d:serialize(s)})); }catch(e){} }
 function loadRaw(){ try{ const r=localStorage.getItem(SAVE_KEY); if(!r) return null; const o=JSON.parse(r);
@@ -573,8 +587,9 @@ function stateFromSave(d){ const s=freshState();  // frische Welt, dann Fortschr
   if(typeof d.lifetime==='number') s.lifetime=d.lifetime;
   if(typeof d.playSec==='number') s.playSec=d.playSec;
   if(Array.isArray(d.builds)) s.builds=d.builds.map(b=>({type:b.type,seg:b.seg,tempo:b.tempo||0,menge:b.menge||0,workers:b.workers||0}));
+  if(Array.isArray(d.outposts)) s.outposts=d.outposts.filter(o=>OUTPOST_TYPES[o.type]).map(o=>({type:o.type,x:o.x,y:o.y,store:o.store||0,tempoLvl:o.tempoLvl||0,mengeLvl:o.mengeLvl||0}));
   setRing(s);
-  s.nodes=[]; const n=16+s.areas*6; for(let i=0;i<n;i++) spawnNode(s);  // mehr Knoten gegen Scarcity ()
+  s.nodes=[]; const n=40+s.areas*40; for(let i=0;i<n;i++) spawnNode(s);  // mehr Knoten gegen Scarcity (mid:6098)
   return s; }
 // Offline-Ertrag: Auto-Producer voll, Helfer grob geschätzt (reduziert), gedeckelt
 function applyOffline(s, elapsedSec){ const t=Math.min(Math.max(0,elapsedSec), OFFLINE_CAP); if(t<30) return null;
@@ -588,10 +603,10 @@ function applyOffline(s, elapsedSec){ const t=Math.min(Math.max(0,elapsedSec), O
 function humanDur(mins){ if(mins<60) return mins+' Min'; const h=Math.floor(mins/60); return h+(h===1?' Stunde':' Stunden'); }
 
 const scaled=(b,f,l)=>Math.round(b*Math.pow(f,l));
-// Helden-Upgrades sind pro Zeitalter gedeckelt () — kein 7×-Sofort-Maxen, Power ans Zeitalter gekoppelt
+// Helden-Upgrades sind pro Zeitalter gedeckelt (mid:6042) — kein 7×-Sofort-Maxen, Power ans Zeitalter gekoppelt
 function heroMaxLvl(s){ return 3 + s.era*2; }  // era0:3, era1:5, era2:7, era3:9, era4:11
 // ---- Two upgrade trees ----  (UP_HELD-Einträge tragen lvl:=aktuelles Level für den Era-Cap)
-// Kosten eskalieren mit dem Zeitalter (): jede Stufe nimmt eine höhere Ressource dazu, statt alles in Holz zu zahlen.
+// Kosten eskalieren mit dem Zeitalter (mid:6051/6052): jede Stufe nimmt eine höhere Ressource dazu, statt alles in Holz zu zahlen.
 const UP_HELD=[
   {id:'cap',icon:'holz',name:()=>'Größerer Beutel',desc:s=>`Tragen +4 (jetzt ${s.cap})`,lvl:s=>s.capLvl,
    cost:s=>{ const l=s.capLvl,c={holz:scaled(12,1.45,l)}; if(s.era>=2)c.stein=scaled(8,1.45,l); return c; },apply:s=>{s.cap+=4;s.capLvl++;}},
@@ -611,22 +626,26 @@ const UP_DORF=[
    show:s=>!!nextBuildType(s), cost:s=>{const t=nextBuildType(s);return t?BUILD_TYPES[t].cost:{holz:1e9};},
    apply:s=>{const t=nextBuildType(s); if(!t)return; const used=s.builds.map(b=>b.seg); let seg=[0,1,2,3,4,5].find(i=>!used.includes(i)); if(seg==null)seg=s.builds.length%6;
      s.builds.push({type:t,seg,tempo:0,menge:0,workers:0}); say(BUILD_TYPES[t].name+' gebaut! Tippe die Hütte an, um Arbeiter zuzuweisen + sie aufzurüsten.'); }},
+  {id:'buildpost',icon:'era0',name:s=>{const t=nextOutpostType(s);return t?'Bau: '+OUTPOST_TYPES[t].name:'Alle Außenposten gebaut';},
+   desc:s=>{const t=nextOutpostType(s);return t?`Sammler im ${BIOMES[OUTPOST_TYPES[t].biome].name} nahe dem Dorf — sammelt ${NAME[OUTPOST_TYPES[t].res]} über Zeit, du läufst hin und holst sie ab`:'';},
+   show:s=>!!nextOutpostType(s), cost:s=>{const t=nextOutpostType(s);return t?OUTPOST_TYPES[t].cost:{holz:1e9};},
+   apply:s=>{const t=nextOutpostType(s); if(!t)return; if(!s.outposts)s.outposts=[]; s.outposts.push(placeOutpost(s,t)); say(OUTPOST_TYPES[t].name+' gebaut! Lauf hin, dort sammelt sich '+NAME[OUTPOST_TYPES[t].res]+' — antippen zum Aufrüsten.'); }},
   {id:'expand',icon:'era1',name:s=>'Gebiet erschliessen',desc:s=>s.areas>=4?'Alle Gebiete erschlossen':`Dorf vergrössern (Gebiet ${s.areas}/4) — mehr Platz & Ressourcen`,
    show:s=>s.areas<4, cost:s=>({holz:scaled(80,1.7,s.areaLvl),stein:scaled(50,1.7,s.areaLvl),korn:scaled(40,1.7,s.areaLvl)}),
    apply:s=>{ if(s.areas>=4) return; const oldR=areaRadius(s); s.areas++; s.areaLvl++;
      for(let i=0;i<12;i++) spawnNode(s,null,oldR-20);
      say('Neues Gebiet erschlossen! Die Karte wächst nach aussen — mehr Ressourcen jenseits des Dorfrands.'); },expand:true},
 ];
-// Hütten-Upgrade-Kosten (): Tempo = Effizienz-Währung Gold (früh Holz, bis Gold da ist);
+// Hütten-Upgrade-Kosten (mid:6051/6052): Tempo = Effizienz-Währung Gold (früh Holz, bis Gold da ist);
 // Menge = Eigen-Ressource der Hütte + Pilze als Veredelungs-Material (gibt Pilzen eine Dauer-Senke).
 function buildUpCost(b,kind,s){ const T=BUILD_TYPES[b.type], lvl=b[kind], era=s?s.era:0, c={};
   if(kind==='tempo'){ if(era>=2) c.gold=scaled(20,1.5,lvl); else c.holz=scaled(35,1.5,lvl); }
   else { c[T.res]=scaled(24,1.5,lvl); c.pilze=scaled(12,1.5,lvl); }
   return c; }
-// Caps pro Zeitalter (): kein Sofort-Maxen — Tempo/Menge + Arbeiter sind ans Zeitalter gekoppelt
+// Caps pro Zeitalter (mid:6033): kein Sofort-Maxen — Tempo/Menge + Arbeiter sind ans Zeitalter gekoppelt
 function buildMaxLvl(s){ return s.era+1; }                  // max Tempo-/Menge-Level je Hütte
 function buildMaxWorkers(s){ return Math.min(4, s.era+1); } // max zugewiesene Arbeiter je Hütte
-// Kampf-Upgrades (): Held skaliert auf der Kampf-Seite mit, parallel zu den era-skalierenden Gegnern. Pro Zeitalter gedeckelt.
+// Kampf-Upgrades (mid:6129): Held skaliert auf der Kampf-Seite mit, parallel zu den era-skalierenden Gegnern. Pro Zeitalter gedeckelt.
 const UP_KAMPF=[
   {id:'angriff', icon:'stein', name:()=>'Angriff schärfen', desc:s=>`Mehr Schaden gegen Gegner (Angriff ×${(s.atk||1).toFixed(2)})`, lvl:s=>s.atkLvl||0,
    cost:s=>{ const l=s.atkLvl||0,c={gold:scaled(14,1.5,l)}; if(s.era>=1)c.stein=scaled(22,1.45,l); return c; }, apply:s=>{ s.atk=(s.atk||1)*1.18; s.atkLvl=(s.atkLvl||0)+1; }},
@@ -681,7 +700,7 @@ function checkAchievements(s){ for(const a of ACHIEVEMENTS){ if(!s.achieved.incl
   if(game&&game.achOpen) game.renderAch(); } } }
 
 const game={
-  s:null,last:0,uiAcc:0,running:true,btns:null,vw:0,vh:0,dpr:1,zoom:0.61,tab:'held',pan:{x:0,y:0},flash:0,dragging:false,panelFor:'castle',camFollow:true,camGoal:{x:BASE.x,y:BASE.y},
+  s:null,last:0,uiAcc:0,running:true,btns:null,vw:0,vh:0,dpr:1,zoom:0.7,tab:'held',pan:{x:0,y:0},flash:0,dragging:false,panelFor:'castle',camFollow:true,camGoal:{x:BASE.x,y:BASE.y},
   init(){ const sv=loadRaw(); let welcome=null;
     if(sv){ this.s=stateFromSave(sv.d); welcome=applyOffline(this.s,(Date.now()-sv.t)/1000); }
     else { this.s=freshState(); }
@@ -691,7 +710,7 @@ const game={
     window.addEventListener('beforeunload',()=>saveGame(this.s));
     document.addEventListener('visibilitychange',()=>{ if(document.hidden) saveGame(this.s); });
     document.getElementById('zoomInBtn').onclick=()=>{ this.zoom=Math.min(3.0,this.zoom*1.18); };
-    document.getElementById('zoomOutBtn').onclick=()=>{ this.zoom=Math.max(0.4,this.zoom/1.18); };
+    document.getElementById('zoomOutBtn').onclick=()=>{ this.zoom=Math.max(0.06,this.zoom/1.18); };
     document.getElementById('pauseBtn').onclick=()=>this.toggle();
     document.getElementById('resetBtn').onclick=()=>this.reset();
     document.getElementById('zoomInBtn').innerHTML=svg('plus');
@@ -727,7 +746,6 @@ const game={
   },
   resize(){ this.dpr=Math.min(window.devicePixelRatio||1,2); this.vw=window.innerWidth; this.vh=window.innerHeight;
     cv.style.width=this.vw+'px'; cv.style.height=this.vh+'px'; cv.width=Math.round(this.vw*this.dpr); cv.height=Math.round(this.vh*this.dpr); },
-  rebuildTerrain(){ if(this.s) buildTerrain(this.s); },
   reset(){ if(!confirm('Wirklich neu anfangen? Aller Fortschritt weg.'))return; clearSave(); this.s=freshState(); this.buildShop(); this.showCharSelect(); },
   toggle(){ this.s.paused=!this.s.paused; document.getElementById('pauseBtn').innerHTML=svg(this.s.paused?'play':'pause'); },
   setTab(t){ this.tab=t; for(const b of document.querySelectorAll('#tabs button')) b.classList.toggle('on',b.dataset.tab===t); this.buildShop(); },
@@ -763,7 +781,7 @@ const game={
     this.updateShop(); saveGame(s); },
 
   step(dt){ const s=this.s; s.playSec+=dt;
-    const psp=onSand(s,s.player.x,s.player.y)?s.speed*0.55:s.speed;  // Sand bremst ()
+    const psp=onSand(s,s.player.x,s.player.y)?s.speed*0.55:s.speed;  // Sand bremst (mid:6060)
     moveToward(s.player,s.player.tx,s.player.ty,psp,dt); collide(s,s.player,PR);
     // Animation: Laufen vs Idle + Blickrichtung (fürs animierte Warrior-Sheet)
     s.player.moving = dist(s.player.x,s.player.y,s.player.tx,s.player.ty)>4;
@@ -777,8 +795,8 @@ const game={
     for(const r of s.respawns) r.t-=dt;
     for(const r of s.respawns.filter(r=>r.t<=0)) spawnNode(s, Math.random()<0.5?r.type:null);
     s.respawns=s.respawns.filter(r=>r.t>0);
-    // Nachwachsen bis zu einem hohen Gesamt-Cap, damit die Map nicht verarmt (v.a. höhere Zeitalter, )
-    s.topupT=(s.topupT||0)+dt; const nodeCap=16+s.areas*6+s.era*3;
+    // Nachwachsen bis zu einem hohen Gesamt-Cap, damit die Map nicht verarmt (v.a. höhere Zeitalter, mid:6098)
+    s.topupT=(s.topupT||0)+dt; const nodeCap=40+s.areas*40+s.era*8;
     if(s.topupT>1.5){ s.topupT=0; if(s.nodes.length<nodeCap) spawnNode(s); }
     for(const n of s.nodes){ if(n.scale<1) n.scale=Math.min(1,n.scale+dt*3); }
     // Produktionsgebäude (passives Einkommen, skaliert mit Tempo/Menge/Arbeitern); Konverter ziehen Input ab
@@ -805,7 +823,7 @@ const game={
     const panel=document.getElementById('panel');
     if(panel.classList.contains('open') && dist(s.player.x,s.player.y,BASE.x,BASE.y) > VILLAGE_R+30) panel.classList.remove('open');
     // Kamera: folgt dem Helden NUR wenn camFollow aktiv. Nach freiem Schwenk bleibt sie stehen (kein Zurück-Snap),
-    // bis man den Helden wieder wohin schickt (moveTo → camFollow=true) — dann gleitet sie zurück und matcht ().
+    // bis man den Helden wieder wohin schickt (moveTo → camFollow=true) — dann gleitet sie zurück und matcht (mid:6040).
     if(this.camFollow){ this.camGoal.x=s.player.x; this.camGoal.y=s.player.y; }
     const k=Math.min(1,dt*7);
     s.cam.x+=(this.camGoal.x-s.cam.x)*k; s.cam.y+=(this.camGoal.y-s.cam.y)*k;
@@ -818,38 +836,92 @@ const game={
 
   draw(){ const s=this.s, cam=s.cam, dpr=this.dpr, VW=this.vw, VH=this.vh, z=this.zoom;
     const offx=-cam.x*z+VW/2, offy=-cam.y*z+VH/2;
-    // Sichtbarer Welt-Ausschnitt (+Rand) → Off-Screen-Culling: nur Sichtbares zeichnen (, Software-Raster-Entlastung)
+    // Sichtbarer Welt-Ausschnitt (+Rand) → Off-Screen-Culling: nur Sichtbares zeichnen (mid:6032, Software-Raster-Entlastung)
     const vx0=(-offx)/z-90, vx1=(VW-offx)/z+90, vy0=(-offy)/z-90, vy1=(VH-offy)/z+90;
     const vis=(x,y)=> x>vx0 && x<vx1 && y>vy0 && y<vy1;
     ctx.imageSmoothingEnabled=false;
     ctx.setTransform(1,0,0,1,0,0); ctx.fillStyle='#0a1610'; ctx.fillRect(0,0,cv.width,cv.height);
     ctx.setTransform(z*dpr,0,0,z*dpr, offx*dpr, offy*dpr);
-    // Terrain nur im sichtbaren Ausschnitt zeichnen (statt das ganze 2800×2800-Canvas pro Frame)
-    if(s.terrain){ const sx=Math.max(0,vx0), sy=Math.max(0,vy0), sw=Math.min(WORLD,vx1)-sx, sh=Math.min(WORLD,vy1)-sy;
-      if(sw>0&&sh>0) ctx.drawImage(s.terrain, sx,sy,sw,sh, sx,sy,sw,sh); }
+    // ----- Terrain PRO FRAME (kein Riesen-Canvas → Karte beliebig groß, mid:6182) -----
+    const lr=areaRadius(s), RX=vx0-60, RY=vy0-60, RW=(vx1-vx0)+120, RH=(vy1-vy0)+120;
+    this._wp=this._wp||((GROUND.water.complete&&GROUND.water.naturalWidth)?ctx.createPattern(GROUND.water,'repeat'):null);
+    this._gp=this._gp||((GROUND.grass.complete&&GROUND.grass.naturalWidth)?ctx.createPattern(GROUND.grass,'repeat'):null);
+    this._sp=this._sp||((GROUND.sand.complete&&GROUND.sand.naturalWidth)?ctx.createPattern(GROUND.sand,'repeat'):null);
+    ctx.fillStyle=this._wp||'#2f8a9e'; ctx.fillRect(RX,RY,RW,RH);   // Ozean-Textur
+    // Tiefen-Gradient: hell/türkis am Ufer → dunkelblau in der Tiefe (mid:6190/6191 — echtes Wasser, nicht nur ein Tile)
+    { const g=ctx.createRadialGradient(BASE.x,BASE.y,lr, BASE.x,BASE.y,lr+1700);
+      g.addColorStop(0,'rgba(150,222,214,.35)'); g.addColorStop(0.10,'rgba(70,170,180,.20)'); g.addColorStop(0.45,'rgba(34,110,135,.45)'); g.addColorStop(1,'rgba(14,58,86,.72)');
+      ctx.fillStyle=g; ctx.fillRect(RX,RY,RW,RH); }
+    // sanftes Ufer-Schimmern: schmaler Saum direkt an der Küste, leicht pulsierend (KEINE großen wandernden Ringe, mid:6209)
+    { const pulse=0.5+0.5*Math.sin(this.animT*0.8); ctx.lineWidth=4;
+      ctx.strokeStyle='rgba(235,255,252,'+(0.09+0.05*pulse)+')'; ctx.beginPath(); ctx.arc(BASE.x,BASE.y,lr+9+3*pulse,0,Math.PI*2); ctx.stroke(); }
+    for(const wr of s.waterRocks){ if(!vis(wr.x,wr.y))continue; const im=ENVROCK[wr.kind]; if(!im||!im.complete||!im.naturalWidth)continue;   // Wasser-Felsen-Deko
+      const fr=Math.max(1,Math.round(im.naturalWidth/im.naturalHeight)), col=Math.floor((this.animT+wr.t)*5)%fr, fh=im.naturalHeight, sz=84;
+      ctx.drawImage(im, col*fh,0,fh,fh, wr.x-sz/2, wr.y-sz/2, sz, sz); }
+    ctx.save(); ctx.beginPath(); ctx.arc(BASE.x,BASE.y,lr,0,Math.PI*2); ctx.clip();   // ----- LAND-INSEL (rund) -----
+    ctx.fillStyle=this._gp||'#5fa148'; ctx.fillRect(RX,RY,RW,RH);
+    // Biom-Boden als Zell-Raster (wie im guten Original v30): pro Zelle die biomeAt-Farbe → organische, leicht durcheinander gehende Grenzen statt scharfer Tortenstücke (mid:6203)
+    if(s.biomes){ const CELL=42;
+      for(let gx=Math.floor(vx0/CELL)*CELL; gx<vx1; gx+=CELL) for(let gy=Math.floor(vy0/CELL)*CELL; gy<vy1; gy+=CELL){
+        const cx=gx+CELL/2, cy=gy+CELL/2; if(dist(cx,cy,BASE.x,BASE.y)>lr) continue;
+        ctx.fillStyle=BIOMES[biomeAt(s,cx,cy)].ground; ctx.fillRect(gx,gy,CELL+1,CELL+1); } }
+    ctx.fillStyle=this._gp||'#5fa148'; ctx.beginPath(); ctx.arc(BASE.x,BASE.y,VILLAGE_R+10,0,Math.PI*2); ctx.fill();   // Dorf-Kern neutral
+    ctx.fillStyle=this._sp||'#d8c08a'; ctx.globalAlpha=0.92; for(const B of s.sand){ if(dist(B.x,B.y,BASE.x,BASE.y)<lr+B.r){ blobPathCtx(B,1); ctx.fill(); } } ctx.globalAlpha=1;
+    // Inland-Seen (mid:6213): Schaum-Rand + Wasser-Textur + Glitzer-Wellen
+    ctx.fillStyle='#dff4f0'; for(const L of s.lakes){ if(dist(L.x,L.y,BASE.x,BASE.y)>lr+L.r) continue; blobPathCtx(L,1.05); ctx.fill(); }   // See-Schaum
+    for(const L of s.lakes){ if(dist(L.x,L.y,BASE.x,BASE.y)>lr+L.r) continue;   // See-Wasser + Glitzer
+      ctx.save(); blobPathCtx(L,0.99); ctx.clip();
+      ctx.fillStyle=this._wp||'#3f9fb0'; ctx.fillRect(L.x-L.r*1.5,L.y-L.r*1.5,L.r*3,L.r*3);
+      ctx.fillStyle='rgba(255,255,255,.12)'; for(let i=0;i<7;i++){ const yy=L.y-L.r*0.55+i*L.r*0.2; ctx.beginPath(); ctx.ellipse(L.x,yy,L.r*0.3,3,0,0,7); ctx.fill(); } ctx.restore(); }
+    ctx.strokeStyle=this._sp||'#d8c08a'; ctx.lineWidth=56; ctx.lineCap='butt'; ctx.beginPath(); ctx.arc(BASE.x,BASE.y,lr-2,0,Math.PI*2); ctx.stroke();   // Strand-Ring am Rand
+    // Dorf-Wege: 6 innere Speichen + 12 Band-Speichen + 2 Ringe (Speichen zuerst, Ringe drüber = bündig)
+    { const sp=(a,r0,r1,w1,w2)=>{ const x0=BASE.x+Math.cos(a)*r0,y0=BASE.y+Math.sin(a)*r0,x1=BASE.x+Math.cos(a)*r1,y1=BASE.y+Math.sin(a)*r1;
+        ctx.strokeStyle='rgba(90,70,40,.5)';ctx.lineWidth=w1;ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();
+        ctx.strokeStyle=this._sp||'#d8c08a';ctx.lineWidth=w2;ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke(); };
+      const rg=(rad,w1,w2)=>{ ctx.beginPath();ctx.arc(BASE.x,BASE.y,rad,0,Math.PI*2);ctx.strokeStyle='rgba(90,70,40,.5)';ctx.lineWidth=w1;ctx.stroke();
+        ctx.beginPath();ctx.arc(BASE.x,BASE.y,rad,0,Math.PI*2);ctx.strokeStyle=this._sp||'#d8c08a';ctx.lineWidth=w2;ctx.stroke(); };
+      for(let i=0;i<6;i++){ const a=i/6*Math.PI*2-Math.PI/2; sp(a,BASE_SOLID+8*VS,VILLAGE_R,20*VS,13*VS); }
+      for(let i=0;i<TOWER_N;i++){ const a=i/TOWER_N*Math.PI*2-Math.PI/2; sp(a,VILLAGE_R,OUTER_R,18*VS,12*VS); }
+      rg(VILLAGE_R,28*VS,20*VS); rg(OUTER_R,26*VS,18*VS); }
+    ctx.restore();   // unclip
+    // weicher Schaum-Übergang Land→Wasser (dünn, nicht der fette Balken, mid:6183)
+    ctx.strokeStyle='rgba(238,251,248,.5)'; ctx.lineWidth=5; ctx.beginPath(); ctx.arc(BASE.x,BASE.y,lr,0,Math.PI*2); ctx.stroke();
+    ctx.strokeStyle='rgba(180,228,228,.28)'; ctx.lineWidth=12; ctx.beginPath(); ctx.arc(BASE.x,BASE.y,lr+8,0,Math.PI*2); ctx.stroke();
     // Dorf-Deko (Häuser/Schafe) für Leben
     for(const v of s.village){ if(!vis(v.x,v.y))continue; shadow(v.x,v.y,v.size*0.32,v.size*0.12); worldSprite(v.key,v.x,v.y,v.size,true); }
-    // Natur-Deko (Bäume/Felsen/Pilze)
-    for(const d of s.deco){ if(!vis(d.x,d.y))continue; shadow(d.x,d.y,d.size*0.34,d.size*0.13); worldSprite(d.key,d.x,d.y,d.size,true); }
+    // Natur-Deko (Bäume/Felsen/Pilze) — nur auf der erschlossenen Insel (unerschlossenes liegt im Wasser)
+    for(const d of s.deco){ if(!vis(d.x,d.y))continue; if(dist(d.x,d.y,BASE.x,BASE.y)>lr-8)continue; shadow(d.x,d.y,d.size*0.34,d.size*0.13); worldSprite(d.key,d.x,d.y,d.size,true); }
     // base + era-Gebäude (unten verankert)
-    shadow(BASE.x,BASE.y+22,58,18); worldSprite('era'+s.era, BASE.x, BASE.y+26, 134, true); label(ERAS[s.era].name, BASE.x, BASE.y-94);
+    shadow(BASE.x,BASE.y+22*VS,58,18); worldSprite('era'+s.era, BASE.x, BASE.y+26*VS, 134, true); label(ERAS[s.era].name, BASE.x, BASE.y-94*VS);
     // Produktionsgebäude (je in einem Kuchenstück) + zugewiesene Arbeiter-Pawns daneben
     for(const b of s.builds){ const p=s.segSlots[b.seg], T=BUILD_TYPES[b.type]; if(!vis(p.x,p.y))continue;
-      shadow(p.x,p.y,30,10); worldSprite(T.sprite,p.x,p.y,92,true); label(T.name,p.x,p.y-80);
-      for(let i=0;i<Math.min(b.workers,4);i++){ const wx=p.x-28+i*18, wy=p.y+14; shadow(wx,wy,9,3); worldSprite('worker',wx,wy,30,true); } }
+      shadow(p.x,p.y,30,10); worldSprite(T.sprite,p.x,p.y,92,true); label(T.name,p.x,p.y-80*VS);
+      for(let i=0;i<Math.min(b.workers,4);i++){ const wx=p.x-28*VS+i*18*VS, wy=p.y+14*VS; shadow(wx,wy,9,3); worldSprite('worker',wx,wy,30,true); } }
+    // Außenposten-Sammler (mid:6246): Gebäude + Ressourcen-Marker + Füllbalken; glüht wenn was zum Abholen bereitliegt
+    if(s.outposts) for(const o of s.outposts){ if(!vis(o.x,o.y))continue; const T=OUTPOST_TYPES[o.type], cap=outpostCap(o), frac=Math.min(1,(o.store||0)/cap), ready=(o.store||0)>=1;
+      if(ready){ ctx.fillStyle='rgba(255,238,150,.18)'; ctx.beginPath(); ctx.ellipse(o.x,o.y+2*VS,40*VS,18*VS,0,0,7); ctx.fill();
+        ctx.strokeStyle='rgba(255,238,150,.7)'; ctx.lineWidth=2.5*VS; ctx.beginPath(); ctx.ellipse(o.x,o.y+2*VS,40*VS,18*VS,0,0,7); ctx.stroke(); }
+      shadow(o.x,o.y,32,11); worldSprite(T.sprite,o.x,o.y,96,true); worldSprite(T.res,o.x+30*VS,o.y-56*VS,42,true);
+      const bw=48*VS, bx=o.x-bw/2, by=o.y-66*VS; ctx.fillStyle='rgba(0,0,0,.5)'; rr(bx,by,bw,6*VS,3*VS); ctx.fill(); ctx.fillStyle=COL[T.res]; rr(bx,by,bw*frac,6*VS,3*VS); ctx.fill();
+      label(T.name,o.x,o.y-88*VS); }
+    // 12 Turm-Bauplätze im äußeren Ring-Band (leer = Bauplatz fürs spätere Turm-System)
+    if(s.towerSlots) for(const ts of s.towerSlots){ if(!vis(ts.x,ts.y))continue;
+      ctx.save(); ctx.setLineDash([6*VS,5*VS]); ctx.lineWidth=2.5*VS; ctx.strokeStyle='rgba(60,45,25,.55)'; ctx.fillStyle='rgba(255,240,200,.18)';
+      ctx.beginPath(); ctx.ellipse(ts.x,ts.y,17*VS,11*VS,0,0,7); ctx.fill(); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle='rgba(80,60,30,.5)'; ctx.font='bold '+Math.round(15*VS)+'px sans-serif'; ctx.textAlign='center'; ctx.fillText('+',ts.x,ts.y+5*VS); ctx.textAlign='left'; ctx.restore(); }
     // Ressourcen-Knoten — mit Glow-Ring, damit sie sich klar von der Deko abheben (P6)
-    for(const n of s.nodes){ if(!vis(n.x,n.y))continue; const sc=0.7+0.3*(n.scale||1);
-      ctx.fillStyle='rgba(255,238,150,.20)'; ctx.beginPath(); ctx.ellipse(n.x,n.y+2,25,12,0,0,7); ctx.fill();
-      ctx.strokeStyle='rgba(255,238,150,.6)'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.ellipse(n.x,n.y+2,25,12,0,0,7); ctx.stroke();
-      shadow(n.x,n.y,16,6); worldSprite(n.type, n.x, n.y+6, 58*sc, true); amountBar(n); }  // etwas größer ()
+    for(const n of s.nodes){ if(!vis(n.x,n.y))continue; const sc=0.7+0.3*(n.scale||1), ns=(NODE_SIZE[n.type]||64), gw=ns*sc*VS*0.40, gh=ns*sc*VS*0.19;   // Knoten größer als normale Deko gleicher Art (mid:6236); Glow/Schatten skalieren mit
+      ctx.fillStyle='rgba(255,238,150,.20)'; ctx.beginPath(); ctx.ellipse(n.x,n.y+2*VS,gw,gh,0,0,7); ctx.fill();
+      ctx.strokeStyle='rgba(255,238,150,.6)'; ctx.lineWidth=2.5*VS; ctx.beginPath(); ctx.ellipse(n.x,n.y+2*VS,gw,gh,0,0,7); ctx.stroke();
+      shadow(n.x,n.y,ns*sc*0.30,ns*sc*0.12); worldSprite(n.type, n.x, n.y+6*VS, ns*sc, true); amountBar(n); }
     // gefallene Säcke (vom Tod) — leuchtender Beutel, einsammelbar
     for(const d of s.drops){ if(!vis(d.x,d.y))continue; const tk=ALL.find(k=>d.carry[k]>0.4)||'holz';
-      ctx.fillStyle='rgba(255,238,150,.3)'; ctx.beginPath(); ctx.ellipse(d.x,d.y,20,9,0,0,7); ctx.fill();
-      ctx.strokeStyle='rgba(255,222,128,.85)'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.ellipse(d.x,d.y,20,9,0,0,7); ctx.stroke();
-      shadow(d.x,d.y,12,4); worldSprite(tk,d.x,d.y-2,30,true); }
+      ctx.fillStyle='rgba(255,238,150,.3)'; ctx.beginPath(); ctx.ellipse(d.x,d.y,20*VS,9*VS,0,0,7); ctx.fill();
+      ctx.strokeStyle='rgba(255,222,128,.85)'; ctx.lineWidth=2.5*VS; ctx.beginPath(); ctx.ellipse(d.x,d.y,20*VS,9*VS,0,0,7); ctx.stroke();
+      shadow(d.x,d.y,12,4); worldSprite(tk,d.x,d.y-2*VS,30,true); }
     // freie Arbeiter (laufender Schwarm, farmen selbstständig) + ggf. das was sie gerade tragen
-    for(const w of s.freeWalkers){ if(!vis(w.x,w.y))continue; shadow(w.x,w.y,11,4); worldSprite('worker',w.x,w.y+2,32,true);
-      if(w.carry>0.4&&w.type) worldSprite(w.type,w.x+12,w.y-26,18,true); }
+    for(const w of s.freeWalkers){ if(!vis(w.x,w.y))continue; shadow(w.x,w.y,11,4); worldSprite('worker',w.x,w.y+2*VS,32,true);
+      if(w.carry>0.4&&w.type) worldSprite(w.type,w.x+12*VS,w.y-26*VS,18,true); }
     for(const q of s.particles){ const f=1-q.age/q.max; ctx.globalAlpha=f; ctx.fillStyle=q.color;
       ctx.beginPath(); ctx.arc(q.x,q.y,q.sz*f+1,0,7); ctx.fill(); } ctx.globalAlpha=1;
     // Loot-Icons (fliegen beim Sammeln hoch + verblassen)
@@ -859,15 +931,16 @@ const game={
     drawFx(s);  // Dust-/Heal-Effekte
     if(dist(s.player.x,s.player.y,s.player.tx,s.player.ty)>5){ ctx.strokeStyle='rgba(255,79,216,.75)';ctx.lineWidth=3; ctx.beginPath();ctx.arc(s.player.tx,s.player.ty,12,0,7);ctx.stroke(); }
     // Gegner: Grunt (kleiner Pawn) / Brute (großer Warrior), dunkle „Black"-Faktion; gelber Ring = schläft, roter Ring = aggro
-    for(const e of s.enemies){ if(!vis(e.x,e.y))continue; const T=ETYPES[e.kind], sz=T.size*(1+0.06*e.evo);   // entwickelte Mobs sind größer
-      ctx.fillStyle = e.state==='idle'?'rgba(228,182,44,.42)':'rgba(214,40,40,.5)';
+    for(const e of s.enemies){ if(!vis(e.x,e.y))continue; const T=ETYPES[e.kind], sz=T.size*(1+0.06*e.evo), boss=T.boss;   // entwickelte/Boss-Mobs größer
+      ctx.fillStyle = boss?'rgba(255,196,40,.55)' : (e.state==='idle'?'rgba(228,182,44,.42)':'rgba(214,40,40,.5)');   // Boss = Gold-Ring
       ctx.beginPath(); ctx.ellipse(e.x,e.y,sz*0.26,sz*0.1,0,0,7); ctx.fill();
       shadow(e.x,e.y,sz*0.19,sz*0.075);
       const anim=e.moving?'run':'idle';
       drawUnit(T.unit, anim, e.animT, e.x, e.y+4, sz, e.face>0);   // Gegner schauen per Default nach links → face>0 spiegelt
-      const w=Math.max(28,sz*0.4),f=Math.max(0,e.hp/e.max); ctx.fillStyle='rgba(0,0,0,.55)'; rr(e.x-w/2,e.y-sz*0.62,w,5,2.5); ctx.fill();
-      ctx.fillStyle='#e0432f'; rr(e.x-w/2,e.y-sz*0.62,w*f,5,2.5); ctx.fill();
-      for(let i=0;i<e.evo;i++){ ctx.fillStyle='#ff9a3c'; ctx.beginPath(); ctx.arc(e.x-w/2+4+i*8,e.y-sz*0.62-6,3,0,7); ctx.fill(); }  // Entwicklungs-Stufen-Pips
+      const w=Math.max(28,sz*0.4),f=Math.max(0,e.hp/e.max); ctx.fillStyle='rgba(0,0,0,.55)'; rr(e.x-w/2,e.y-sz*0.62,w,boss?7:5,2.5); ctx.fill();
+      ctx.fillStyle=boss?'#ffcf3a':'#e0432f'; rr(e.x-w/2,e.y-sz*0.62,w*f,boss?7:5,2.5); ctx.fill();
+      for(let i=0;i<e.evo;i++){ ctx.fillStyle='#ff9a3c'; ctx.beginPath(); ctx.arc(e.x-w/2+4+i*8,e.y-sz*0.62-9,3,0,7); ctx.fill(); }  // Entwicklungs-Stufen-Pips
+      if(boss){ ctx.font='bold 22px sans-serif'; ctx.textAlign='center'; ctx.fillText('👑', e.x, e.y-sz*0.66); ctx.textAlign='left'; }  // Krone überm Anführer
     }
     // Held (animiert): Angriff > Laufen > Idle; blinkt während Respawn-Unverwundbarkeit
     shadow(s.player.x,s.player.y,24,9);
@@ -910,6 +983,11 @@ const game={
       this.mkBtn(shop,'menge','',()=>this.upgBuild('menge'));
       this.mkBtn(shop,'assignAdd','',()=>this.assign(1));
       this.mkBtn(shop,'assignRem','',()=>this.assign(-1));
+    } else if(typeof this.panelFor==='string' && this.panelFor.slice(0,2)==='op'){   // ----- AUSSENPOSTEN-Panel -----
+      const o=this.s.outposts&&this.s.outposts[+this.panelFor.slice(2)]; if(!o){ this.panelFor='castle'; return this.buildShop(); }
+      tabsEl.style.display='none'; ph.textContent=OUTPOST_TYPES[o.type].name+' — Außenposten';
+      this.mkBtn(shop,'optempo','',()=>this.upgOutpost('tempo'));
+      this.mkBtn(shop,'opmenge','',()=>this.upgOutpost('menge'));
     } else {                                        // ----- BURG-Panel (Held/Dorf) -----
       tabsEl.style.display='flex'; ph.textContent='Burg — Aufbau & Upgrades';
       const list=this.tab==='held'?UP_HELD:this.tab==='kampf'?UP_KAMPF:UP_DORF;
@@ -931,6 +1009,13 @@ const game={
       set('assignRem','worker','Arbeiter abziehen','zurück in den Pool der Burg','',b.workers<=0);
       return;
     }
+    if(typeof this.panelFor==='string' && this.panelFor.slice(0,2)==='op'){   // AUSSENPOSTEN-Panel refresh
+      const o=s.outposts&&s.outposts[+this.panelFor.slice(2)]; if(!o) return; const T=OUTPOST_TYPES[o.type], mxL=buildMaxLvl(s);
+      const ct=outpostUpCost(o,'tempo',s), cm=outpostUpCost(o,'menge',s), tMax=(o.tempoLvl||0)>=mxL, mMax=(o.mengeLvl||0)>=mxL;
+      set('optempo','era1',`Tempo Lvl ${o.tempoLvl||0}/${mxL}`, tMax?'Max für dieses Zeitalter — erst aufsteigen':`sammelt ${NAME[T.res]} (jetzt ${outpostRate(o).toFixed(2)}/s)`, tMax?'':'⤷ '+costStr(ct), tMax||!canAfford(s,ct));
+      set('opmenge',T.res,`Cap Lvl ${o.mengeLvl||0}/${mxL}`, mMax?'Max für dieses Zeitalter — erst aufsteigen':`mehr Lager (jetzt ${outpostCap(o)} ${NAME[T.res]})`, mMax?'':'⤷ '+costStr(cm), mMax||!canAfford(s,cm));
+      return;
+    }
     const list=this.tab==='held'?UP_HELD:this.tab==='kampf'?UP_KAMPF:UP_DORF;
     for(const up of list){ const el=this.btns[up.id]; if(!el)continue;
       if(up.show&&!up.show(s)){ el.style.display='none'; continue; }
@@ -944,6 +1029,9 @@ const game={
     if(b[kind]>=buildMaxLvl(s)){ say('Max für dieses Zeitalter erreicht — steig erst auf.'); return; }
     const c=buildUpCost(b,kind,s);
     if(!canAfford(s,c)){ say('Dafür fehlen noch Ressourcen.'); return; } pay(s,c); b[kind]++; SFX.buy(); this.updateShop(); saveGame(s); },
+  upgOutpost(kind){ const s=this.s, o=s.outposts&&s.outposts[+this.panelFor.slice(2)]; if(!o)return;
+    const lk=kind==='tempo'?'tempoLvl':'mengeLvl'; if((o[lk]||0)>=buildMaxLvl(s)){ say('Max für dieses Zeitalter erreicht — steig erst auf.'); return; }
+    const c=outpostUpCost(o,kind,s); if(!canAfford(s,c)){ say('Dafür fehlen noch Ressourcen.'); return; } pay(s,c); o[lk]=(o[lk]||0)+1; SFX.buy(); this.updateShop(); saveGame(s); },
   assign(d){ const s=this.s,b=s.builds[this.panelFor]; if(!b)return;
     if(d>0){ if(b.workers>=buildMaxWorkers(s)){ say('Hütte voll für dieses Zeitalter — steig erst auf.'); return; }
       if(freeWorkers(s)<=0){ say('Keine freien Helfer — heuere in der Burg welche an.'); return; } b.workers++; }
@@ -954,14 +1042,14 @@ const game={
 // world sprite: zeichnet ein fertiges Tiny-Swords-Sprite (A[key]), aspekt-korrekt; anchorBottom = Füsse auf (x,y)
 function worldSprite(key,x,y,size,anchorBottom){ const im=A[key];
   if(!im||!im.complete||!im.naturalWidth) return;
-  const asp=im.naturalWidth/im.naturalHeight; let w=size,h=size; if(asp>1)h=size/asp; else w=size*asp;
+  size*=SC; const asp=im.naturalWidth/im.naturalHeight; let w=size,h=size; if(asp>1)h=size/asp; else w=size*asp;
   const dy=anchorBottom? y-h : y-h/2;  // anchorBottom: Sprite steht mit den Füßen auf (x,y)
   ctx.drawImage(im,x-w/2,dy,w,h); }
-function shadow(x,y,rx,ry){ ctx.fillStyle='rgba(0,0,0,.24)'; ctx.beginPath(); ctx.ellipse(x,y,rx,ry,0,0,7); ctx.fill(); }
+function shadow(x,y,rx,ry){ ctx.fillStyle='rgba(0,0,0,.24)'; ctx.beginPath(); ctx.ellipse(x,y,rx*SC,ry*SC,0,0,7); ctx.fill(); }
 function label(t,x,y){ ctx.save(); ctx.font='bold 14px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillStyle='rgba(0,0,0,.55)'; ctx.fillText(t,x+1,y+1); ctx.fillStyle='rgba(236,231,255,.92)'; ctx.fillText(t,x,y); ctx.restore(); }
-function amountBar(n){ const w=34, frac=Math.max(0,n.amount/n.max), x=n.x, y=n.y-36;
-  ctx.fillStyle='rgba(0,0,0,.5)'; rr(x-w/2,y,w,5,2.5); ctx.fill(); ctx.fillStyle=COL[n.type]; rr(x-w/2,y,w*frac,5,2.5); ctx.fill(); }
+function amountBar(n){ const w=34*VS, frac=Math.max(0,n.amount/n.max), x=n.x, y=n.y-36*VS, h=5*VS, rd=2.5*VS;
+  ctx.fillStyle='rgba(0,0,0,.5)'; rr(x-w/2,y,w,h,rd); ctx.fill(); ctx.fillStyle=COL[n.type]; rr(x-w/2,y,w*frac,h,rd); ctx.fill(); }
 function pop(p){ const f=p.age/p.max; ctx.save(); ctx.globalAlpha=1-f;
   if(p.text){ ctx.fillStyle=p.color; ctx.font='bold 26px sans-serif'; ctx.textAlign='center'; ctx.fillText(p.text,p.x,p.y-38*f); }
   else { ctx.strokeStyle=p.color; ctx.lineWidth=4; ctx.beginPath(); ctx.arc(p.x,p.y,12+f*38,0,7); ctx.stroke(); } ctx.restore(); }
@@ -1001,8 +1089,12 @@ function endPointer(){ if(!pDown) return;
     // Hütte angetippt? (nur wenn Held im Dorf ist) → Hütten-Panel
     let hutIdx=-1, hutD=70;
     if(heroInVillage&&s.segSlots) for(let i=0;i<s.builds.length;i++){ const sl=s.segSlots[s.builds[i].seg]; if(!sl)continue; const d=dist(p.x,p.y,sl.x,sl.y); if(d<hutD){ hutD=d; hutIdx=i; } }
+    // Außenposten angetippt (nur wenn der Held nah dran ist) → Außenposten-Panel (mid:6246)
+    let opIdx=-1, opD=85;
+    if(s.outposts) for(let i=0;i<s.outposts.length;i++){ const o=s.outposts[i], d=dist(p.x,p.y,o.x,o.y); if(d<opD && dist(s.player.x,s.player.y,o.x,o.y)<175){ opD=d; opIdx=i; } }
     const tappedBase=dist(p.x,p.y,BASE.x,BASE.y)<BASE_SOLID+85;
-    if(hutIdx>=0){ game.openPanelFor(hutIdx); }
+    if(opIdx>=0){ game.openPanelFor('op'+opIdx); }
+    else if(hutIdx>=0){ game.openPanelFor(hutIdx); }
     else if(tappedBase&&heroInVillage){ if(panel.classList.contains('open')&&game.panelFor==='castle') panel.classList.remove('open'); else game.openPanelFor('castle'); }
     else moveTo(p); }
   pDown=null; game.dragging=false; }

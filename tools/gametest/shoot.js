@@ -38,10 +38,16 @@ const VIEW = DEVICE === 'desktop'
   await page.goto(URL, { waitUntil: 'load', timeout: 20000 });
   // wait until both tilesets are actually decoded
   await page.waitForFunction(
-    () => typeof game !== 'undefined' && game.s && typeof A !== 'undefined' && A.era2 && A.era2.complete && A.era2.naturalWidth > 0 && A.hero0 && A.hero0.complete && A.holz && A.holz.complete,
+    () => typeof game !== 'undefined' && game.s && typeof A !== 'undefined' && A.era2 && A.era2.complete && A.era2.naturalWidth > 0 && typeof U !== 'undefined' && U.warrior_red_idle && U.warrior_red_idle.complete && U.warrior_red_idle.naturalWidth > 0 && A.holz && A.holz.complete,
     { timeout: 15000 });
-  await sleep(700); await frames(20);
-  await shot('01_start');
+  await sleep(500);
+  await shot('00_charselect'); // Charakter-Auswahl beim Start (neues Spiel)
+  await page.evaluate(() => game.pickChar('krieger')); // Held wählen → Overlay zu, weiter im normalen Spiel
+  await sleep(400); await frames(20);
+  await shot('01_start'); // Burger-Menü eingeklappt (Default)
+  // Burger öffnen → Button-Stack sichtbar (für die Zoom-Klicks weiter unten + Verifikation)
+  await page.click('#menuBtn'); await sleep(250); await frames();
+  await shot('01b_menu_open');
 
   // open shop, Held tab
   await page.evaluate(()=>document.getElementById('panel').classList.toggle('open')); await sleep(350); await frames();
@@ -50,16 +56,28 @@ const VIEW = DEVICE === 'desktop'
   await page.evaluate(() => game.setTab('dorf')); await sleep(250); await frames();
   await shot('03_shop_dorf');
 
-  // inject resources, buy a spread of upgrades, advance a couple eras
+  // inject resources, buy hero upgrades, hire workers, build huts, advance eras
   await page.evaluate(() => {
     ALL.forEach(k => game.s.store[k] = 5000);
     ['cap','cap','cap','speed','speed','gather','gather'].forEach(id => game.buy(id)); // bump heroTier
-    game.buy('worker'); game.buy('worker'); game.buy('sawmill'); game.buy('quarry');
-    game.buyEra(); ALL.forEach(k => game.s.store[k] = 5000); game.buyEra(); // -> Burg
+    game.buy('hire'); game.buy('hire'); game.buy('hire'); // workerPool -> 3
+    game.buy('build'); // Holzfäller (era 1)
+    game.buyEra(); ALL.forEach(k => game.s.store[k] = 5000); // -> Dorf
+    game.buyEra(); ALL.forEach(k => game.s.store[k] = 5000); // -> Burg
+    game.buy('build'); // Steinbruch (era 2)
     game.setTab('dorf');
   });
   await sleep(300); await frames();
   await shot('04_shop_dorf_upgraded');
+  // open the first hut's management panel, upgrade it + assign a worker
+  await page.evaluate(() => {
+    game.s.player.x = game.s.player.tx = game.s.segSlots[game.s.builds[0].seg].x;
+    game.s.player.y = game.s.player.ty = game.s.segSlots[game.s.builds[0].seg].y;
+    game.openPanelFor(0);
+    game.upgBuild('tempo'); game.upgBuild('menge'); game.assign(1);
+  });
+  await sleep(300); await frames();
+  await shot('04b_hut_panel');
   // close shop -> look at the world (hero evolved, huts, era building, roads)
   await page.evaluate(()=>document.getElementById('panel').classList.toggle('open')); await sleep(300); await frames(16);
   await shot('05_world_upgraded');
@@ -71,12 +89,19 @@ const VIEW = DEVICE === 'desktop'
   await shot('07_world_moving');
   // endgame: max era + many upgrades
   await page.evaluate(() => {
+    game.panelFor = 'castle';
     ALL.forEach(k => game.s.store[k] = 999999);
     for (let i = 0; i < 8; i++) { ['cap','speed','gather'].forEach(id => game.buy(id)); }
     while (game.s.era < 4) { ALL.forEach(k => game.s.store[k] = 999999); game.buyEra(); }
     game.buy('steam'); game.buy('steam');
-    for (let i = 0; i < 6; i++) { game.buy('sawmill'); game.buy('quarry'); }
+    for (let i = 0; i < 6; i++) { ALL.forEach(k => game.s.store[k] = 999999); game.buy('hire'); } // workerPool -> 9
+    for (let i = 0; i < 6; i++) { ALL.forEach(k => game.s.store[k] = 999999); game.buy('build'); } // alle 6 Hütten (inkl. Schmiede + Juwelier-Ketten)
     for (let i = 0; i < 3; i++) { ALL.forEach(k => game.s.store[k] = 999999); game.buy('expand'); } // erschliesse alle Gebiete
+    for (let i = 0; i < 2; i++) { ALL.forEach(k => game.s.store[k] = 999999); game.buy('buildpost'); } // Pilz- + Beeren-Außenposten (mid:6246)
+    if (game.s.outposts) game.s.outposts.forEach(o => { o.store = Math.round(outpostCap(o) * 0.7); }); // teilweise gefüllt für den Screenshot
+    // verteile Arbeiter auf die Hütten + rüste sie hoch
+    game.s.builds.forEach((b, i) => { game.panelFor = i; game.assign(1); game.assign(1); game.upgBuild('tempo'); game.upgBuild('menge'); });
+    game.panelFor = 'castle';
   });
   await sleep(300); await frames(16); await shot('08_endgame_world');
   // ganz rauszoomen um das expandierte Dorf (alle Gebiete) zu sehen
@@ -85,6 +110,124 @@ const VIEW = DEVICE === 'desktop'
   await page.evaluate(() => document.getElementById('panel').classList.add('open'));
   await page.evaluate(() => game.setTab('held')); await sleep(250); await frames();
   await shot('09_endgame_shop_held');
+
+  // achievements overlay (endgame state has unlocked several)
+  await page.evaluate(() => { document.getElementById('panel').classList.remove('open'); game.toggleAch(true); });
+  await sleep(300); await frames();
+  await shot('11_achievements');
+  await page.evaluate(() => game.toggleAch(false));
+
+  // functional assertions: production scales, save round-trips the new model
+  const checks = await page.evaluate(() => {
+    const out = [];
+    // per-era upgrade caps hold (mid:6033)
+    game.panelFor = 0; const b0 = game.s.builds[0];
+    for (let i = 0; i < 25; i++) { ALL.forEach(k => game.s.store[k] = 999999); game.upgBuild('tempo'); game.upgBuild('menge'); }
+    out.push(['tempo capped at era+1', b0.tempo <= game.s.era + 1]);
+    out.push(['menge capped at era+1', b0.menge <= game.s.era + 1]);
+    for (let i = 0; i < 25; i++) { ALL.forEach(k => game.s.store[k] = 999999); game.buy('hire'); game.assign(1); }
+    out.push(['workers capped per era', b0.workers <= Math.min(4, game.s.era + 1)]);
+    out.push(['achievements unlocked in endgame', game.s.achieved.length >= 4]);
+    // Produktionskette: Schmiede verbraucht Holz+Stein, produziert Gold (mid:6037 Phase B)
+    const sm = game.s.builds.find(b => b.type === 'schmiede');
+    if (sm) {
+      ALL.forEach(k => game.s.store[k] = 0); game.s.store.holz = 100; game.s.store.stein = 100;
+      const g0 = game.s.store.gold, h0 = game.s.store.holz, st0 = game.s.store.stein;
+      for (let i = 0; i < 30; i++) produce(game.s, sm, 0.2); // ~6s simulieren
+      out.push(['Schmiede produziert Gold', game.s.store.gold > g0]);
+      out.push(['Schmiede verbraucht Holz', game.s.store.holz < h0]);
+      out.push(['Schmiede verbraucht Stein', game.s.store.stein < st0]);
+      // Input-Deckel: ohne Input kein Output
+      game.s.store.holz = 0; game.s.store.stein = 0; const gx = game.s.store.gold;
+      for (let i = 0; i < 10; i++) produce(game.s, sm, 0.2);
+      out.push(['Schmiede stoppt ohne Input', Math.abs(game.s.store.gold - gx) < 0.001]);
+    } else out.push(['Schmiede gebaut', false]);
+    game.panelFor = 'castle';
+    // Helden-Upgrades pro Zeitalter gecapped (mid:6042)
+    game.s.era = 1; game.s.capLvl = 0;
+    for (let i = 0; i < 30; i++) { ALL.forEach(k => game.s.store[k] = 999999); game.buy('cap'); }
+    out.push(['hero upgrade capped per era', game.s.capLvl <= heroMaxLvl(game.s)]);
+    // Kamera: moveTo aktiviert Follow wieder; freier Schwenk bleibt stehen (mid:6040)
+    moveTo({ x: game.s.player.x + 200, y: game.s.player.y });
+    out.push(['moveTo re-enables camFollow', game.camFollow === true]);
+    game.camFollow = false; game.camGoal.x = 600; game.camGoal.y = 600; game.s.cam.x = 600; game.s.cam.y = 600;
+    for (let i = 0; i < 25; i++) game.step(0.1); // Held läuft, Kamera darf NICHT zu ihm snappen
+    out.push(['free-look camera stays put', Math.abs(game.s.cam.x - 600) < 70 && game.camFollow === false]);
+    // freie Arbeiter: Schwarm == freier Pool, Zuweisen verkleinert ihn, Abliefern füllt das Lager (mid:6048)
+    game.s.builds.forEach(b => b.workers = 0); game.s.workerPool = 4; game.step(0.1);
+    out.push(['free walkers match free pool', game.s.freeWalkers.length === 4]);
+    game.panelFor = 0; game.assign(1); game.assign(1); game.step(0.1);
+    out.push(['assigning shrinks the walker swarm', game.s.freeWalkers.length === freeWorkers(game.s)]);
+    game.s.freeWalkers = [{ x: BASE.x, y: BASE.y, tx: BASE.x, ty: BASE.y, carry: 3, type: 'holz', state: 'return', target: null }];
+    game.s.workerPool = assignedWorkers(game.s) + 1; const wh0 = game.s.store.holz; updateFreeWalkers(game.s, 0.1);
+    out.push(['walker delivers carry to store', game.s.store.holz >= wh0 + 3 - 0.01]);
+    // Level-Design: Biome initialisiert + jeder Knoten liegt in einem Biom, das seinen Typ führt (mid:6049)
+    out.push(['biomes initialised (6 sectors)', Array.isArray(game.s.biomes) && game.s.biomes.length === 6]);
+    const misplaced = game.s.nodes.filter(n => !(BIOMES[biomeAt(game.s, n.x, n.y)].res[n.type])).length;
+    out.push(['resource nodes sit in matching biome', misplaced === 0]);
+    // Terrain-Bedeutung + Verteilung (mid:6060)
+    out.push(['sand patches exist (Inland-Seen entfernt, runde Karte)', game.s.sand.length >= 3]);
+    if (game.s.sand.length) { const B = game.s.sand[0]; out.push(['onSand detects sand', onSand(game.s, B.x, B.y) === true]); }
+    if (game.s.lakes.length) { const L = game.s.lakes[0], o = { x: L.x, y: L.y }; collide(game.s, o, 13);
+      out.push(['water is impassable (pushes out)', dist(o.x, o.y, L.x, L.y) > 1]); }
+    out.push(['terrain spreads beyond start area', game.s.lakes.concat(game.s.sand).some(B => dist(B.x, B.y, BASE.x, BASE.y) > 600)]);
+    const b = game.s.builds[0];
+    const base = buildRate(game.s, { type: b.type, tempo: 0, menge: 0, workers: 0 });
+    const boosted = buildRate(game.s, b);
+    out.push(['production scales with upgrades/workers', boosted > base]);
+    out.push(['all 6 hut types built', game.s.builds.length === 6]);
+    // 2-stufige Kette: Juwelier verbraucht Gold+Stein, produziert Kristall (mid:6046 Phase B)
+    const jw = game.s.builds.find(b => b.type === 'juwelier');
+    if (jw) {
+      ALL.forEach(k => game.s.store[k] = 0); game.s.store.gold = 100; game.s.store.stein = 100;
+      const kr0 = game.s.store.kristall, gd0 = game.s.store.gold;
+      for (let i = 0; i < 30; i++) produce(game.s, jw, 0.2);
+      out.push(['Juwelier produziert Kristall', game.s.store.kristall > kr0]);
+      out.push(['Juwelier verbraucht Gold', game.s.store.gold < gd0]);
+    } else out.push(['Juwelier gebaut', false]);
+    out.push(['workers assigned', assignedWorkers(game.s) > 0]);
+    out.push(['freeWorkers never negative', freeWorkers(game.s) >= 0]);
+    // Inland-Seen + Flüsse wieder eingestreut (mid:6213)
+    out.push(['Inland-Seen wieder vorhanden', Array.isArray(game.s.lakes) && game.s.lakes.length >= 3]);
+    // Gegner-Spawn läuft noch nach dem Maßstab-Rework (mid:6213)
+    game.s.enemies = []; game.s.era = 2; game.s.areas = 2;
+    const spOk = spawnEnemy(game.s, 'grunt');
+    out.push(['spawnEnemy platziert einen Gegner', spOk === true && game.s.enemies.length === 1]);
+    if (game.s.enemies.length) { const e = game.s.enemies[0]; out.push(['Gegner spawnt außerhalb des No-Spawn-Rings', dist(e.x, e.y, BASE.x, BASE.y) >= enemyNoSpawn(game.s) - 1]); }
+    game.s.enemies = []; game.s.spawnT = 0; for (let i = 0; i < 200; i++) game.step(0.1);
+    out.push(['Spawn-Scheduler erzeugt Gegner über Zeit', game.s.enemies.length > 0]);
+    // Gegner-Cap skaliert mit Map-Größe (mid:6233): Gebiet 4 muss deutlich über das alte Cap (10) hinaus füllen
+    game.s.enemies = []; game.s.spawnT = 0; game.s.era = 4; game.s.areas = 4; for (let i = 0; i < 1400; i++) game.step(0.1);
+    out.push(['Gegner-Cap skaliert mit Map (Gebiet 4 > altes Cap 10)', game.s.enemies.length > 10]);
+    // Außenposten-Sammler (mid:6246)
+    game.s.era = 4; game.s.areas = 4; game.s.outposts = []; ALL.forEach(k => game.s.store[k] = 99999);
+    game.buy('buildpost');   // baut den nächsten Außenposten (Pilz)
+    out.push(['Außenposten gebaut', game.s.outposts.length === 1]);
+    if (game.s.outposts.length) {
+      const o = game.s.outposts[0], res = OUTPOST_TYPES[o.type].res;
+      out.push(['Außenposten außerhalb des Dorfs', dist(o.x, o.y, BASE.x, BASE.y) > OUTER_R]);
+      game.s.player.x = game.s.player.tx = BASE.x; game.s.player.y = game.s.player.ty = BASE.y; o.store = 0;
+      for (let i = 0; i < 120; i++) game.step(0.1);   // Held an der Basis → kein Abholen, nur Akkumulation
+      out.push(['Außenposten sammelt über Zeit', o.store > 0]);
+      out.push(['Außenposten-Store unter Cap gedeckelt', o.store <= outpostCap(o) + 0.01]);
+      o.store = outpostCap(o); const before = game.s.store[res] || 0;
+      game.s.player.x = game.s.player.tx = o.x; game.s.player.y = game.s.player.ty = o.y; game.step(0.1);   // Held hin → abholen
+      out.push(['Abholen füllt das Lager', (game.s.store[res] || 0) > before]);
+      out.push(['Außenposten nach Abholen geleert', o.store < 1]);
+      const r0 = outpostRate(o), c0 = outpostCap(o); o.tempoLvl++; o.mengeLvl++;
+      out.push(['Tempo-Upgrade hebt Sammelrate', outpostRate(o) > r0]);
+      out.push(['Menge-Upgrade hebt Cap', outpostCap(o) > c0]);
+    }
+    // save round-trip
+    saveGame(game.s);
+    const raw = localStorage.getItem(SAVE_KEY);
+    const restored = stateFromSave(JSON.parse(raw).d);
+    out.push(['save restores huts', restored.builds.length === game.s.builds.length]);
+    out.push(['save restores workerPool', restored.workerPool === game.s.workerPool]);
+    out.push(['save restores outposts', restored.outposts.length === game.s.outposts.length]);
+    return out;
+  });
+  checks.forEach(([name, ok]) => { if (!ok) errors.push('assertion FAILED: ' + name); else console.log('  ok ' + name); });
 
   await browser.close();
   if (nonOk.length) { console.log(`\n[${DEVICE}] non-200 responses:`); nonOk.forEach(x => console.log('  - ' + x)); }
