@@ -102,6 +102,10 @@ const VIEW = DEVICE === 'desktop'
     game.s.enemies.push(mk('grunt',-220),mk('brute',0),mk('miniboss',260));
     game.s.player.x=game.s.player.tx=B.x; game.s.player.y=game.s.player.ty=B.y+40; game.s.cam.x=B.x; game.s.cam.y=B.y-90; game.camFollow=false; game.zoom=0.62; });
   await sleep(300); await frames(16); await shot('07b_enemies');
+  // Truppen-Bau-Menü: korrekte Icons + „Truppe bauen" (mid:6588)
+  await page.evaluate(() => { game.s.era = 4; game.s.towers = []; game.openPanelFor('tb3'); document.getElementById('panel').classList.add('open'); });
+  await sleep(300); await frames(8); await shot('07c_truppenmenu');
+  await page.evaluate(() => { document.getElementById('panel').classList.remove('open'); game.panelFor = 'castle'; });
   // endgame: max era + many upgrades
   await page.evaluate(() => {
     game.panelFor = 'castle';

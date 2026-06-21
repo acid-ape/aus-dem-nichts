@@ -284,16 +284,18 @@ function placeOutpost(s,type){ const T=OUTPOST_TYPES[type], r0=OUTER_R+70, r1=Ma
   const a=rnd(0,6.2832); return {type,x:BASE.x+Math.cos(a)*r1,y:BASE.y+Math.sin(a)*r1,store:0,tempoLvl:0,mengeLvl:0}; }
 // ----- Türme (mid:6357/6359): auf den 12 Ring-Slots, Waffenkammer (Stufe 7) als Gate. Je Turm 1 Einheit (Kämpfer=Nahkampf / Bogenschütze=Fernkampf), bewacht den Turm per Aggro oder folgt dem Held. Upgradebar. -----
 const TOWER_TYPES={   // role: melee | ranged | heal. era = ab welcher internen Era baubar (Stufe = era+1). atkR = Wirk-/Heil-Reichweite.
-  kaempfer:{name:'Kämpfer-Turm',      unit:'warrior_red',  role:'melee',  era:2, range:240, atkR:44,  atk:7, hp:100, speed:74, cd:0.7,  cost:{holz:140,stein:90}},        // Stufe 3
-  bogen:   {name:'Bogenschütze-Turm', unit:'archer_purple',role:'ranged', era:2, range:340, atkR:340, atk:5, hp:60,  speed:64, cd:1.0,  cost:{holz:130,stein:70}},          // Stufe 3
-  lance:   {name:'Lanzen-Turm',       unit:'lance_blue',   role:'melee',  era:4, range:260, atkR:80,  atk:9, hp:95,  speed:70, cd:0.95, cost:{holz:200,stein:130,gold:30}},  // Stufe 5 — Reichweiten-Nahkampf
-  monk:    {name:'Mönch-Turm',        unit:'monk_blue',    role:'heal',   era:4, range:300, atkR:300, heal:9,hp:75,  speed:66, cd:1.3,  cost:{holz:200,stein:120,gold:40}},  // Stufe 5 — Heiler/Support
+  kaempfer:{name:'Kämpfer',      unit:'warrior_red',  role:'melee',  era:2, range:240, atkR:44,  atk:7, hp:100, speed:74, cd:0.7,  cost:{holz:140,stein:90}},        // Stufe 3
+  bogen:   {name:'Bogenschütze', unit:'archer_purple',role:'ranged', era:2, range:340, atkR:340, atk:5, hp:60,  speed:64, cd:1.0,  cost:{holz:130,stein:70}},          // Stufe 3
+  lance:   {name:'Lanze',        unit:'lance_blue',   role:'melee',  era:4, range:260, atkR:80,  atk:9, hp:95,  speed:70, cd:0.95, cost:{holz:200,stein:130,gold:30}},  // Stufe 5 — Reichweiten-Nahkampf
+  monk:    {name:'Mönch',        unit:'monk_blue',    role:'heal',   era:4, range:300, atkR:300, heal:9,hp:75,  speed:66, cd:1.3,  cost:{holz:200,stein:120,gold:40}},  // Stufe 5 — Heiler/Support
 };
 const TOWER_ORDER=['kaempfer','bogen','lance','monk'];
 function hasArmory(s){ return s.builds && s.builds.some(b=>b.type==='waffenkammer'); }
 function towersUnlocked(s){ return s.era>=2; }   // Türme ab Stufe 3 (mid:6385/6387)
 // Erlaubte Turm-Anzahl je Stufe (mid:6420): Stufe 3 → 2, Stufe 5 → 4, ab Stufe 6 jede Stufe +2 (bis 12 Slots voll)
 function towerAllowance(s){ if(s.era<2) return 0; if(s.era<4) return 2; return Math.min(12, 4+(s.era-4)*2); }
+// Truppen-Aufrüst-Cap: 2 pro Stufe ab Truppen-Freischaltung (Stufe 3=era2 → 2, Stufe5 → 6 …) (mid:6589)
+function troopMaxLvl(s){ return Math.max(1, 2*((s.era||0)-1)); }
 // Dorf-Heilung (mid:6431): volle Lebensleiste gegen Pilze, mit jedem Kauf etwas teurer
 function healCost(s){ return Math.round(20*Math.pow(1.25, s.healBought||0)); }
 function towerHp(t){ return Math.round(TOWER_TYPES[t.type].hp*(1+0.4*(t.lvl||0))); }
@@ -588,7 +590,7 @@ const ERAS=[
   {name:'Stufe 4', say:'Stufe 4! Schmiede + Pilz-Sammler — Gold und Pilze kommen ins Spiel.', gather:1.6, wspeed:1.2, unlocks:'Gold & Pilze'},
   {name:'Stufe 5', say:'Stufe 5! Der Juwelier veredelt zu Kristall.', gather:2.0, wspeed:1.3, unlocks:'Kristall'},
   {name:'Stufe 6', say:'Stufe 6! Goldmine + Beeren-Sammler.', gather:2.4, wspeed:1.4, unlocks:'Beeren'},
-  {name:'Stufe 7', say:'Stufe 7! Die Waffenkammer öffnet — Kampf-Türme im äußeren Ring folgen bald.', gather:2.8, wspeed:1.5},
+  {name:'Stufe 7', say:'Stufe 7! Die Waffenkammer öffnet — Kampf-Truppen im äußeren Ring.', gather:2.8, wspeed:1.5},
 ];
 
 let nodeId=0;
@@ -1252,7 +1254,7 @@ const game={
     // Turm-Einheiten (animiert) + HP-Balken (mid:6357/6359)
     if(s.towers) for(const t of s.towers){ const u=t.unit; if(!u||!vis(u.x,u.y))continue; const TT=TOWER_TYPES[t.type];
       ctx.fillStyle='rgba(90,150,230,.45)'; ctx.beginPath(); ctx.ellipse(u.x,u.y,18*VS,7*VS,0,0,7); ctx.fill();   // blauer Freund-Ring
-      shadow(u.x,u.y,12,4); const anim=u.attacking?'atk':u.moving?'run':'idle'; drawUnit(TT.unit,anim,u.animT,u.x,u.y+2,70,u.face<0);
+      shadow(u.x,u.y,12,4); const anim=u.attacking?'atk':u.moving?'run':'idle'; drawUnit(TT.unit,anim,u.animT,u.x,u.y+2,70*(1+(t.lvl||0)*0.07),u.face<0);   // größer mit Aufrüst-Level = sichtbarer Level-up (mid:6589)
       if(u.hp<u.hpmax){ const w=30*VS,f=Math.max(0,u.hp/u.hpmax); ctx.fillStyle='rgba(0,0,0,.5)'; rr(u.x-w/2,u.y-48*VS,w,4*VS,2*VS); ctx.fill(); ctx.fillStyle='#5ad06a'; rr(u.x-w/2,u.y-48*VS,w*f,4*VS,2*VS); ctx.fill(); } }
     // Held (animiert): Angriff > Laufen > Idle; blinkt während Respawn-Unverwundbarkeit
     shadow(s.player.x,s.player.y,24,9);
@@ -1313,7 +1315,7 @@ const game={
       this.mkBtn(shop,'optempo','',()=>this.upgOutpost('tempo'));
       this.mkBtn(shop,'opmenge','',()=>this.upgOutpost('menge'));
     } else if(typeof this.panelFor==='string' && this.panelFor.slice(0,2)==='tb'){   // ----- TURM-BAU-MENÜ (mid:6357) -----
-      tabsEl.style.display='none'; ph.textContent='Turm bauen';
+      tabsEl.style.display='none'; ph.textContent='Truppe bauen';
       for(const tt of TOWER_ORDER) this.mkBtn(shop,'tb_'+tt,'',()=>this.buildTower(tt));
     } else if(typeof this.panelFor==='string' && this.panelFor.slice(0,2)==='tw'){   // ----- TURM-PANEL -----
       const tw=towerAt(this.s,+this.panelFor.slice(2)); if(!tw){ this.panelFor='castle'; return this.buildShop(); }
@@ -1332,7 +1334,7 @@ const game={
       el.querySelector('.t').textContent=t; el.querySelector('.d').textContent=d||''; el.querySelector('.k').textContent=k||''; el.disabled=!!dis; };
     if(typeof this.panelFor==='number'){            // HÜTTEN-Panel refresh
       const b=s.builds[this.panelFor]; if(!b) return; const T=BUILD_TYPES[b.type];
-      if(!T.res){ set('wkinfo','era4','Waffenkammer','Schaltet Kampf-Türme im äußeren Ring frei — Turm-System kommt als Nächstes.','',true); return; }   // mid:6315
+      if(!T.res){ set('wkinfo','era4','Waffenkammer','Schaltet Kampf-Truppen im äußeren Ring frei.','',true); return; }   // mid:6315
       const mxL=buildMaxLvl(s), mxW=buildMaxWorkers(s), ct=buildUpCost(b,'tempo',s), cm=buildUpCost(b,'menge',s);
       const tMax=b.tempo>=mxL, gMax=b.menge>=mxL, wMax=b.workers>=mxW;
       const flow=T.consumes ? `wandelt ${Object.keys(T.consumes).map(k=>NAME[k]).join('+')} → ${NAME[T.res]}` : `produziert ${NAME[T.res]}`;
@@ -1350,7 +1352,7 @@ const game={
       return;
     }
     if(typeof this.panelFor==='string' && this.panelFor.slice(0,2)==='tb'){   // TURM-BAU-MENÜ refresh (4 Typen, stufen-gated)
-      const ICON={kaempfer:'stein',bogen:'kristall',lance:'holz',monk:'korn'};
+      const ICON={kaempfer:'tr_kaempfer',bogen:'tr_bogen',lance:'tr_lance',monk:'tr_monk'};   // echte Truppen-Icons (mid:6588)
       const full=(s.towers||[]).length>=towerAllowance(s);   // Stufen-Limit erreicht (mid:6420)
       for(const tt of TOWER_ORDER){ const T=TOWER_TYPES[tt], locked=s.era<T.era, c=T.cost;
         const role=T.role==='heal'?'Heiler/Support':T.role==='ranged'?'Fernkampf':(tt==='lance'?'Reichweiten-Nahkampf':'Nahkampf');
@@ -1359,10 +1361,10 @@ const game={
       return;
     }
     if(typeof this.panelFor==='string' && this.panelFor.slice(0,2)==='tw'){   // TURM-PANEL refresh
-      const tw=towerAt(s,+this.panelFor.slice(2)); if(!tw) return; const c=towerUpCost(tw), mx=(tw.lvl||0)>=buildMaxLvl(s);
+      const tw=towerAt(s,+this.panelFor.slice(2)); if(!tw) return; const c=towerUpCost(tw), mx=(tw.lvl||0)>=troopMaxLvl(s);
       const pw=TOWER_TYPES[tw.type].role==='heal'?'Heilung':'Schaden';
-      set('tw_up','era1',`Einheit aufrüsten (Lvl ${tw.lvl||0}/${buildMaxLvl(s)})`, mx?'Max für diese Stufe — erst aufsteigen':`+HP & +${pw} (HP ${towerHp(tw)}, ${pw} ${towerAtk(tw).toFixed(0)})`, mx?'':'⤷ '+costStr(c), mx||!canAfford(s,c));
-      set('tw_mode','worker', tw.mode==='folgen'?'Modus: Folgen':'Modus: Wache', tw.mode==='folgen'?'Einheit folgt dir in den Kampf':'Einheit bewacht ihren Turm (Aggro)','',false);
+      set('tw_up','era1',`Truppe aufrüsten (Lvl ${tw.lvl||0}/${troopMaxLvl(s)})`, mx?'Max für diese Stufe — erst aufsteigen':`+HP & +${pw} (HP ${towerHp(tw)}, ${pw} ${towerAtk(tw).toFixed(0)})`, mx?'':'⤷ '+costStr(c), mx||!canAfford(s,c));
+      set('tw_mode','worker', tw.mode==='folgen'?'Modus: Folgen':'Modus: Wache', tw.mode==='folgen'?'Truppe folgt dir in den Kampf':'Truppe bewacht den Posten (Aggro)','',false);
       return;
     }
     const list=this.tab==='held'?UP_HELD:this.tab==='kampf'?UP_KAMPF:UP_DORF;
@@ -1391,11 +1393,11 @@ const game={
     const c=outpostUpCost(o,kind,s); if(!canAfford(s,c)){ say('Dafür fehlen noch Ressourcen.'); return; } pay(s,c); o[lk]=(o[lk]||0)+1; SFX.buy(); this.updateShop(); saveGame(s); },
   buildTower(type){ const s=this.s; if(typeof this.panelFor!=='string'||this.panelFor.slice(0,2)!=='tb')return; const seg=+this.panelFor.slice(2);
     if(towerAt(s,seg))return; if(s.era<TOWER_TYPES[type].era){ say(TOWER_TYPES[type].name+' erst ab Stufe '+(TOWER_TYPES[type].era+1)); return; }
-    if((s.towers||[]).length>=towerAllowance(s)){ say('Turm-Limit für diese Stufe erreicht ('+towerAllowance(s)+') — erst aufsteigen für mehr.'); return; }
+    if((s.towers||[]).length>=towerAllowance(s)){ say('Truppen-Limit für diese Stufe erreicht ('+towerAllowance(s)+') — erst aufsteigen für mehr.'); return; }
     const c=TOWER_TYPES[type].cost; if(!canAfford(s,c)){ say('Dafür fehlen noch Ressourcen.'); return; }
     pay(s,c); if(!s.towers)s.towers=[]; const t={seg,type,lvl:0,mode:'wache',downT:0}; spawnTroop(s,t); s.towers.push(t);
     SFX.build(); say(TOWER_TYPES[type].name+' gebaut! Antippen für Aufrüsten/Modus.'); this.openPanelFor('tw'+seg); saveGame(s); },
-  upgTower(){ const s=this.s, tw=towerAt(s,+this.panelFor.slice(2)); if(!tw)return; if((tw.lvl||0)>=buildMaxLvl(s)){ say('Max für diese Stufe erreicht — erst aufsteigen.'); return; }
+  upgTower(){ const s=this.s, tw=towerAt(s,+this.panelFor.slice(2)); if(!tw)return; if((tw.lvl||0)>=troopMaxLvl(s)){ say('Max für diese Stufe erreicht — erst aufsteigen.'); return; }
     const c=towerUpCost(tw); if(!canAfford(s,c)){ say('Dafür fehlen noch Ressourcen.'); return; } pay(s,c); tw.lvl=(tw.lvl||0)+1; if(tw.unit){ const h=towerHp(tw); tw.unit.hpmax=h; tw.unit.hp=h; } SFX.buy(); this.updateShop(); saveGame(s); },
   toggleTowerMode(){ const s=this.s, tw=towerAt(s,+this.panelFor.slice(2)); if(!tw)return; tw.mode=(tw.mode==='folgen')?'wache':'folgen'; SFX.buy(); this.updateShop(); saveGame(s); },
   assign(d){ const s=this.s,b=s.builds[this.panelFor]; if(!b)return;
@@ -1439,10 +1441,10 @@ const TUT_STEPS=[
 // Kontext-Tooltips (mid:6438): je eine kurze Karte beim Freischalten von Neuem. Jede nur 1x (in s.tutShown persistiert).
 const TUT={
   era1:{t:'🪓 Stufe 2',b:'Neu baubar: der Holzfäller (im Dorf-Menü) und der Kürbis-Sammler als Außenposten draußen im Feld. Sammler produzieren von allein — du holst die Ernte nur ab.'},
-  towers:{t:'⚔️ Kampf-Türme',b:'Im äußeren Dorf-Ring kannst du jetzt Türme bauen — tippe einen freien Bauplatz an. Jeder Turm stellt eine Truppe, die das Dorf bewacht oder dir folgt (umschaltbar).'},
-  night1:{t:'🌙 Die Nacht',b:'Vor dem Aufstieg auf Stufe 4 musst du eine Nacht überstehen: im Dorf-Menü „Nacht starten". Gegner stürmen das Dorf — halt sie mit Held und Türmen auf, sonst sinkt die Dorf-Lebensleiste!'},
+  towers:{t:'⚔️ Truppen',b:'Im äußeren Dorf-Ring kannst du jetzt Truppen bauen — tippe einen freien Bauplatz an. Jede Truppe bewacht das Dorf oder folgt dir in den Kampf (umschaltbar).'},
+  night1:{t:'🌙 Die Nacht',b:'Vor dem Aufstieg auf Stufe 4 musst du eine Nacht überstehen: im Dorf-Menü „Nacht starten". Gegner stürmen das Dorf — halt sie mit Held und Truppen auf, sonst sinkt die Dorf-Lebensleiste!'},
   era3:{t:'🍄 Stufe 4',b:'Gold und Pilze sind da. Mit Pilzen heilst du im Dorf-Menü dein Dorf, falls es nachts Schaden genommen hat.'},
-  era4:{t:'💎 Stufe 5',b:'Der Juwelier veredelt Kristall — und du kannst jetzt auch Lanze und Mönch als Türme bauen (der Mönch heilt deine Truppen).'},
+  era4:{t:'💎 Stufe 5',b:'Der Juwelier veredelt Kristall — und du kannst jetzt auch Lanze und Mönch als Truppen bauen (der Mönch heilt deine Truppen).'},
   era5:{t:'🫐 Stufe 6',b:'Goldmine und Beeren-Sammler sind freigeschaltet. Ab jetzt brauchst du für jeden weiteren Aufstieg eine frisch überstandene Nacht.'},
 };
 // Story-Intro vor der Klassenwahl, erzählt vom „Ältesten" (Mönch-Sprite) (mid:6449)
@@ -1450,7 +1452,7 @@ const INTRO=[
   'Du stehst auf leerem Land. Kein Dorf, kein Lärm — nur Erde, Wind und ein Anfang.',
   'Ein alter Mönch tritt heran. „Ich bin der Älteste. Lange habe ich auf jemanden wie dich gewartet."',
   '„Sammle, was die Wildnis hergibt, und lass aus dem Nichts ein Dorf wachsen — Stück für Stück."',
-  '„Doch wenn die Nacht kommt, kommen auch sie. Bau Mauern, stell Türme — und halt stand. Sag mir nun: wer bist du?"',
+  '„Doch wenn die Nacht kommt, kommen auch sie. Bau Mauern, stell Truppen — und halt stand. Sag mir nun: wer bist du?"',
 ];
 // Anstößige Kürzel blocken (Substring-Match, Groß-/Kleinschreibung egal) (mid:6449)
 const BADTAGS=['FUCK','SHIT','FICK','FOTZ','HURE','ARSC','ARSH','NIGG','NIGR','FAGG','PISS','COCK','DICK','CUNT','TWAT','WICH','NUTT','PIMM','ANAL','NAZI','HITL','SHIZ','SLUT','RAPE'];
