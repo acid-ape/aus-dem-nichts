@@ -80,6 +80,17 @@
   #cheatBtn{margin-top:14px;width:100%;cursor:pointer;color:#8fe3b0;background:rgba(18,30,22,.7);
     border:1px dashed #3f7a55;border-radius:10px;padding:9px;font-size:12.5px;font-weight:700}
   #cheatBtn:active{transform:scale(.98)}
+  .devbtn{margin-top:7px;width:100%;cursor:pointer;color:#8fe3b0;background:rgba(18,30,22,.7);border:1px dashed #3f7a55;border-radius:10px;padding:9px;font-size:12.5px;font-weight:700}
+  .devbtn:active{transform:scale(.98)}
+  #devCheats .dh{margin-top:14px;font-size:10px;font-weight:800;letter-spacing:.5px;color:#6fae86;text-transform:uppercase}
+  #confirmOv{position:fixed;inset:0;background:rgba(6,4,14,.7);display:none;align-items:center;justify-content:center;pointer-events:auto;z-index:120;padding:18px}
+  #confirmOv.open{display:flex}
+  #confirmCard{background:#1a2230;border:1px solid #3a4a5e;border-radius:16px;padding:20px;max-width:340px;text-align:center;box-shadow:0 14px 40px rgba(0,0,0,.6)}
+  #confirmMsg{color:#e7eef7;font-size:15px;line-height:1.4;margin-bottom:16px}
+  #confirmBtns{display:flex;gap:10px;justify-content:center}
+  #confirmBtns button{padding:11px 16px;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;border:1px solid #3a4a5e;background:#222d3a;color:#e7eef7}
+  #confirmYes{background:#c0392b;border-color:#e0584a;color:#fff}
+  #confirmBtns button:active{transform:scale(.97)}
   #achOverlay{position:absolute;inset:0;background:rgba(6,4,14,.62);backdrop-filter:blur(4px);
     display:none;align-items:center;justify-content:center;pointer-events:auto;z-index:20;padding:18px}
   #achOverlay.open{display:flex}
@@ -189,6 +200,7 @@
     <div id="achHead"><span>🏆 Erfolge</span><button id="achClose" title="Schliessen"></button></div>
     <div id="achList"></div>
   </div></div>
+  <div id="confirmOv"><div id="confirmCard"><div id="confirmMsg"></div><div id="confirmBtns"><button id="confirmYes">Ja, neu anfangen</button><button id="confirmNo">Abbrechen</button></div></div></div>
   <div id="charSelect"><div id="charCard">
     <div class="ch-title">Willkommen, Fremder.</div>
     <div class="ch-sub">Der Älteste: „Wähle, wer du sein willst — jede Wahl bleibt dein ganzes Leben."</div>
@@ -479,6 +491,11 @@ function updateCombat(s,dt){ const P=s.player; P.attacking=false;
 const VILLAGE_R=Math.round(280*VS);  // innerer Dorf-KERN (Ring-Weg + Produktionsgebäude) — skaliert mit VS
 const OUTER_R=Math.round(400*VS);    // äußerer Ring-Weg (mid:6176); Band VILLAGE_R..OUTER_R = 12 Turm-Bauplätze — skaliert mit VS
 const TOWER_N=12, TOWER_RAD=Math.round((280+400)/2*VS);   // 12 Turm-Bauplätze im äußeren Ring-Band — skaliert mit VS
+// ----- Dorf-Layout aus s Editor-Entwurf (mid:6717-6730): Gebäude+Deko an exakten Positionen (Offset von BASE in Welt-Px) + Größe (worldSprite size-param) -----
+const VLAYOUT={ base:{dx:-0.6,dy:-16.6}, holz:{dx:63.3,dy:106.4,sz:163}, stein:{dx:116.9,dy:-8.3,sz:163}, juwelier:{dx:-114.7,dy:0.3,sz:161}, waffenkammer:{dx:-60.4,dy:98.1,sz:140}, gold:{dx:-53.7,dy:-98.1,sz:115}, schmiede:{dx:63.9,dy:-112.5,sz:118} };
+const buildPos=b=>{ const L=VLAYOUT[b.type]; return L?{x:BASE.x+L.dx,y:BASE.y+L.dy}:{x:BASE.x,y:BASE.y}; };
+const BASE_STAGE_H=[126,128,131,135,139,143,146];   // Burg-Höhe je Stufe: minimal ansteigend, Anker Stufe 7 = s Größe (mid:6726)
+const VILLAGE_DECO=[{s:"vd_bushe1",dx:116.9,dy:115.0,sz:45.6},{s:"vd_bushe3",dx:60.4,dy:55.0,sz:53.0},{s:"vd_bushe4",dx:-151.4,dy:-47.0,sz:39.2},{s:"vd_bushe4",dx:-116.9,dy:-45.4,sz:31.3},{s:"vd_rock3",dx:150.5,dy:-60.4,sz:41.7},{s:"vd_rock3",dx:157.2,dy:25.9,sz:41.7},{s:"vd_stump2",dx:33.5,dy:-153.7,sz:20.8},{s:"vd_rock1",dx:-108.6,dy:-114.1,sz:60.4},{s:"vd_stump2",dx:125.6,dy:95.8,sz:23.3},{s:"vd_tree1",dx:36.1,dy:141.9,sz:106.0},{s:"vd_tree4",dx:-28.4,dy:58.5,sz:59.1},{s:"vd_bushe3",dx:76.0,dy:62.0,sz:42.3},{s:"vd_tree1",dx:146.3,dy:-70.6,sz:75.5},{s:"vd_bushe1",dx:131.0,dy:48.2,sz:45.6},{s:"vd_bushe1",dx:141.5,dy:59.1,sz:36.3},{s:"vd_rock1",dx:-25.9,dy:-155.0,sz:75.7},{s:"vd_rock1",dx:-49.2,dy:-148.2,sz:34.2},{s:"vd_goldstone",dx:-32.9,dy:-141.9,sz:38.7},{s:"vd_rock1",dx:-21.7,dy:-135.8,sz:60.4},{s:"vd_goldstone",dx:-116.6,dy:-94.2,sz:38.7},{s:"vd_tree4",dx:-145.7,dy:49.8,sz:59.1},{s:"vd_bushe3",dx:-146.6,dy:-69.3,sz:42.3}];
 // Ressourcen/Wasser liegen DRAUSSEN im Land; der erschlossene Land-Radius wächst mit s.areas
 const areaRadius=s=>2000+(((s.areas||1)-1)*600);  // sanftere Erweiterung (mid:6596): 2400,3250,4100,4950 (vorher zu krass +2400/Schritt)
 
@@ -504,8 +521,9 @@ const A={};  // alle fertigen Sprites
 ['era0','era1','era2','era3','era4','era5','era6','sawmill','quarry','worker',
  'hero0','hero1','hero2','hero3','hero4',
  'holz','stein','korn','pilze','gold','beeren','kristall',
- 'deco_mushroom','deco_rock','deco_bush','deco_pumpkin','sheep',
- 'b_holz','b_korn','b_pilze','b_beeren','b_schmiede','b_juwelier','b_waffen'   // eigene Produzenten-Sprites (mid:6317/6346)
+ 'deco_mushroom','deco_rock','deco_bush','deco_pumpkin','sheep','sheep_idle','sheep_move',
+ 'b_holz','b_korn','b_pilze','b_beeren','b_schmiede','b_juwelier','b_waffen',   // eigene Produzenten-Sprites (mid:6317/6346)
+ 'vd_bushe1','vd_bushe3','vd_bushe4','vd_rock1','vd_rock3','vd_stump2','vd_tree1','vd_tree4','vd_goldstone'   // Dorf-Deko aus s Layout (mid:6730)
 ].forEach(k=>{ const i=new Image(); i.src='ts/'+k+'.png'; A[k]=i; });
 // Animierte Held-Sheets (Tiny Swords Warrior, 192px-Frames, 6 Spalten × 8 Reihen). Pro Startcharakter eine Farbe.
 // Animierte Einheiten (Tiny Swords v2 Free Pack): pro (Unit,Farbe) je Anim-Strip (idle/run/atk), 192px-Frames horizontal.
@@ -627,6 +645,11 @@ function collide(s,o,r){ resolve(o,BASE.x,BASE.y,BASE_SOLID+r); for(const ob of 
   const lr=areaRadius(s)-r-6, dB=dist(o.x,o.y,BASE.x,BASE.y);
   if(dB>lr){ o.x=BASE.x+(o.x-BASE.x)/dB*lr; o.y=BASE.y+(o.y-BASE.y)/dB*lr; }
   o.x=Math.max(8,Math.min(WORLD-8,o.x)); o.y=Math.max(8,Math.min(WORLD-8,o.y)); }
+// Held aus Dorf-Gebäuden + großer Deko rausdrücken — kleine Hitboxen am Fuß, läuft drumrum statt durch (mid:6735)
+function villageCollide(s,o,r){
+  resolve(o, BASE.x+VLAYOUT.base.dx, BASE.y+VLAYOUT.base.dy+6, 60+r);                 // Burg (Hitbox etwas größer, mid:6743)
+  for(const b of s.builds){ const p=buildPos(b); resolve(o, p.x, p.y+6, 26+r); }       // Produzenten
+  for(const dd of VILLAGE_DECO){ if(dd.sz<42) continue; resolve(o, BASE.x+dd.dx, BASE.y+dd.dy+dd.sz*SC*0.22, dd.sz*SC*0.20+r); } }   // größere Bäume/Felsen
 // Einheiten-Hitboxen (mid:6613): überlappende mobile Einheiten auseinanderdrücken (Held bleibt fix, schiebt nur andere)
 function separateUnits(s){ const L=[]; const add=(e,r,fix)=>{ if(e&&!e.dead) L.push({e,r,fix:!!fix}); };
   add(s.player,15,true);
@@ -674,7 +697,7 @@ function buildLevel(s){
   s.towerSlots=[]; for(let i=0;i<TOWER_N;i++){ const a=(i+0.5)/TOWER_N*6.2832-Math.PI/2; s.towerSlots.push({x:BASE.x+Math.cos(a)*TOWER_RAD,y:BASE.y+Math.sin(a)*TOWER_RAD,tower:null}); }
   // Dorf-Leben: nur Schafe (Deko-Hütten raus — Häuser kommen als Produktionsgebäude pro Zeitalter)
   s.village=[];
-  for(let i=0;i<4;i++){ const a=rnd(0,6.28),d=rnd(60,VILLAGE_R-95); s.village.push({key:'sheep',x:BASE.x+Math.cos(a)*d,y:BASE.y+Math.sin(a)*d,size:32,wob:rnd(0,6.28)}); }
+  for(let i=0;i<5;i++){ const a=rnd(0,6.28),d=rnd(60,VILLAGE_R-110), x=BASE.x+Math.cos(a)*d, y=BASE.y+Math.sin(a)*d; s.village.push({key:'sheep',x,y,hx:x,hy:y,tx:x,ty:y,moving:false,face:1,animT:rnd(0,3),wt:rnd(1,5),size:36}); }   // wandernde, animierte Schafe (mid:6746)
   s.deco=[];
   // Deko in NATÜRLICHEN KLUMPEN statt gleichmäßigem Streuen (mid:6229): Wäldchen mit großen Bäumen eng zusammen,
   // Felsfelder (viele Brocken + ein paar große solide), Wiesen offener mit Kürbissen/Pilzen. → volle, „gebaute" Karte.
@@ -961,6 +984,9 @@ const game={
     document.getElementById('nameBtn').onclick=()=>this.confirmName();
     document.getElementById('quest').onclick=function(){ this.classList.toggle('expanded'); };   // Ziel ausklappen (mid:6371)
     document.getElementById('resetBtn').onclick=()=>this.reset();
+    document.getElementById('confirmYes').onclick=()=>this.doReset();
+    document.getElementById('confirmNo').onclick=()=>document.getElementById('confirmOv').classList.remove('open');
+    document.getElementById('confirmOv').onclick=e=>{ if(e.target.id==='confirmOv') document.getElementById('confirmOv').classList.remove('open'); };
     document.getElementById('pauseBtn').innerHTML=svg('pause');
     document.getElementById('resetBtn').innerHTML=svg('reset');
     loadAudioPrefs();   // Musik/SFX-Schalter aus localStorage (mid:6471)
@@ -988,8 +1014,17 @@ const game={
     // Cheat-Button nur im Dev-Modus (URL ?dev=1) — normale Spieler sehen ihn nicht; Entwickler nutzt die Dev-URL.
     const DEV=new URLSearchParams(location.search).has('dev');
     const cb=document.getElementById('cheatBtn');
-    if(DEV){ cb.onclick=()=>{ const s=this.s; activeKeys(s.era).forEach(k=>s.store[k]+=50);
-      say('Cheat: +50 auf alle aktuellen Ressourcen.'); this.renderRes(); this.updateShop(); saveGame(s); }; }
+    if(DEV){ const s=this.s, refresh=()=>{ this.renderRes(); this.updateShop(); this.renderTutStep&&this.renderTutStep(); saveGame(s); };
+      cb.onclick=()=>{ activeKeys(s.era).forEach(k=>s.store[k]+=50); say('Cheat: +50 auf alle Ressourcen.'); refresh(); };
+      const wrap=document.createElement('div'); wrap.id='devCheats'; const hd=document.createElement('div'); hd.className='dh'; hd.textContent='🛠 Test-Cheats (nur Dev)'; wrap.appendChild(hd);
+      cb.parentNode.insertBefore(wrap, cb.nextSibling);
+      const endNight=()=>{ if(nightActive(s)){ s.phase='day'; s.enemies=(s.enemies||[]).filter(e=>!e.night); s.baseHP=s.baseHPmax||100; } };
+      const mk=(txt,fn)=>{ const x=document.createElement('button'); x.className='devbtn'; x.textContent=txt; x.onclick=()=>{ fn(); refresh(); }; wrap.appendChild(x); };
+      mk('💰 +50.000 auf alle Ressourcen', ()=>{ activeKeys(s.era).forEach(k=>s.store[k]=(s.store[k]||0)+50000); say('Cheat: +50.000 Ressourcen.'); });
+      mk('⬆ Stufe +1 (Nacht überspringen)', ()=>{ endNight(); if(s.era<ERAS.length-1){ s.era++; const e=ERAS[s.era]; if(e.gather)s.gather+=e.gather; s.nightToken=true; say('Cheat: Stufe '+(s.era+1)+'.'); } else say('Schon auf Stufe 7.'); });
+      mk('🏰 Sprung ins Late Game (Stufe 7 + alle Gebäude)', ()=>{ endNight(); s.era=ERAS.length-1; s.nightToken=true; let g=0; ERAS.forEach(e=>{ if(e.gather)g=e.gather; }); s.gather=Math.max(s.gather,g); activeKeys(s.era).forEach(k=>s.store[k]=(s.store[k]||0)+999999); for(let i=0;i<8;i++)this.buy('build'); for(let i=0;i<5;i++)this.buy('buildpost'); say('Cheat: Late Game — Stufe 7, alle Gebäude gebaut.'); });
+      mk('🌙 Nacht überstehen', ()=>{ endNight(); s.nightToken=true; say('Cheat: Nacht übersprungen — du kannst aufsteigen.'); });
+    }
     else { cb.style.display='none'; }
     this.loop=this.loop.bind(this); requestAnimationFrame(this.loop);
     if(welcome) say('Willkommen zurück! In '+humanDur(welcome.mins)+' abwesend: '+welcome.txt+'.');
@@ -998,7 +1033,8 @@ const game={
   },
   resize(){ this.dpr=Math.min(window.devicePixelRatio||1,2); this.vw=window.innerWidth; this.vh=window.innerHeight;
     cv.style.width=this.vw+'px'; cv.style.height=this.vh+'px'; cv.width=Math.round(this.vw*this.dpr); cv.height=Math.round(this.vh*this.dpr); },
-  reset(){ if(!confirm('Wirklich neu anfangen? Aller Fortschritt weg.'))return; clearSave(); this.s=freshState(); this.buildShop(); this.showIntro(); },
+  reset(){ document.getElementById('confirmMsg').textContent='Wirklich neu anfangen? Aller Fortschritt geht verloren.'; document.getElementById('confirmOv').classList.add('open'); },   // eigene Ja/Nein-Abfrage (mid:6748: natives confirm war auf iOS unzuverlässig)
+  doReset(){ document.getElementById('confirmOv').classList.remove('open'); document.getElementById('menuItems').classList.remove('open'); document.getElementById('panel').classList.remove('open'); clearSave(); this.s=freshState(); this.s.paused=false; this.buildShop(); this.showIntro(); },
   toggle(){ this.s.paused=!this.s.paused; document.getElementById('pauseBtn').innerHTML=svg(this.s.paused?'play':'pause'); },
   setTab(t){ this.tab=t; if(t==='dorf') this.s.tutMenu=true;   // Tutorial-Schritt 4 (mid:6450)
     for(const b of document.querySelectorAll('#tabs button')) b.classList.toggle('on',b.dataset.tab===t); this.buildShop(); },
@@ -1096,7 +1132,7 @@ const game={
 
   step(dt){ const s=this.s; s.playSec+=dt;
     const psp=onSand(s,s.player.x,s.player.y)?s.speed*0.55:s.speed;  // Sand bremst (mid:6060)
-    moveToward(s.player,s.player.tx,s.player.ty,psp,dt); collide(s,s.player,PR);
+    moveToward(s.player,s.player.tx,s.player.ty,psp,dt); collide(s,s.player,PR); villageCollide(s,s.player,PR);
     // Animation: Laufen vs Idle + Blickrichtung (fürs animierte Warrior-Sheet)
     s.player.moving = dist(s.player.x,s.player.y,s.player.tx,s.player.ty)>4;
     if(s.player.moving){ const dx=s.player.tx-s.player.x; if(Math.abs(dx)>2) s.player.face=dx<0?-1:1; }
@@ -1118,7 +1154,7 @@ const game={
     // Produktionsgebäude (passives Einkommen, skaliert mit Tempo/Menge/Arbeitern); Konverter ziehen Input ab
     for(const b of s.builds){ produce(s,b,dt); }
     s.autoAcc+=dt; if(s.autoAcc>2.2){ s.autoAcc=0;
-      for(const b of s.builds){ const r=buildRate(s,b)*2.2; if(r>=1){ const p=s.segSlots[b.seg], res=BUILD_TYPES[b.type].res;
+      for(const b of s.builds){ const r=buildRate(s,b)*2.2; if(r>=1){ const p=buildPos(b), res=BUILD_TYPES[b.type].res;
         addPop(s,p.x,p.y-24,COL[res],'+'+r.toFixed(0)); } } }
     // Sack leert ins Lager, sobald man die Dorfgrenze übertritt (agiler — kein Trek bis zur Burg)
     if(dist(s.player.x,s.player.y,BASE.x,BASE.y)<OUTER_R){ const had=carryTotal(s.player.carry);
@@ -1126,6 +1162,9 @@ const game={
         addPop(s,s.player.x,s.player.y-30,'#fff','+'+Math.floor(had)); burst(s,s.player.x,s.player.y-12,'#ffe9a8',Math.min(18,4+Math.floor(had/2))); SFX.deposit();
         if(!s.firstDeposit){ s.firstDeposit=true; say('Erste Lieferung! Der Sack leert sich automatisch, sobald du das Dorf betrittst.'); } } }
     updateFreeWalkers(s,dt);  // freie Arbeiter farmen selbstständig in Dorfnähe; zugewiesene sind Boost-Pawns an den Hütten
+    if(s.village) for(const v of s.village){ if(v.key!=='sheep')continue; v.animT+=dt; v.wt-=dt;   // wandernde Schafe (mid:6746)
+      if(v.moving){ if(dist(v.x,v.y,v.tx,v.ty)<3||v.wt<=0){ v.moving=false; v.wt=rnd(2.5,6); } else { v.face=(v.tx<v.x)?-1:1; moveToward(v,v.tx,v.ty,24,dt); } }
+      else if(v.wt<=0){ const a=rnd(0,6.28),dd=rnd(25,80); v.tx=v.hx+Math.cos(a)*dd; v.ty=v.hy+Math.sin(a)*dd; v.moving=true; v.wt=rnd(2,4); } }
     updateCombat(s,dt);       // Overworld-Gegner (Tag-Phase) + Held-Auto-Angriff + HP/Tod
     updateTroops(s,dt);       // Turm-Einheiten (mid:6357/6359)
     separateUnits(s);         // Einheiten-Hitboxen: Freund+Feind stapeln sich nicht (mid:6613)
@@ -1184,7 +1223,7 @@ const game={
         const cx=gx+CELL/2, cy=gy+CELL/2; if(dist(cx,cy,BASE.x,BASE.y)>lr) continue;
         const bk=biomeAt(s,cx,cy); ctx.fillStyle=BIOMES[bk].ground; ctx.fillRect(gx,gy,CELL+1,CELL+1); } }
     // (Plateaus entfernt mid:6531 — echtes Höhensystem mit Treppen/Kollision kommt mit dem Paid-Pack-Terrain)
-    ctx.fillStyle=this._gp||'#5fa148'; ctx.beginPath(); ctx.arc(BASE.x,BASE.y,OUTER_R+10,0,Math.PI*2); ctx.fill();   // Dorf-Boden neutral bis zur äußeren Linie
+    // Dorf-Rasen-Kreis entfernt (mid:6727): das generierte Terrain (biome ground oben) scheint durch, Wege+Gebäude liegen drauf
     ctx.fillStyle=this._sp||'#d8c08a'; ctx.globalAlpha=0.92; for(const B of s.sand){ if(dist(B.x,B.y,BASE.x,BASE.y)<lr+B.r){ blobPathCtx(B,1); ctx.fill(); } } ctx.globalAlpha=1;
     // Inland-Seen (mid:6213): Schaum-Rand + Wasser-Textur + Glitzer-Wellen
     ctx.fillStyle='#dff4f0'; for(const L of s.lakes){ if(dist(L.x,L.y,BASE.x,BASE.y)>lr+L.r) continue; blobPathCtx(L,1.05); ctx.fill(); }   // See-Schaum
@@ -1207,32 +1246,41 @@ const game={
     ctx.strokeStyle='rgba(238,251,248,.5)'; ctx.lineWidth=5; ctx.beginPath(); ctx.arc(BASE.x,BASE.y,lr,0,Math.PI*2); ctx.stroke();
     ctx.strokeStyle='rgba(180,228,228,.28)'; ctx.lineWidth=12; ctx.beginPath(); ctx.arc(BASE.x,BASE.y,lr+8,0,Math.PI*2); ctx.stroke();
     // Dorf-Deko (Häuser/Schafe) für Leben
-    for(const v of s.village){ if(!vis(v.x,v.y))continue; shadow(v.x,v.y,v.size*0.32,v.size*0.12); worldSprite(v.key,v.x,v.y,v.size,true); }
+    for(const v of s.village){ if(!vis(v.x,v.y))continue; shadow(v.x,v.y,v.size*0.32,v.size*0.12);   // animierte, laufende Schafe (mid:6746)
+      const im=A[v.moving?'sheep_move':'sheep_idle']; if(im&&im.complete&&im.naturalWidth){ const fh=im.naturalHeight, fr=Math.max(1,Math.round(im.naturalWidth/fh)), col=Math.floor(v.animT*8)%fr, dw=v.size*SC*2.0;
+        ctx.save(); if(v.face<0){ ctx.translate(v.x,0); ctx.scale(-1,1); ctx.translate(-v.x,0); } ctx.drawImage(im,col*fh,0,fh,fh, v.x-dw/2, v.y-dw*0.86, dw, dw); ctx.restore();
+      } else worldSprite(v.key,v.x,v.y,v.size,true); }
     // Natur-Deko (Bäume/Felsen/Pilze) — nur auf der erschlossenen Insel (unerschlossenes liegt im Wasser)
     for(const d of s.deco){ if(!vis(d.x,d.y))continue; if(dist(d.x,d.y,BASE.x,BASE.y)>lr-8)continue; shadow(d.x,d.y,d.size*0.34,d.size*0.13); worldSprite(d.key,d.x,d.y,d.size,true); }
     if(s.bushes) for(const b of s.bushes){ if(!vis(b.x,b.y))continue; if(dist(b.x,b.y,BASE.x,BASE.y)>lr-8)continue; const im=BUSH[b.bi];   // animierte Sträucher (mid:6503)
       if(!im||!im.complete||!im.naturalWidth)continue; const fw=im.naturalHeight, fr=Math.max(1,Math.round(im.naturalWidth/fw)), col=Math.floor(this.animT*5+b.t*7)%fr;
       const sc=b.sz*SC/fw*1.7, dw=fw*sc; shadow(b.x,b.y,b.sz*SC*0.34,b.sz*SC*0.12); ctx.drawImage(im,col*fw,0,fw,fw,b.x-dw/2,b.y-dw*0.84,dw,dw); }
-    // base + era-Gebäude (unten verankert)
-    const _be=Math.min(6,s.era), BSZ=[104,120,138,158,180,202,226];   // Basis wächst mit der Stufe (mid:6678): höhere Stufe wirkt größer
-    shadow(BASE.x,BASE.y+22*VS,40+_be*5,12+_be*2.4); worldSprite('era'+_be, BASE.x, BASE.y+26*VS, BSZ[_be], true); label(ERAS[s.era].name, BASE.x, BASE.y-94*VS);   // Basis-Sprites era0-6: eigene Burg pro Stufe (mid:6677), kein Clamp mehr
+    // Dorf-Objekte (s Deko + Gebäude + Basis) sammeln, y-SORTIEREN und zeichnen (mid:6746): Sachen weiter unten = vorne → kein Baum mehr in der Burg
+    const vocc=[];
+    for(const dd of VILLAGE_DECO){ const x=BASE.x+dd.dx, y=BASE.y+dd.dy; if(!vis(x,y))continue; const im=A[dd.s]; if(!(im&&im.complete&&im.naturalWidth))continue;
+      const asp=im.naturalWidth/im.naturalHeight, rh=(asp>1?dd.sz*SC/asp:dd.sz*SC); vocc.push({fy:y+rh*0.5,x,y,sz:dd.sz,sp:dd.s,shdy:rh*0.42,shrx:rh*0.42,shry:rh*0.16}); }
+    const _be=Math.min(6,s.era), _bp=buildPos({type:'base'}), _H=BASE_STAGE_H[_be], _bi=A['era'+_be], _asp=(_bi&&_bi.naturalWidth)?_bi.naturalWidth/_bi.naturalHeight:1, _bw=_H*Math.min(_asp,2);
+    vocc.push({fy:_bp.y+_H*0.5,x:_bp.x,y:_bp.y,sz:(_asp>1?_H*_asp:_H)/SC,sp:'era'+_be,shdy:_H*0.5,shrx:_bw*0.42,shry:_bw*0.16,label:ERAS[s.era].name,laby:_bp.y-_H*0.5-14});
+    for(const b of s.builds){ const p=buildPos(b),T=BUILD_TYPES[b.type],sz=(VLAYOUT[b.type]||{}).sz||150; if(!vis(p.x,p.y))continue;
+      const _im=A[T.sprite],_a=(_im&&_im.naturalWidth)?_im.naturalWidth/_im.naturalHeight:1,_rh=(_a>1?sz*SC/_a:sz*SC); vocc.push({fy:p.y+_rh*0.5,x:p.x,y:p.y,sz,sp:T.sprite,shdy:_rh*0.46,shrx:_rh*0.5,shry:_rh*0.18,label:T.name,laby:p.y-_rh*0.5-12,workers:b.workers,rh:_rh}); }
+    vocc.sort((a,b)=>a.fy-b.fy);
+    for(const o of vocc){ shadow(o.x,o.y+o.shdy,o.shrx,o.shry); worldSprite(o.sp,o.x,o.y,o.sz,false); }   // y-sortiert
+    for(const o of vocc){ if(o.label) label(o.label,o.x,o.laby);
+      if(o.workers) for(let i=0;i<Math.min(o.workers,4);i++){ const wx=o.x-34*VS+i*26*VS, wy=o.y+o.rh*0.5+10*VS; shadow(wx,wy,12,4); drawUnit('pawn_blue','idle',this.animT+i*0.5,wx,wy,60,false); } }
+    this._vocc=vocc;   // für die Tiefen-Verdeckung nach dem Held (mid:6735)
     if(nightActive(s)&&s.pois) for(let pi=0;pi<s.pois.length;pi++){ const poi=s.pois[pi]; if(!vis(poi.x,poi.y))continue;   // Nacht-Fackeln am inneren Ring: echtes Feuer-FX + warmer Glow (mid:6605/6612)
       const fl=0.62+0.38*Math.sin(this.animT*7+pi);
       ctx.save(); ctx.globalCompositeOperation='lighter';
       const g=ctx.createRadialGradient(poi.x,poi.y-18*VS,2, poi.x,poi.y-18*VS, 72*VS*fl); g.addColorStop(0,'rgba(255,186,86,'+(0.42*fl)+')'); g.addColorStop(1,'rgba(255,120,30,0)');
       ctx.fillStyle=g; ctx.beginPath(); ctx.arc(poi.x,poi.y-18*VS,72*VS*fl,0,7); ctx.fill(); ctx.restore();
       const im=FIRE[1+(pi%3)]; if(im&&im.complete&&im.naturalWidth){ const fh=im.naturalHeight, fr=Math.max(1,Math.round(im.naturalWidth/fh)), col=Math.floor(this.animT*10+pi*3)%fr, sz=52*VS; ctx.drawImage(im, col*fh,0,fh,fh, poi.x-sz/2, poi.y-sz, sz, sz); } }
-    // Produktionsgebäude (je in einem Kuchenstück) + zugewiesene Arbeiter-Pawns daneben
-    for(const b of s.builds){ const p=s.segSlots[b.seg], T=BUILD_TYPES[b.type]; if(!vis(p.x,p.y))continue;
-      shadow(p.x,p.y+20*VS,28,9); worldSprite(T.sprite,p.x,p.y,86,false); label(T.name,p.x,p.y-48*VS);   // zentriert auf dem Slot → mittig im Kuchenstück (mid:6350)
-      for(let i=0;i<Math.min(b.workers,4);i++){ const wx=p.x-32*VS+i*26*VS, wy=p.y+30*VS; shadow(wx,wy,12,4); drawUnit('pawn_blue','idle', this.animT+i*0.5, wx, wy, 62, false); } }   // animierter Pawn statt statischem Worker (mid:6576/6582)
     // Außenposten-Sammler (mid:6246): Gebäude + Ressourcen-Marker + Füllbalken; glüht wenn was zum Abholen bereitliegt
     if(s.outposts) for(const o of s.outposts){ if(!vis(o.x,o.y))continue; const T=OUTPOST_TYPES[o.type], cap=outpostCap(o), frac=Math.min(1,(o.store||0)/cap), ready=(o.store||0)>=1;
       if(ready){ ctx.fillStyle='rgba(255,238,150,.18)'; ctx.beginPath(); ctx.ellipse(o.x,o.y+2*VS,40*VS,18*VS,0,0,7); ctx.fill();
         ctx.strokeStyle='rgba(255,238,150,.7)'; ctx.lineWidth=2.5*VS; ctx.beginPath(); ctx.ellipse(o.x,o.y+2*VS,40*VS,18*VS,0,0,7); ctx.stroke(); }
-      shadow(o.x,o.y,32,11); worldSprite(T.sprite,o.x,o.y,96,true); worldSprite(T.res,o.x+30*VS,o.y-56*VS,42,true);
-      const bw=48*VS, bx=o.x-bw/2, by=o.y-66*VS; ctx.fillStyle='rgba(0,0,0,.5)'; rr(bx,by,bw,6*VS,3*VS); ctx.fill(); ctx.fillStyle=COL[T.res]; rr(bx,by,bw*frac,6*VS,3*VS); ctx.fill();
-      label(T.name,o.x,o.y-88*VS); }
+      shadow(o.x,o.y,46,15); worldSprite(T.sprite,o.x,o.y,192,true); worldSprite(T.res,o.x+52*VS,o.y-108*VS,52,true);   // doppelt so groß (mid:6704)
+      const bw=56*VS, bx=o.x-bw/2, by=o.y-128*VS; ctx.fillStyle='rgba(0,0,0,.5)'; rr(bx,by,bw,7*VS,3.5*VS); ctx.fill(); ctx.fillStyle=COL[T.res]; rr(bx,by,bw*frac,7*VS,3.5*VS); ctx.fill();
+      label(T.name,o.x,o.y-150*VS); }
     // Türme/Bauplätze im äußeren Ring (mid:6357): gebauter Turm = Standarte am Posten; freier Slot = "+" wenn Waffenkammer steht
     if(s.towerSlots) for(let si=0;si<s.towerSlots.length;si++){ const ts=s.towerSlots[si]; if(!vis(ts.x,ts.y))continue; const tw=towerAt(s,si);
       if(tw){ const col={kaempfer:'#c0392b',bogen:'#7a4fd0',lance:'#3a78d0',monk:'#3aa84a'}[tw.type]||'#888';
@@ -1290,6 +1338,12 @@ const game={
       if(s.player.invT>0) ctx.globalAlpha = 0.4+0.3*Math.sin(this.animT*18);
       drawUnit(CHARS[s.char].unit, anim, this.animT, s.player.x, s.player.y+6, 106*(1+(s.era||0)*0.05), s.player.face<0);   // Held wächst pro Stufe (mid:6611)
       ctx.globalAlpha=1; }
+    // Tiefen-Verdeckung (mid:6735): Dorf-Objekte, die VOR dem Held stehen (größeres Fuß-y) und ihn überlappen, nochmal über ihn zeichnen → Held wird verdeckt wenn er dahinter läuft
+    { const P=s.player, hfy=P.y+6;
+      if(this._vocc) for(const o of this._vocc){ if(o.fy<=hfy)continue; const hw=o.sz*SC*0.55+24, hh=o.sz*SC*0.7+30; if(Math.abs(o.x-P.x)<hw && Math.abs(o.y-P.y)<hh) worldSprite(o.sp,o.x,o.y,o.sz,false); }
+      // Whole-Map-Tiefe (mid:6746): Karten-Bäume/Felsen + Ressourcen-Knoten, die vor dem Held stehen, nochmal über ihn (nur nahe dem Held → günstig)
+      for(const d of s.deco){ if(d.y<=hfy)continue; if(Math.abs(d.x-P.x)<d.size*SC*0.6+22 && Math.abs(d.y-P.y)<d.size*SC*0.95+30) worldSprite(d.key,d.x,d.y,d.size,true); }
+      for(const n of s.nodes){ const ny=n.y+6*VS; if(ny<=hfy)continue; const ns=(NODE_SIZE[n.type]||64)*(0.7+0.3*(n.scale||1)); if(Math.abs(n.x-P.x)<ns*SC*0.6+22 && Math.abs(ny-P.y)<ns*SC*0.95+30) worldSprite(n.type,n.x,ny,ns,true); } }
     // Held-HP-Balken (im Kampf oder wenn verletzt)
     if(s.player.hp<s.player.hpmax || s.enemies.length){ const w=46,f=Math.max(0,s.player.hp/s.player.hpmax);
       ctx.fillStyle='rgba(0,0,0,.6)'; rr(s.player.x-w/2,s.player.y-66,w,6,3); ctx.fill();
@@ -1518,7 +1572,7 @@ function endPointer(){ if(!pDown) return;
     const heroInVillage=dist(s.player.x,s.player.y,BASE.x,BASE.y)<OUTER_R+10;
     // Hütte angetippt? (nur wenn Held im Dorf ist) → Hütten-Panel
     let hutIdx=-1, hutD=70;
-    if(heroInVillage&&s.segSlots) for(let i=0;i<s.builds.length;i++){ const sl=s.segSlots[s.builds[i].seg]; if(!sl)continue; const d=dist(p.x,p.y,sl.x,sl.y); if(d<hutD){ hutD=d; hutIdx=i; } }
+    if(heroInVillage) for(let i=0;i<s.builds.length;i++){ const sl=buildPos(s.builds[i]); if(!sl)continue; const d=dist(p.x,p.y,sl.x,sl.y); if(d<hutD){ hutD=d; hutIdx=i; } }
     // Außenposten angetippt (nur wenn der Held nah dran ist) → Außenposten-Panel (mid:6246)
     let opIdx=-1, opD=46;   // ENGE Hitbox auf dem Gebäude-Körper (mid:6276): nah vorbeilaufen ohne Menü; Tap aufs Gebäude öffnet Panel (unabhängig von Held-Position, mid:6261)
     if(s.outposts) for(let i=0;i<s.outposts.length;i++){ const o=s.outposts[i], d=dist(p.x,p.y,o.x,o.y-31); if(d<opD){ opD=d; opIdx=i; } }   // -31 = Gebäude-Mitte (Sprite ist fußverankert)
@@ -1530,7 +1584,7 @@ function endPointer(){ if(!pDown) return;
     const P=s.player, NEAR=88, heroNear=(x,y)=>dist(P.x,P.y,x,y)<NEAR;
     if(opIdx>=0 && heroNear(s.outposts[opIdx].x,s.outposts[opIdx].y-31)){ game.openPanelFor('op'+opIdx); }
     else if(tsIdx>=0 && heroNear(s.towerSlots[tsIdx].x,s.towerSlots[tsIdx].y)){ game.openPanelFor((towerAt(s,tsIdx)?'tw':'tb')+tsIdx); }
-    else if(hutIdx>=0 && heroNear(s.segSlots[s.builds[hutIdx].seg].x,s.segSlots[s.builds[hutIdx].seg].y)){ game.openPanelFor(hutIdx); }
+    else if(hutIdx>=0){ const _bp=buildPos(s.builds[hutIdx]); if(heroNear(_bp.x,_bp.y)) game.openPanelFor(hutIdx); }
     else if(tappedBase && heroNear(BASE.x,BASE.y)){ if(panel.classList.contains('open')&&game.panelFor==='castle') panel.classList.remove('open'); else game.openPanelFor('castle'); }
     else moveTo(p); }
   pDown=null; game.dragging=false; }
