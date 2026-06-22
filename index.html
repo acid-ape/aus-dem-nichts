@@ -501,7 +501,7 @@ const svg=n=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-
 
 /* ---------- Sprites (Tiny Swords by Pixel Frog — frei nutzbar, Credit in ts/CREDITS.txt) ---------- */
 const A={};  // alle fertigen Sprites
-['era0','era1','era2','era3','era4','sawmill','quarry','worker',
+['era0','era1','era2','era3','era4','era5','era6','sawmill','quarry','worker',
  'hero0','hero1','hero2','hero3','hero4',
  'holz','stein','korn','pilze','gold','beeren','kristall',
  'deco_mushroom','deco_rock','deco_bush','deco_pumpkin','sheep',
@@ -528,7 +528,7 @@ function drawUnit(unit,anim,t,x,y,dispH,flip){ const im=U[unit+'_'+anim]||U[unit
   ctx.save(); if(flip){ ctx.translate(x,0); ctx.scale(-1,1); ctx.translate(-x,0); }
   ctx.drawImage(im, col*UFRAME,0,UFRAME,UFRAME, x-cx*sc, y-fy*sc, fw, fw);
   ctx.restore(); }
-// 3 Startcharaktere mit je EIGENER Einheit/Sprite + Basis-Fähigkeit (Steffen mid:6106 — 3 unterschiedliche Sprites)
+// 3 Startcharaktere mit je EIGENER Einheit/Sprite + Basis-Fähigkeit (mid:6106 — 3 unterschiedliche Sprites)
 // Start-Klassen = die drei Schadensklassen mit je einem Bonus (mid:6449)
 const CHARS={
   krieger: {name:'Krieger',       unit:'warrior_red',   desc:'Schild-Buff: +Rüstung & deutlich mehr HP — hält am meisten aus', icon:'stein',
@@ -538,7 +538,7 @@ const CHARS={
   lanzer:  {name:'Lanzenträger',  unit:'lance_blue',    desc:'Angriffs-Buff: +60% Schaden im Nahkampf', icon:'holz',
             apply:s=>{ s.atk=(s.atk||1)*1.6; }},
 };
-// In-Game-Erzähler/Mentor (Steffen mid:6100 — nicht „Lucy")
+// In-Game-Erzähler/Mentor (mid:6100 — nicht „Lucy")
 const GUIDE='Der Älteste';
 // Boden-Texturen (für Pattern-Fill); Terrain neu bauen sobald geladen
 const GROUND={ grass:new Image(), sand:new Image(), water:new Image() };
@@ -1179,7 +1179,7 @@ const game={
     ctx.save(); ctx.beginPath(); ctx.arc(BASE.x,BASE.y,lr,0,Math.PI*2); ctx.clip();   // ----- LAND-INSEL (rund) -----
     ctx.fillStyle=this._gp||'#5fa148'; ctx.fillRect(RX,RY,RW,RH);   // Gras-Basis (1 Pattern-Füllung = schnell, mid:6513)
     // Biom-Boden (mid:6513, perf-fix): Wald/Felder = schnelle Solid-Tints über Gras; Gebirge = ECHTES Fels-Tile in EINER Pattern-Füllung (Pfad)
-    if(s.biomes){ const CELL=52;   // Biom-Tints über Gras (Steffen mid:6520 ok); echter Berg-Look kommt über Plateaus mit Felskante
+    if(s.biomes){ const CELL=52;   // Biom-Tints über Gras (mid:6520 ok); echter Berg-Look kommt über Plateaus mit Felskante
       for(let gx=Math.floor(vx0/CELL)*CELL; gx<vx1; gx+=CELL) for(let gy=Math.floor(vy0/CELL)*CELL; gy<vy1; gy+=CELL){
         const cx=gx+CELL/2, cy=gy+CELL/2; if(dist(cx,cy,BASE.x,BASE.y)>lr) continue;
         const bk=biomeAt(s,cx,cy); ctx.fillStyle=BIOMES[bk].ground; ctx.fillRect(gx,gy,CELL+1,CELL+1); } }
@@ -1214,7 +1214,8 @@ const game={
       if(!im||!im.complete||!im.naturalWidth)continue; const fw=im.naturalHeight, fr=Math.max(1,Math.round(im.naturalWidth/fw)), col=Math.floor(this.animT*5+b.t*7)%fr;
       const sc=b.sz*SC/fw*1.7, dw=fw*sc; shadow(b.x,b.y,b.sz*SC*0.34,b.sz*SC*0.12); ctx.drawImage(im,col*fw,0,fw,fw,b.x-dw/2,b.y-dw*0.84,dw,dw); }
     // base + era-Gebäude (unten verankert)
-    shadow(BASE.x,BASE.y+22*VS,58,18); worldSprite('era'+Math.min(4,s.era), BASE.x, BASE.y+26*VS, 134, true); label(ERAS[s.era].name, BASE.x, BASE.y-94*VS);   // Basis-Sprite nur bis era4 vorhanden → clampen (mid:6315)
+    const _be=Math.min(6,s.era), BSZ=[104,120,138,158,180,202,226];   // Basis wächst mit der Stufe (mid:6678): höhere Stufe wirkt größer
+    shadow(BASE.x,BASE.y+22*VS,40+_be*5,12+_be*2.4); worldSprite('era'+_be, BASE.x, BASE.y+26*VS, BSZ[_be], true); label(ERAS[s.era].name, BASE.x, BASE.y-94*VS);   // Basis-Sprites era0-6: eigene Burg pro Stufe (mid:6677), kein Clamp mehr
     if(nightActive(s)&&s.pois) for(let pi=0;pi<s.pois.length;pi++){ const poi=s.pois[pi]; if(!vis(poi.x,poi.y))continue;   // Nacht-Fackeln am inneren Ring: echtes Feuer-FX + warmer Glow (mid:6605/6612)
       const fl=0.62+0.38*Math.sin(this.animT*7+pi);
       ctx.save(); ctx.globalCompositeOperation='lighter';
