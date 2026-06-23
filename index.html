@@ -448,15 +448,15 @@ function updateCombat(s,dt){ const P=s.player; P.attacking=false;
       if(s.areas>=3 && nboss<1 && Math.random()<0.45) kind='miniboss';       // genau 1 Anführer auf der Karte
       else if(s.era>=1 && nb<2 && Math.random()<0.4) kind='brute';           // Brutes seltener (max 2)
       spawnEnemy(s,kind); } }
-  for(const e of s.enemies){ const T=ETYPES[e.kind]; e.animT+=dt; if(e.hurtT>0)e.hurtT-=dt;
+  for(const e of s.enemies){ const T=ETYPES[e.kind]; e.animT+=dt; if(e.hurtT>0)e.hurtT-=dt; e.attacking=false;
     // Entwicklung: je länger ein Mob lebt, desto stärker (HP+Schaden), Cap pro Zeitalter (mid:6137/6138) — wird zum „dicken Klopper"
     e.evoT+=dt; if(e.evoT>11 && e.evo<maxEvo(s)){ e.evoT=0; e.evo++; const old=e.max; e.max=Math.round(e.base*(1+0.28*e.evo)); e.hp+=e.max-old;
       burst(s,e.x,e.y-T.size*0.4,'#c0392b',10); addPop(s,e.x,e.y-T.size*0.6,'#ff8a4a','⬆ Stufe '+e.evo); }
     if(e.night){   // NACHT-KI (mid:6426): marschiert aufs Hauptgebäude; nur Held/Truppe in Aggro-Reichweite lenkt ab; an der Basis sinkt die Dorf-Lebensleiste
       const def=nightTarget(s,e), tx=def?def.x:BASE.x, ty=def?def.y:BASE.y;
       const reach=def?T.atkRange:(BASE_SOLID+ENEMY_R+8), dT=dist(e.x,e.y,tx,ty);
-      if(dT>reach){ const dx=tx-e.x; if(Math.abs(dx)>2)e.face=dx<0?-1:1; e.moving=true; moveToward(e,tx,ty, onSand(s,e.x,e.y)?T.speed*0.55:T.speed, dt); collide(s,e,ENEMY_R); }
-      else { e.moving=false; e.atkT-=dt; if(e.atkT<=0){ e.atkT=ENEMY_ATK_CD;
+      if(dT>reach){ const dx=tx-e.x; if(Math.abs(dx)>2)e.face=dx<0?-1:1; e.moving=true; moveToward(e,tx,ty, onSand(s,e.x,e.y)?T.speed*0.55:T.speed, dt,s,ENEMY_R); collide(s,e,ENEMY_R); }
+      else { e.moving=false; e.attacking=true; e.atkT-=dt; if(e.atkT<=0){ e.atkT=ENEMY_ATK_CD;
         if(def){ if(!(def===P&&P.invT>0)){ const dmg=Math.max(1,Math.round(T.atk*(1+0.15*e.evo)-(def===P?(s.def||0):0))); def.hp-=dmg; def.hurtT=0.25; if(def===P){ addPop(s,P.x,P.y-62,'#ff6a6a','-'+dmg); SFX.hurt(); } else addPop(s,def.x,def.y-44,'#ff9a6a','-'+dmg); } }
         else { const dmg=Math.max(1,Math.round(T.atk*(1+0.15*e.evo))); s.baseHP=Math.max(0,(s.baseHP||100)-dmg); addPop(s,BASE.x,BASE.y-BASE_SOLID-12,'#ff6a6a','-'+dmg+' Dorf'); burst(s,BASE.x,BASE.y-10,'#ff5a5a',5); SFX.hurt(); } } }
       continue;
@@ -466,12 +466,12 @@ function updateCombat(s,dt){ const P=s.player; P.attacking=false;
     else if(e.state==='chase'){
       if(!e.night && dP>T.leash) e.state='return';   // Nacht-Welle gibt nicht auf (mid:6396)
       else if(dP>T.atkRange){ const dx=tg.x-e.x; if(Math.abs(dx)>2)e.face=dx<0?-1:1; e.moving=true;
-        moveToward(e,tg.x,tg.y, onSand(s,e.x,e.y)?T.speed*0.55:T.speed, dt); collide(s,e,ENEMY_R); }   // jagt Ziel
-      else { e.moving=false; e.atkT-=dt; if(e.atkT<=0 && !(isP&&P.invT>0)){ e.atkT=ENEMY_ATK_CD;
+        moveToward(e,tg.x,tg.y, onSand(s,e.x,e.y)?T.speed*0.55:T.speed, dt,s,ENEMY_R); collide(s,e,ENEMY_R); }   // jagt Ziel
+      else { e.moving=false; e.attacking=true; e.atkT-=dt; if(e.atkT<=0 && !(isP&&P.invT>0)){ e.atkT=ENEMY_ATK_CD;
         const dmg=Math.max(1,Math.round(T.atk*(1+0.15*e.evo)-(isP?(s.def||0):0))); tg.hp-=dmg; tg.hurtT=0.25;
         if(isP){ addPop(s,P.x,P.y-62,'#ff6a6a','-'+dmg); SFX.hurt(); } else addPop(s,tg.x,tg.y-44,'#ff9a6a','-'+dmg); } } }
     else { const dx=e.home.x-e.x; if(Math.abs(dx)>2)e.face=dx<0?-1:1; e.moving=true;                // zurück zum Spawn-Punkt
-      moveToward(e,e.home.x,e.home.y, onSand(s,e.x,e.y)?T.speed*0.55:T.speed, dt); collide(s,e,ENEMY_R);
+      moveToward(e,e.home.x,e.home.y, onSand(s,e.x,e.y)?T.speed*0.55:T.speed, dt,s,ENEMY_R); collide(s,e,ENEMY_R);
       if(dP<T.aggro) e.state='chase'; else if(dist(e.x,e.y,e.home.x,e.home.y)<10) e.state='idle'; } }
   // Held greift automatisch den nächsten Gegner in Reichweite an
   let near=null,nd=HERO_RANGE*(s.heroRangeMul||1); for(const e of s.enemies){ if(e.dead)continue; const dd=dist(e.x,e.y,P.x,P.y); if(dd<nd){nd=dd;near=e;} }
@@ -637,8 +637,17 @@ let nodeId=0;
 const rnd=(a,b)=>a+Math.random()*(b-a);
 const dist=(ax,ay,bx,by)=>Math.hypot(ax-bx,ay-by);
 const carryTotal=c=>ALL.reduce((s,k)=>s+c[k],0);
-function moveToward(o,tx,ty,sp,dt){ const d=dist(o.x,o.y,tx,ty); if(d<1)return true;
-  const s=Math.min(d,sp*dt); o.x+=(tx-o.x)/d*s; o.y+=(ty-o.y)/d*s; return d<=sp*dt; }
+function moveToward(o,tx,ty,sp,dt,st,r){ const d=dist(o.x,o.y,tx,ty); if(d<1)return true;
+  let hx=(tx-o.x)/d, hy=(ty-o.y)/d;   // Such-Richtung zum Ziel
+  if(st&&st.obstacles){ r=r||0; let rx=0,ry=0, frontal=0, fnx=0, fny=0;   // Hindernis-Ausweichen (Playtester A3): um Felsen herumgleiten statt reinrennen
+    for(const ob of st.obstacles){ const ox=o.x-ob.x, oy=o.y-ob.y, od=Math.hypot(ox,oy)||0.01, reach=ob.r+r+38;
+      if(od<reach){ const push=(reach-od)/reach; const ux=ox/od, uy=oy/od; rx+=ux*push; ry+=uy*push;   // Repulsion weg vom Hindernis
+        const dotF=-ux*hx-uy*hy;   // wie frontal liegt das Hindernis in Laufrichtung (normiert, 1=direkt davor)
+        if(dotF>frontal){ frontal=dotF; fnx=ux; fny=uy; } } }   // staerkstes frontales Hindernis merken (Richtung weg davon)
+    if(rx||ry) { hx+=rx*1.6; hy+=ry*1.6; }
+    if(frontal>0.4){ hx+=-fny*1.7*frontal; hy+=fnx*1.7*frontal; }   // frontales Hindernis -> tangential ausweichen (sonst Dead-Lock direkt davor)
+    const hl=Math.hypot(hx,hy)||1; hx/=hl; hy/=hl; }
+  const step=Math.min(d,sp*dt); o.x+=hx*step; o.y+=hy*step; return d<=sp*dt; }
 function nearestNode(x,y,nodes){ let b=null,bd=1e9; for(const n of nodes){ if(n.amount<=0.4)continue;
   const d=dist(x,y,n.x,n.y); if(d<bd){bd=d;b=n;} } return b; }
 function blocked(s,x,y,r){ if(dist(x,y,BASE.x,BASE.y)<BASE_SOLID+r) return true;
@@ -1164,6 +1173,7 @@ const game={
   startNight(){ const s=this.s; if(nightActive(s)){ say('Die Nacht läuft bereits.'); return; }
     if(!nightPending(s)){ say('Gerade ist keine Nacht nötig.'); return; }
     s.phase='night';   // Dorf-Lebensleiste persistiert über Nächte — Heilung via Pilze-Kauf (mid:6431)
+    document.getElementById('panel').classList.remove('open'); document.getElementById('menuItems').classList.remove('open');   // Menue/Panel zu, damit das Schlachtfeld frei ist (Playtester B4)
     const n=5+(s.areas||1)+s.era*2;   // Welle skaliert mit Map+Stufe
     // Nacht-Welle spawnt NAH am Dorf in einem Ring (mid:6605) → klar erkennbar + marschiert sicher rein
     for(let i=0;i<n;i++){ const kind=(s.era>=3&&i%4===0)?'brute':'grunt', T=ETYPES[kind], hp=T.hp+T.hpEra*s.era;
@@ -1179,7 +1189,7 @@ const game={
   step(dt){ const s=this.s; s.playSec+=dt;
     const psp=onSand(s,s.player.x,s.player.y)?s.speed*0.55:s.speed;  // Sand bremst (mid:6060)
     const _px=s.player.x, _py=s.player.y;
-    moveToward(s.player,s.player.tx,s.player.ty,psp,dt); collide(s,s.player,PR); villageCollide(s,s.player,PR);
+    moveToward(s.player,s.player.tx,s.player.ty,psp,dt,s,PR); collide(s,s.player,PR); villageCollide(s,s.player,PR);
     // Stuck an Gebäude/Deko: wollte laufen, Kollision blockt head-on → Ziel auf Standpunkt setzen statt ewig anrennen (mid:6764)
     if(dist(s.player.x,s.player.y,s.player.tx,s.player.ty)>4 && dist(_px,_py,s.player.x,s.player.y)<psp*dt*0.3){ s.player.tx=s.player.x; s.player.ty=s.player.y; }
     // Animation: Laufen vs Idle + Blickrichtung (fürs animierte Warrior-Sheet)
@@ -1381,7 +1391,7 @@ const game={
       ctx.fillStyle = boss?'rgba(255,196,40,.55)' : (e.state==='idle'?'rgba(228,182,44,.42)':'rgba(214,40,40,.5)');   // Boss = Gold-Ring
       ctx.beginPath(); ctx.ellipse(e.x,e.y,sz*0.26,sz*0.1,0,0,7); ctx.fill();
       shadow(e.x,e.y,sz*0.19,sz*0.075);
-      const anim=e.moving?'run':'idle';
+      const anim=e.attacking?'atk':e.moving?'run':'idle';
       drawUnit(T.unit, anim, e.animT, e.x, e.y+4, sz, e.face>0);   // Gegner schauen per Default nach links → face>0 spiegelt
       const w=Math.max(28,sz*0.4),f=Math.max(0,e.hp/e.max); ctx.fillStyle='rgba(0,0,0,.55)'; rr(e.x-w/2,e.y-sz*0.62,w,boss?7:5,2.5); ctx.fill();
       ctx.fillStyle=boss?'#ffcf3a':'#e0432f'; rr(e.x-w/2,e.y-sz*0.62,w*f,boss?7:5,2.5); ctx.fill();
