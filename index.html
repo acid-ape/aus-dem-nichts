@@ -425,7 +425,7 @@ function updateCombat(s,dt){ const P=s.player; P.attacking=false;
   // Außenposten-Sammler (mid:6246): sammeln ihre Ressource über Zeit bis Cap; Held holt sie ab (direkt ins Lager) sobald er nah genug ist
   if(s.outposts) for(const o of s.outposts){ o.store=Math.min(outpostCap(o),(o.store||0)+outpostRate(o)*dt);
     if(o.store>=1 && dist(P.x,P.y,o.x,o.y)<HARVEST_R+14){ const res=OUTPOST_TYPES[o.type].res, amt=Math.floor(o.store);
-      s.store[res]=(s.store[res]||0)+amt; o.store-=amt; addPop(s,o.x,o.y-30,'#fff','+'+amt+' '+NAME[res]); burst(s,o.x,o.y-8,'#ffe9a8',8); SFX.deposit(); } }
+      s.store[res]=(s.store[res]||0)+amt; o.store-=amt; s.lifetime=(s.lifetime||0)+amt; addPop(s,o.x,o.y-30,'#fff','+'+amt+' '+NAME[res]); burst(s,o.x,o.y-8,'#ffe9a8',8); SFX.deposit(); } }   // Abholung zaehlt zur Liefer-Statistik (Audit M15)
   // Bestände skalieren mit der MAP-Größe (areas): Grunts ab Start (auch era0), Brutes erst ab Dorf-Era (mid:6108)
   if(s.phase!=='night') { s.spawnT+=dt;   // langsam+sequenziell; Cap skaliert mit Map-Größe (mid:6233/6242): Gebiet 1-4 → 10/15/20/25 (Floor 10, sonst trifft man zu selten einen). Bei Nacht ruht der Tag-Spawner.
     const CAP=5+((s.areas||1))*5;
@@ -831,7 +831,9 @@ let _safeTop=null;
 function safeTopPx(){ if(_safeTop!=null) return _safeTop;
   try{ const d=document.createElement('div'); d.style.cssText='position:fixed;top:0;left:0;width:0;height:env(safe-area-inset-top);visibility:hidden;pointer-events:none'; document.body.appendChild(d); _safeTop=d.offsetHeight||0; d.remove(); }catch(e){ _safeTop=0; } return _safeTop; }
 function stateFromSave(d){ const s=freshState();  // frische Welt, dann Fortschritt drüberlegen
-  ALL.forEach(k=>{ if(typeof d.store[k]==='number') s.store[k]=d.store[k]; });
+  if(!d||typeof d!=='object') return s;   // voellig kaputter Save → frischer Zustand (Audit M3)
+  const ds=(d.store&&typeof d.store==='object')?d.store:{};   // fehlendes/kaputtes store-Objekt abfangen statt Crash (Audit M3)
+  ALL.forEach(k=>{ if(typeof ds[k]==='number') s.store[k]=ds[k]; });
   ['cap','speed','gather','wboost','capLvl','speedLvl','gatherLvl','steamLvl','workerPool','areas','areaLvl','era','firstDeposit','day','baseHP','baseHPmax','questIdx','nightToken','healBought','tutStep','tutMoved','tutHarvested','tutMenu'].forEach(k=>{ if(d[k]!==undefined && typeof d[k]===typeof s[k]) s[k]=d[k]; });   // nur typ-gleiche Werte uebernehmen → Muell-Typen (z.B. era:'x') fallen auf Default zurueck statt NaN (Audit M3)
   if(d.tutStep===undefined && d.charChosen) s.tutStep=TUT_STEPS.length;   // Altsave: interaktives Tutorial nicht nachträglich zeigen (mid:6450)
   s.phase='day';   // laufende Nacht beim Laden abbrechen (Nacht-Gegner werden nicht persistiert) — Token bleibt erhalten
@@ -840,7 +842,7 @@ function stateFromSave(d){ const s=freshState();  // frische Welt, dann Fortschr
   if(typeof d.charChosen==='boolean') s.charChosen=d.charChosen;
   if(d.tutShown && typeof d.tutShown==='object') s.tutShown=d.tutShown;   // Tutorials (mid:6438)
   else if(d.charChosen){ s.tutShown={}; Object.keys(TUT).forEach(k=>s.tutShown[k]=true); }   // Altsave: nicht nachträglich Tutorials zeigen
-  if(typeof d.playerName==='string') s.playerName=d.playerName;
+  if(typeof d.playerName==='string') s.playerName=d.playerName.replace(/[^A-Za-z0-9 ]/g,'').slice(0,12);   // gegen innerHTML-Injektion aus manipuliertem Save (Audit M7)
   if(typeof d.heroRangeMul==='number') s.heroRangeMul=d.heroRangeMul;
   if(typeof d.atk==='number') s.atk=d.atk;
   if(typeof d.def==='number') s.def=d.def;
@@ -860,6 +862,10 @@ function applyOffline(s, elapsedSec){ const t=Math.min(Math.max(0,elapsedSec), O
   // Konverter brauchen Input → in groben Schritten simulieren statt 1 Riesen-Tick (sonst Input-Deckel falsch)
   const steps=Math.min(240, Math.max(1, Math.round(t/30))), sdt=t/steps;
   for(let i=0;i<steps;i++) for(const b of s.builds) produce(s,b,sdt);
+  // Aussenposten fuellen offline bis zum Cap (Spieler holt sie bei Rueckkehr ab) (Audit M5)
+  if(s.outposts) for(const o of s.outposts){ const cap=outpostCap(o); o.store=Math.min(cap, (o.store||0)+outpostRate(o)*t*0.9); }
+  // freie Helfer sammeln offline grob weiter (reduziert) → auf die haeufigen Roh-Ressourcen (Audit M5)
+  const free=Math.max(0,freeWorkers(s)); if(free>0){ const yld=free*BAL.heroGatherBase*BAL.workerEff*0.15*t, keys=activeKeys(s.era).filter(k=>({holz:1,stein:1,korn:1})[k]); const per=yld/Math.max(1,keys.length); keys.forEach(k=>s.store[k]=(s.store[k]||0)+per); }   // bewusst konservativ (0.15) — kein Offline-Progressions-Skip (Audit M5)
   const g={}; ALL.forEach(k=>{ const d=Math.floor((s.store[k]||0)-before[k]); if(d>0) g[NAME[k]]=d; });
   const mins=Math.round(t/60); const parts=Object.entries(g).map(([k,v])=>`+${v} ${k}`);
   return parts.length? {mins, txt:parts.join(', ')} : null; }
@@ -984,6 +990,8 @@ const game={
       catch(e){ loadBroke=true; clearSave(); this.s=freshState(); } }   // korrupter/inkompatibler Save → frisch statt Boot-Crash (Audit M3)
     else { this.s=freshState(); }
     if(loadBroke) setTimeout(()=>{ try{ say('Dein alter Spielstand ließ sich nicht laden (beschädigt oder zu alte Version) — neu gestartet.'); }catch(_){} }, 1200);
+    // einmaliger Gesten-Hinweis fuer Spieler nach dem Onboarding (Audit M8)
+    try{ if(this.s.charChosen && !localStorage.getItem('adn_gesturehint')){ setTimeout(()=>{ try{ say('💡 Tipp: Halten + Ziehen = Karte schwenken · Zwei Finger = Zoom'); localStorage.setItem('adn_gesturehint','1'); }catch(_){} }, 5000); } }catch(_){}
     this.resize(); this.buildShop();
     window.addEventListener('resize',()=>this.resize());
     window.addEventListener('orientationchange',()=>setTimeout(()=>this.resize(),200));
