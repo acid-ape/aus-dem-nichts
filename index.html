@@ -819,15 +819,20 @@ function serialize(s){ return { // nur Fortschritt (Welt/Knoten/Deko werden neu 
   areas:s.areas, areaLvl:s.areaLvl, era:s.era, firstDeposit:s.firstDeposit,
   phase:s.phase, nightToken:!!s.nightToken, healBought:s.healBought||0, day:s.day, baseHP:s.baseHP, baseHPmax:s.baseHPmax, towers:(s.towers||[]).map(t=>({seg:t.seg,type:t.type,lvl:t.lvl||0,mode:t.mode||'wache'})), questIdx:s.questIdx, outposts:s.outposts,
   achieved:s.achieved, lifetime:s.lifetime, playSec:s.playSec }; }
-let saveWarned=false;
-function saveGame(s){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify({v:SAVE_VERSION, t:Date.now(), d:serialize(s)})); }
-  catch(e){ if(!saveWarned){ saveWarned=true; try{ say('⚠ Dein Browser speichert gerade nicht (Privat-Modus oder voller Speicher) — Fortschritt geht beim Schließen verloren. Tipp: in Safari öffnen → Teilen → „Zum Home-Bildschirm", dann läuft es stabil.'); }catch(_){} } } }   // stiller localStorage-Fehler → einmaliger Hinweis statt lautlosem Verlust (mid:6789)
+let saveFailN=0;
+function saveGame(s){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify({v:SAVE_VERSION, t:Date.now(), d:serialize(s)})); saveFailN=0; }
+  catch(e){ saveFailN++; if(saveFailN===1 || saveFailN%20===0){ try{ say('⚠ Dein Browser speichert gerade nicht (Privat-Modus oder voller Speicher) — Fortschritt geht beim Schließen verloren. Tipp: in Safari öffnen → Teilen → „Zum Home-Bildschirm", dann läuft es stabil.'); }catch(_){} } } }   // stiller localStorage-Fehler → wiederholter Hinweis (1. + alle 20 Versuche) statt nur einmal (mid:6789/Audit M4)
+// loadRaw akzeptiert auch aeltere/kompatible Save-Versionen (stateFromSave liest defensiv mit Defaults) — keine stille Total-Loeschung bei Versions-Bump mehr (Audit M2); ein wirklich inkompatibler Save wird in init() per try/catch abgefangen (M3).
 function loadRaw(){ try{ const r=localStorage.getItem(SAVE_KEY); if(!r) return null; const o=JSON.parse(r);
-  if(!o||o.v!==SAVE_VERSION||!o.d) return null; return o; }catch(e){ return null; } }
+  if(!o||!o.d) return null; return o; }catch(e){ return null; } }
 function clearSave(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} }
+// Safe-Area-Top (Notch/Dynamic Island) einmal messen — fuer Canvas-gezeichnetes UI, das env() nicht direkt kennt (Audit H2)
+let _safeTop=null;
+function safeTopPx(){ if(_safeTop!=null) return _safeTop;
+  try{ const d=document.createElement('div'); d.style.cssText='position:fixed;top:0;left:0;width:0;height:env(safe-area-inset-top);visibility:hidden;pointer-events:none'; document.body.appendChild(d); _safeTop=d.offsetHeight||0; d.remove(); }catch(e){ _safeTop=0; } return _safeTop; }
 function stateFromSave(d){ const s=freshState();  // frische Welt, dann Fortschritt drüberlegen
   ALL.forEach(k=>{ if(typeof d.store[k]==='number') s.store[k]=d.store[k]; });
-  ['cap','speed','gather','wboost','capLvl','speedLvl','gatherLvl','steamLvl','workerPool','areas','areaLvl','era','firstDeposit','day','baseHP','baseHPmax','questIdx','nightToken','healBought','tutStep','tutMoved','tutHarvested','tutMenu'].forEach(k=>{ if(d[k]!==undefined) s[k]=d[k]; });
+  ['cap','speed','gather','wboost','capLvl','speedLvl','gatherLvl','steamLvl','workerPool','areas','areaLvl','era','firstDeposit','day','baseHP','baseHPmax','questIdx','nightToken','healBought','tutStep','tutMoved','tutHarvested','tutMenu'].forEach(k=>{ if(d[k]!==undefined && typeof d[k]===typeof s[k]) s[k]=d[k]; });   // nur typ-gleiche Werte uebernehmen → Muell-Typen (z.B. era:'x') fallen auf Default zurueck statt NaN (Audit M3)
   if(d.tutStep===undefined && d.charChosen) s.tutStep=TUT_STEPS.length;   // Altsave: interaktives Tutorial nicht nachträglich zeigen (mid:6450)
   s.phase='day';   // laufende Nacht beim Laden abbrechen (Nacht-Gegner werden nicht persistiert) — Token bleibt erhalten
   if(Array.isArray(d.towers)) s.towers=d.towers.filter(t=>TOWER_TYPES[t.type]&&typeof t.seg==='number').map(t=>{ const nt={seg:t.seg,type:t.type,lvl:t.lvl||0,mode:t.mode||'wache',downT:0}; spawnTroop(s,nt); return nt; });   // Einheit frisch (mid:6359)
@@ -974,9 +979,11 @@ function checkAchievements(s){ for(const a of ACHIEVEMENTS){ if(!s.achieved.incl
 
 const game={
   s:null,last:0,uiAcc:0,running:true,btns:null,vw:0,vh:0,dpr:1,zoom:0.7,tab:'held',pan:{x:0,y:0},flash:0,dragging:false,panelFor:'castle',camFollow:true,camGoal:{x:BASE.x,y:BASE.y},tutQueue:[],tutOpen:false,
-  init(){ const sv=loadRaw(); let welcome=null;
-    if(sv){ this.s=stateFromSave(sv.d); welcome=applyOffline(this.s,(Date.now()-sv.t)/1000); }
+  init(){ const sv=loadRaw(); let welcome=null, loadBroke=false;
+    if(sv){ try{ this.s=stateFromSave(sv.d); welcome=applyOffline(this.s,(Date.now()-sv.t)/1000); }
+      catch(e){ loadBroke=true; clearSave(); this.s=freshState(); } }   // korrupter/inkompatibler Save → frisch statt Boot-Crash (Audit M3)
     else { this.s=freshState(); }
+    if(loadBroke) setTimeout(()=>{ try{ say('Dein alter Spielstand ließ sich nicht laden (beschädigt oder zu alte Version) — neu gestartet.'); }catch(_){} }, 1200);
     this.resize(); this.buildShop();
     window.addEventListener('resize',()=>this.resize());
     window.addEventListener('orientationchange',()=>setTimeout(()=>this.resize(),200));
@@ -1232,10 +1239,11 @@ const game={
     ctx.save(); ctx.beginPath(); ctx.arc(BASE.x,BASE.y,lr,0,Math.PI*2); ctx.clip();   // ----- LAND-INSEL (rund) -----
     ctx.fillStyle=this._gp||'#5fa148'; ctx.fillRect(RX,RY,RW,RH);   // Gras-Basis (1 Pattern-Füllung = schnell, mid:6513)
     // Biom-Boden (mid:6513, perf-fix): Wald/Felder = schnelle Solid-Tints über Gras; Gebirge = ECHTES Fels-Tile in EINER Pattern-Füllung (Pfad)
-    if(s.biomes){ const CELL=52;   // Biom-Tints über Gras (mid:6520 ok); echter Berg-Look kommt über Plateaus mit Felskante
+    if(s.biomes && (vx1-vx0)<5200){ const CELL=52, bc=s._biomeCache||(s._biomeCache={});   // Biom-Tints über Gras; biomeAt() pro Welt-Zelle EINMAL berechnen + cachen (Audit H1); bei extremem Auszoomen (Span>5200) Tints überspringen, Gras-Basis reicht (Audit M16)
       for(let gx=Math.floor(vx0/CELL)*CELL; gx<vx1; gx+=CELL) for(let gy=Math.floor(vy0/CELL)*CELL; gy<vy1; gy+=CELL){
         const cx=gx+CELL/2, cy=gy+CELL/2; if(dist(cx,cy,BASE.x,BASE.y)>lr) continue;
-        const bk=biomeAt(s,cx,cy); ctx.fillStyle=BIOMES[bk].ground; ctx.fillRect(gx,gy,CELL+1,CELL+1); } }
+        const key=gx+','+gy; let bk=bc[key]; if(bk===undefined){ bk=biomeAt(s,cx,cy); bc[key]=bk; }
+        ctx.fillStyle=BIOMES[bk].ground; ctx.fillRect(gx,gy,CELL+1,CELL+1); } }
     // (Plateaus entfernt mid:6531 — echtes Höhensystem mit Treppen/Kollision kommt mit dem Paid-Pack-Terrain)
     // Dorf-Rasen-Kreis entfernt (mid:6727): das generierte Terrain (biome ground oben) scheint durch, Wege+Gebäude liegen drauf
     ctx.fillStyle=this._sp||'#d8c08a'; ctx.globalAlpha=0.92; for(const B of s.sand){ if(dist(B.x,B.y,BASE.x,BASE.y)<lr+B.r){ blobPathCtx(B,1); ctx.fill(); } } ctx.globalAlpha=1;
@@ -1371,7 +1379,7 @@ const game={
     // overlay edge arrows
     ctx.setTransform(dpr,0,0,dpr,0,0); ctx.imageSmoothingEnabled=false;
     if(nightActive(s)){ ctx.fillStyle='rgba(18,22,54,.42)'; ctx.fillRect(0,0,VW,VH);   // Nacht: Karte abdunkeln (mid:6396)
-      const bw=Math.min(260,VW*0.62), bx=(VW-bw)/2, by=52, hpf=Math.max(0,(s.baseHP||0)/(s.baseHPmax||100));   // Dorf-Lebensleiste (mid:6426)
+      const bw=Math.min(260,VW*0.62), bx=(VW-bw)/2, by=safeTopPx()+52, hpf=Math.max(0,(s.baseHP||0)/(s.baseHPmax||100));   // Dorf-Lebensleiste; +Safe-Area damit sie nicht in Notch/Quest-Leiste rutscht (Audit H2)
       ctx.fillStyle='rgba(0,0,0,.55)'; ctx.fillRect(bx-3,by-3,bw+6,18);
       ctx.fillStyle='#5a1e1e'; ctx.fillRect(bx,by,bw,12); ctx.fillStyle=hpf>0.3?'#5fd06a':'#e0573a'; ctx.fillRect(bx,by,bw*hpf,12);
       ctx.fillStyle='#fff'; ctx.font='bold 11px sans-serif'; ctx.textAlign='center'; ctx.fillText('🌙 Dorf  '+Math.ceil(hpf*100)+'%',VW/2,by+22); ctx.textAlign='left'; }
