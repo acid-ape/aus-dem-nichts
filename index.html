@@ -48,12 +48,12 @@
   #menuBtn{border-color:rgba(160,91,255,.7)!important}
   #menuItems{display:none;flex-direction:column;gap:8px;align-items:flex-end}
   #menuItems.open{display:flex}
-  #panel{position:absolute;left:0;right:0;bottom:0;max-height:62vh;
+  #panel{position:absolute;left:0;right:0;bottom:0;max-height:46vh;
     padding:14px 14px calc(env(safe-area-inset-bottom) + 16px);
-    background:linear-gradient(180deg,rgba(12,9,22,.82),rgba(12,9,22,.96));backdrop-filter:blur(10px);
+    background:linear-gradient(180deg,rgba(12,9,22,.50),rgba(12,9,22,.74));backdrop-filter:blur(9px);
     border-top:1px solid rgba(160,91,255,.35);border-radius:20px 20px 0 0;box-shadow:0 -8px 30px rgba(0,0,0,.4);
     transform:translateY(104%);transition:transform .26s cubic-bezier(.22,1,.36,1);
-    overflow-y:auto;pointer-events:none}
+    overflow:hidden;pointer-events:none;display:flex;flex-direction:column}   /* nur #shop scrollt → Header+X bleiben sichtbar (mid:6801) */
   #panel.open{transform:translateY(0);pointer-events:auto}
   #panel .grab{width:42px;height:4px;border-radius:3px;background:rgba(203,184,255,.4);margin:-4px auto 12px;cursor:pointer}
   #closeShop{position:absolute;top:12px;right:12px;width:38px;height:38px;border-radius:11px;cursor:pointer;
@@ -64,19 +64,21 @@
     border-radius:10px;padding:8px 4px;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:5px}
   #tabs button svg{width:16px;height:16px}
   #tabs button.on{color:#fff;background:linear-gradient(90deg,rgba(160,91,255,.4),rgba(255,79,216,.22));border-color:#a05bff}
-  #shop{display:flex;flex-direction:column;gap:9px}
+  #shop{display:flex;flex-direction:column;gap:7px;overflow-y:auto;flex:1 1 auto;min-height:0;padding-right:2px}   /* einziger Scroll-Bereich (mid:6801) */
   button.up{text-align:left;cursor:pointer;color:#f3eeff;background:linear-gradient(180deg,rgba(40,28,70,.9),rgba(26,18,46,.92));
-    border:1px solid #3a2a63;border-radius:14px;padding:12px 13px;font-size:14px;line-height:1.3;display:flex;gap:12px;align-items:center;
-    box-shadow:0 2px 8px rgba(0,0,0,.25)}
-  button.up img{height:38px;width:38px;flex:0 0 auto;image-rendering:pixelated;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+    border:1px solid #3a2a63;border-radius:12px;padding:8px 11px;font-size:13px;line-height:1.25;display:flex;gap:10px;align-items:center;
+    box-shadow:0 2px 6px rgba(0,0,0,.22)}   /* kompakter (mid:6804) */
+  button.up img{height:30px;width:30px;flex:0 0 auto;image-rendering:pixelated;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
   button.up .tx{flex:1;min-width:0}
   button.up:not(:disabled):active{transform:scale(.98);border-color:#a05bff}
   button.up:disabled{opacity:.45;filter:saturate(.6)}
-  button.up .t{font-weight:800;display:block;font-size:14.5px}
-  button.up .d{color:#b9aee0;font-size:12px;margin-top:1px;display:block}
-  button.up .k{color:#ffd98a;font-size:12px;margin-top:4px;display:block;font-weight:700}
+  button.up .t{font-weight:800;display:block;font-size:13.5px}
+  button.up .d{color:#b9aee0;font-size:11.5px;margin-top:1px;display:block}
+  button.up .k{color:#ffd98a;font-size:11.5px;margin-top:2px;display:block;font-weight:700}
   button.up.era{border-color:#a05bff;background:linear-gradient(180deg,rgba(160,91,255,.32),rgba(255,79,216,.18));margin-top:2px}
-  #panel .ph{font-weight:800;font-size:16px;color:#fff;margin:0 2px 10px;letter-spacing:.3px}
+  #panel .ph{font-weight:800;font-size:16px;color:#fff;margin:0 40px 10px 2px;letter-spacing:.3px;display:flex;align-items:center;gap:9px;min-height:34px}
+  #panel .ph img{height:34px;width:34px;flex:0 0 auto;image-rendering:pixelated;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+  #panel .ph .phx{display:none}
   #cheatBtn{margin-top:14px;width:100%;cursor:pointer;color:#8fe3b0;background:rgba(18,30,22,.7);
     border:1px dashed #3f7a55;border-radius:10px;padding:9px;font-size:12.5px;font-weight:700}
   #cheatBtn:active{transform:scale(.98)}
@@ -225,10 +227,11 @@
     <img id="introPortrait" src="ts/u/portrait_aeltester.png">
     <div id="introText"></div>
     <button id="introBtn">Weiter</button>
+    <button id="devSkipBtn" style="display:none;margin-top:8px;opacity:.7;font-size:13px">⏭ DEV: Intro skippen + Name TEST</button>
   </div></div>
   <div id="nameOverlay"><div id="nameCard">
     <div id="nameTitle">Wähle dein Kürzel</div>
-    <div id="nameSub">4 Buchstaben — so wirst du im Dorf gerufen</div>
+    <div id="nameSub">1–4 Buchstaben — so wirst du im Dorf gerufen</div>
     <div id="nameSlots"></div>
     <div id="nameGrid"></div>
     <div id="nameWarn"></div>
@@ -348,10 +351,10 @@ function updateFreeWalkers(s,dt){
 const ENEMY_R=14, HERO_RANGE=72, HERO_ATK_CD=0.55, ENEMY_ATK_CD=1.0;
 // Zwei Gegner-Tiers: Grunt = leicht (klein), Brute = schwer (groß, stark) — fürs Era-gating
 const ETYPES={
-  grunt:{name:'Grunt', unit:'goblin',     hp:32, hpEra:10, atk:7,  speed:56, size:92,  atkRange:42, aggro:320, leash:640, bounty:2},   // Torch-Goblin (Enemy-Pack, mid:6564)
-  brute:{name:'Brute', unit:'speargob',   hp:100,hpEra:30, atk:19, speed:42, size:138, atkRange:60, aggro:470, leash:820, bounty:7},   // Speer-Goblin
+  grunt:{name:'Grunt', unit:'goblin',     hp:32, hpEra:10, atk:7,  speed:56, size:92,  atkRange:66, aggro:320, leash:640, bounty:2},   // Torch-Goblin (Enemy-Pack, mid:6564); Reichweite hoch (war 42) → schlägt zurück statt vom Held out-ranged zu werden (mid:6778)
+  brute:{name:'Brute', unit:'speargob',   hp:100,hpEra:30, atk:19, speed:42, size:138, atkRange:80, aggro:470, leash:820, bounty:7},   // Speer-Goblin; Reichweite hoch (war 60) > HERO_RANGE 72 (mid:6778)
   // Miniboss ab Gebiet 3 (mid:6159): groß, knapp schaffbar, lohnt sich → schenkt einen Arbeiter
-  miniboss:{name:'Anführer', unit:'troll', hp:300, hpEra:70, atk:24, speed:38, size:210, atkRange:70, aggro:560, leash:1000, bounty:0, boss:true},   // Troll-Boss (384→192 skaliert → größer dargestellt)
+  miniboss:{name:'Anführer', unit:'troll', hp:300, hpEra:70, atk:24, speed:38, size:210, atkRange:96, aggro:560, leash:1000, bounty:0, boss:true},   // Troll-Boss; Reichweite 70→96 (riesig, langer Arm) > HERO_RANGE 72 → haut zuverlässig zurück (mid:6778)
 };
 // Entwicklungs-Cap pro Zeitalter (mid:6137): era0=0 (keine Evo am Start) … era4=4. So bleibt jeder Einzelgegner mit voll
 // ausgebauten Kampf-Upgrades der Era besiegbar.
@@ -816,7 +819,9 @@ function serialize(s){ return { // nur Fortschritt (Welt/Knoten/Deko werden neu 
   areas:s.areas, areaLvl:s.areaLvl, era:s.era, firstDeposit:s.firstDeposit,
   phase:s.phase, nightToken:!!s.nightToken, healBought:s.healBought||0, day:s.day, baseHP:s.baseHP, baseHPmax:s.baseHPmax, towers:(s.towers||[]).map(t=>({seg:t.seg,type:t.type,lvl:t.lvl||0,mode:t.mode||'wache'})), questIdx:s.questIdx, outposts:s.outposts,
   achieved:s.achieved, lifetime:s.lifetime, playSec:s.playSec }; }
-function saveGame(s){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify({v:SAVE_VERSION, t:Date.now(), d:serialize(s)})); }catch(e){} }
+let saveWarned=false;
+function saveGame(s){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify({v:SAVE_VERSION, t:Date.now(), d:serialize(s)})); }
+  catch(e){ if(!saveWarned){ saveWarned=true; try{ say('⚠ Dein Browser speichert gerade nicht (Privat-Modus oder voller Speicher) — Fortschritt geht beim Schließen verloren. Tipp: in Safari öffnen → Teilen → „Zum Home-Bildschirm", dann läuft es stabil.'); }catch(_){} } } }   // stiller localStorage-Fehler → einmaliger Hinweis statt lautlosem Verlust (mid:6789)
 function loadRaw(){ try{ const r=localStorage.getItem(SAVE_KEY); if(!r) return null; const o=JSON.parse(r);
   if(!o||o.v!==SAVE_VERSION||!o.d) return null; return o; }catch(e){ return null; } }
 function clearSave(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} }
@@ -861,13 +866,13 @@ function heroMaxLvl(s){ return 2*(s.era+1); }  // 2 Upgrades pro Stufe (mid:6381
 // ---- Two upgrade trees ----  (UP_HELD-Einträge tragen lvl:=aktuelles Level für den Era-Cap)
 // Kosten eskalieren mit dem Zeitalter (mid:6051/6052): jede Stufe nimmt eine höhere Ressource dazu, statt alles in Holz zu zahlen.
 const UP_HELD=[
-  {id:'cap',icon:'holz',name:()=>'Größerer Beutel',desc:s=>`Tragen +4 (jetzt ${s.cap})`,lvl:s=>s.capLvl,
+  {id:'cap',icon:'up_bag',name:()=>'Größerer Beutel',desc:s=>`Tragen +4 (jetzt ${s.cap})`,lvl:s=>s.capLvl,
    cost:s=>{ const l=s.capLvl,c={holz:scaled(12,1.45,l)}; if(s.era>=2)c.stein=scaled(8,1.45,l); return c; },apply:s=>{s.cap+=4;s.capLvl++;}},
-  {id:'speed',icon:'korn',name:()=>'Schnellere Beine',desc:()=>'Tempo +15%',lvl:s=>s.speedLvl,
+  {id:'speed',icon:'up_boots',name:()=>'Schnellere Beine',desc:()=>'Tempo +15%',lvl:s=>s.speedLvl,
    cost:s=>{ const l=s.speedLvl,c={korn:scaled(10,1.45,l)}; if(s.era>=5)c.beeren=scaled(6,1.45,l); return c; },apply:s=>{s.speed*=1.15;s.speedLvl++;}},
-  {id:'gather',icon:'stein',name:()=>'Bessere Werkzeuge',desc:()=>'Sammeln deutlich schneller',lvl:s=>s.gatherLvl,
+  {id:'gather',icon:'up_tools',name:()=>'Bessere Werkzeuge',desc:()=>'Sammeln deutlich schneller',lvl:s=>s.gatherLvl,
    cost:s=>{ const l=s.gatherLvl,c={stein:scaled(10,1.45,l)}; if(s.era>=3)c.gold=scaled(6,1.45,l); if(s.era>=4)c.kristall=scaled(4,1.5,l); return c; },apply:s=>{s.gather+=BAL.gatherPerLvl;s.gatherLvl++;}},
-  {id:'steam',icon:'kristall',name:()=>'Dampfmaschine',desc:()=>'Sammeln +3 & Helfer +10%',show:s=>s.era>=4,lvl:s=>s.steamLvl,
+  {id:'steam',icon:'up_gear',name:()=>'Dampfmaschine',desc:()=>'Sammeln +3 & Helfer +10%',show:s=>s.era>=4,lvl:s=>s.steamLvl,
    cost:s=>({kristall:scaled(8,1.55,s.steamLvl),gold:scaled(45,1.4,s.steamLvl)}),apply:s=>{s.gather+=3;s.wboost+=0.1;s.steamLvl++;}},
 ];
 const EXPAND_REQ={1:1, 2:3, 3:5};   // Gebiet-Erschliessen-Gate je aktueller Gebietszahl → era (Stufe-1): Gebiet2 ab Stufe2, Gebiet3 ab Stufe4, Gebiet4 ab Stufe6 (mid:6618)
@@ -880,7 +885,7 @@ const UP_DORF=[
    show:s=>!!nextBuildType(s), cost:s=>{const t=nextBuildType(s);return t?BUILD_TYPES[t].cost:{holz:1e9};},
    apply:s=>{const t=nextBuildType(s); if(!t)return; const used=s.builds.map(b=>b.seg); let seg=[0,1,2,3,4,5].find(i=>!used.includes(i)); if(seg==null)seg=s.builds.length%6;
      s.builds.push({type:t,seg,tempo:0,menge:0,workers:0}); say(BUILD_TYPES[t].name+' gebaut! Tippe die Hütte an, um Arbeiter zuzuweisen + sie aufzurüsten.'); }},
-  {id:'expand',icon:'era1',name:s=>'Gebiet erschliessen',
+  {id:'expand',icon:'up_expand',name:s=>'Gebiet erschliessen',
    desc:s=> s.areas>=4 ? 'Alle Gebiete erschlossen' : ((s.era<(EXPAND_REQ[s.areas]||99)) ? `Nächstes Gebiet ab Stufe ${(EXPAND_REQ[s.areas]||99)+1}` : `Dorf vergrössern (Gebiet ${s.areas}/4) — mehr Platz & Ressourcen`),
    show:s=>s.areas<4, locked:s=>s.era<(EXPAND_REQ[s.areas]||99),   // an den Stufen-Rhythmus gekoppelt (mid:6618): Gebiet 2 ab Stufe 2, 3 ab Stufe 4, 4 ab Stufe 6
    cost:s=>({holz:scaled(80,1.7,s.areaLvl),stein:scaled(50,1.7,s.areaLvl),korn:scaled(40,1.7,s.areaLvl)}),
@@ -904,11 +909,11 @@ function buildMaxLvl(s){ return s.era+1; }                  // max Tempo-/Menge-
 function buildMaxWorkers(s){ return Math.min(4, s.era+1); } // max zugewiesene Arbeiter je Hütte
 // Kampf-Upgrades (mid:6129): Held skaliert auf der Kampf-Seite mit, parallel zu den era-skalierenden Gegnern. Pro Zeitalter gedeckelt.
 const UP_KAMPF=[
-  {id:'angriff', icon:'stein', name:()=>'Angriff schärfen', desc:s=>`Mehr Schaden gegen Gegner (Angriff ×${(s.atk||1).toFixed(2)})`, lvl:s=>s.atkLvl||0,
+  {id:'angriff', icon:'up_attack', name:()=>'Angriff schärfen', desc:s=>`Mehr Schaden gegen Gegner (Angriff ×${(s.atk||1).toFixed(2)})`, lvl:s=>s.atkLvl||0,
    cost:s=>{ const l=s.atkLvl||0,c={stein:scaled(22,1.5,l)}; if(s.era>=3)c.gold=scaled(14,1.45,l); return c; }, apply:s=>{ s.atk=(s.atk||1)*1.18; s.atkLvl=(s.atkLvl||0)+1; }},
-  {id:'ruestung', icon:'era1', name:()=>'Rüstung verstärken', desc:s=>`Weniger Schaden pro Treffer (Rüstung ${s.def||0})`, lvl:s=>s.defLvl||0,
+  {id:'ruestung', icon:'up_armor', name:()=>'Rüstung verstärken', desc:s=>`Weniger Schaden pro Treffer (Rüstung ${s.def||0})`, lvl:s=>s.defLvl||0,
    cost:s=>{ const l=s.defLvl||0,c={stein:scaled(20,1.5,l)}; if(s.era>=3)c.gold=scaled(16,1.45,l); return c; }, apply:s=>{ s.def=(s.def||0)+2; s.defLvl=(s.defLvl||0)+1; }},
-  {id:'vita', icon:'korn', name:()=>'Lebenskraft', desc:s=>`Max-HP +25 (jetzt ${s.player.hpmax})`, lvl:s=>s.hpLvl||0,
+  {id:'vita', icon:'up_vita', name:()=>'Lebenskraft', desc:s=>`Max-HP +25 (jetzt ${s.player.hpmax})`, lvl:s=>s.hpLvl||0,
    cost:s=>{ const l=s.hpLvl||0,c={korn:scaled(16,1.5,l)}; if(s.era>=5)c.beeren=scaled(10,1.45,l); return c; }, apply:s=>{ s.player.hpmax+=25; s.player.hp+=25; s.hpLvl=(s.hpLvl||0)+1; }},
 ];
 const ALLUP=[...UP_HELD,...UP_DORF,...UP_KAMPF];
@@ -982,6 +987,7 @@ const game={
     document.getElementById('tutBtn').onclick=()=>this.showNextTut();   // Tutorial weiter/schließen (mid:6438)
     document.getElementById('introBtn').onclick=()=>this.nextIntro();   // Story-Intro (mid:6449)
     document.getElementById('nameBtn').onclick=()=>this.confirmName();
+    if(new URLSearchParams(location.search).has('dev')){ const dsb=document.getElementById('devSkipBtn'); dsb.style.display=''; dsb.onclick=()=>this.devQuickStart(); }   // Dev: Intro überspringen + Name TEST (mid:6784)
     document.getElementById('quest').onclick=function(){ this.classList.toggle('expanded'); };   // Ziel ausklappen (mid:6371)
     document.getElementById('resetBtn').onclick=()=>this.reset();
     document.getElementById('confirmYes').onclick=()=>this.doReset();
@@ -1069,11 +1075,16 @@ const game={
   renderName(){ const buf=this.nameBuf||'', slots=document.getElementById('nameSlots'); slots.innerHTML='';
     for(let i=0;i<4;i++){ const d=document.createElement('div'); d.className='nslot'+(i===buf.length?' active':''); d.textContent=buf[i]||''; slots.appendChild(d); }
     const bad=isBadName(buf); document.getElementById('nameWarn').textContent=bad?'Dieses Kürzel geht leider nicht — wähl ein anderes.':'';
-    document.getElementById('nameBtn').disabled=(buf.length<4||bad); },
-  confirmName(){ const buf=this.nameBuf||''; if(buf.length<4||isBadName(buf)) return; const s=this.s, key=this.pendingChar||'krieger';
+    document.getElementById('nameBtn').disabled=(buf.length<1||bad); },   // 1-4 Buchstaben erlaubt, nicht zwingend 4 (mid:6784)
+  confirmName(){ const buf=this.nameBuf||''; if(buf.length<1||isBadName(buf)) return; const s=this.s, key=this.pendingChar||'krieger';
     s.char=key; CHARS[key].apply(s); s.playerName=buf; s.charChosen=true; s.tutStep=0;   // interaktives Basis-Tutorial startet (mid:6450)
     document.getElementById('nameOverlay').classList.remove('open'); this.renderRes(); saveGame(s);
     SFX.era(); say('Willkommen, '+buf+'! '+CHARS[key].name+' — '+CHARS[key].desc+'.'); this.renderTutStep(); },
+  devQuickStart(){ // Dev: Intro + Namenswahl überspringen, Name TEST, Tutorial als erledigt → direkt ins Spiel (mid:6784)
+    ['introOverlay','nameOverlay','charSelect','tutOverlay'].forEach(id=>{ const el=document.getElementById(id); if(el)el.classList.remove('open'); });
+    this.pendingChar='krieger'; this.nameBuf='TEST'; this.confirmName();
+    const s=this.s; s.tutStep=99; if(typeof TUT==='object') Object.keys(TUT).forEach(k=>(s.tutShown||(s.tutShown={}))[k]=true); this.tutQueue=[]; this.tutOpen=false;
+    this.renderTutStep&&this.renderTutStep(); saveGame(s); },
   queueTut(key){ const s=this.s; if(!TUT[key]||(s.tutShown&&s.tutShown[key])) return;
     (s.tutShown||(s.tutShown={}))[key]=true; (this.tutQueue||(this.tutQueue=[])).push(key); saveGame(s);
     if(!this.tutOpen) this.showNextTut(); },
@@ -1257,7 +1268,7 @@ const game={
     for(const d of s.deco){ if(!vis(d.x,d.y))continue; if(dist(d.x,d.y,BASE.x,BASE.y)>lr-8)continue; shadow(d.x,d.y,d.size*0.34,d.size*0.13); worldSprite(d.key,d.x,d.y,d.size,true); }
     if(s.bushes) for(const b of s.bushes){ if(!vis(b.x,b.y))continue; if(dist(b.x,b.y,BASE.x,BASE.y)>lr-8)continue; const im=BUSH[b.bi];   // animierte Sträucher (mid:6503)
       if(!im||!im.complete||!im.naturalWidth)continue; const fw=im.naturalHeight, fr=Math.max(1,Math.round(im.naturalWidth/fw)), col=Math.floor(this.animT*5+b.t*7)%fr;
-      const sc=b.sz*SC/fw*1.7, dw=fw*sc; shadow(b.x,b.y,b.sz*SC*0.34,b.sz*SC*0.12); ctx.drawImage(im,col*fw,0,fw,fw,b.x-dw/2,b.y-dw*0.84,dw,dw); }
+      const sc=b.sz*SC/fw*1.7, dw=fw*sc; shadow(b.x,b.y,b.sz*SC*0.34,b.sz*SC*0.12); ctx.drawImage(im,col*fw,0,fw,fw,b.x-dw/2,b.y-dw*0.60,dw,dw); }   // Anker: Busch-Pixel-Unterkante (0.59 des Frames) sitzt auf b.y, nicht mehr schwebend (mid:6780)
     // Dorf-Objekte (der Deko + Gebäude + Basis) sammeln, y-SORTIEREN und zeichnen (mid:6746): Sachen weiter unten = vorne → kein Baum mehr in der Burg
     const vocc=[];
     for(const dd of VILLAGE_DECO){ const x=BASE.x+dd.dx, y=BASE.y+dd.dy; if(!vis(x,y))continue; const im=A[dd.s]; if(!(im&&im.complete&&im.naturalWidth))continue;
@@ -1386,9 +1397,10 @@ const game={
     b.onclick=onclick; shop.appendChild(b); this.btns[id]=b; return b; },
   buildShop(){ const shop=document.getElementById('shop'); shop.innerHTML=''; this.btns={};
     const tabsEl=document.getElementById('tabs'), ph=document.querySelector('#panel .ph');
+    const setHead=(icon,text)=>{ const src=icon?(icon.charAt(0)==='@'?'ts/'+icon.slice(1):'ts/icons/'+icon)+'.png':''; ph.innerHTML=(src?'<img src="'+src+'">':'')+'<span>'+text+'</span>'; };   // Titel mit Gebäude-Icon (mid:6801)
     if(typeof this.panelFor==='number'){            // ----- HÜTTEN-Panel -----
       const b=this.s.builds[this.panelFor]; if(!b){ this.panelFor='castle'; return this.buildShop(); }
-      const BT=BUILD_TYPES[b.type]; tabsEl.style.display='none'; ph.textContent=BT.name+(BT.res?' — Hütte':'');
+      const BT=BUILD_TYPES[b.type]; tabsEl.style.display='none'; setHead('@'+BT.sprite, BT.name);
       if(!BT.res){ this.mkBtn(shop,'wkinfo','',()=>{}); }   // Waffenkammer: kein Produzent → nur Info-Zeile (mid:6315)
       else { this.mkBtn(shop,'tempo','',()=>this.upgBuild('tempo'));
       this.mkBtn(shop,'menge','',()=>this.upgBuild('menge'));
@@ -1396,26 +1408,26 @@ const game={
       this.mkBtn(shop,'assignRem','',()=>this.assign(-1)); }
     } else if(typeof this.panelFor==='string' && this.panelFor.slice(0,2)==='op'){   // ----- AUSSENPOSTEN-Panel -----
       const o=this.s.outposts&&this.s.outposts[+this.panelFor.slice(2)]; if(!o){ this.panelFor='castle'; return this.buildShop(); }
-      tabsEl.style.display='none'; ph.textContent=OUTPOST_TYPES[o.type].name+' — Außenposten';
+      tabsEl.style.display='none'; setHead('@'+OUTPOST_TYPES[o.type].sprite, OUTPOST_TYPES[o.type].name);
       this.mkBtn(shop,'optempo','',()=>this.upgOutpost('tempo'));
       this.mkBtn(shop,'opmenge','',()=>this.upgOutpost('menge'));
     } else if(typeof this.panelFor==='string' && this.panelFor.slice(0,2)==='tb'){   // ----- TURM-BAU-MENÜ (mid:6357) -----
-      tabsEl.style.display='none'; ph.textContent='Truppe bauen';
+      tabsEl.style.display='none'; setHead('up_attack','Truppe bauen');
       for(const tt of TOWER_ORDER) this.mkBtn(shop,'tb_'+tt,'',()=>this.buildTower(tt));
     } else if(typeof this.panelFor==='string' && this.panelFor.slice(0,2)==='tw'){   // ----- TURM-PANEL -----
       const tw=towerAt(this.s,+this.panelFor.slice(2)); if(!tw){ this.panelFor='castle'; return this.buildShop(); }
-      tabsEl.style.display='none'; ph.textContent=TOWER_TYPES[tw.type].name;
+      tabsEl.style.display='none'; setHead('tr_'+tw.type, TOWER_TYPES[tw.type].name);
       this.mkBtn(shop,'tw_up','',()=>this.upgTower());
       this.mkBtn(shop,'tw_mode','',()=>this.toggleTowerMode());
     } else {                                        // ----- BURG-Panel (Held/Dorf) -----
-      tabsEl.style.display='flex'; ph.textContent=this.s.playerName?('Burg — '+this.s.playerName):'Burg — Aufbau & Upgrades';
+      tabsEl.style.display='flex'; setHead('@era'+Math.min(6,this.s.era), this.s.playerName?('Burg — '+this.s.playerName):'Burg — Aufbau & Upgrades');
       const list=this.tab==='held'?UP_HELD:this.tab==='kampf'?UP_KAMPF:UP_DORF;
       for(const up of list) this.mkBtn(shop,up.id,'',()=>this.buy(up.id));
       if(this.tab==='dorf'){ this.mkBtn(shop,'nacht','era',()=>this.startNight()); if(this.s.era>=3) this.mkBtn(shop,'heal','',()=>this.healVillage()); this.mkBtn(shop,'era','era',()=>this.buyEra()); }
     }
     this.updateShop(); },
   updateShop(){ const s=this.s; if(!this.btns)return;
-    const set=(id,img,t,d,k,dis)=>{ const el=this.btns[id]; if(!el)return; el.style.display=''; if(img)el.querySelector('img').src='ts/icons/'+img+'.png';
+    const set=(id,img,t,d,k,dis)=>{ const el=this.btns[id]; if(!el)return; el.style.display=''; if(img)el.querySelector('img').src=(img.charAt(0)==='@'?'ts/'+img.slice(1):'ts/icons/'+img)+'.png';   // @prefix = echtes Gebäude-Sprite statt Icon (mid:6782)
       el.querySelector('.t').textContent=t; el.querySelector('.d').textContent=d||''; el.querySelector('.k').textContent=k||''; el.disabled=!!dis; };
     if(typeof this.panelFor==='number'){            // HÜTTEN-Panel refresh
       const b=s.builds[this.panelFor]; if(!b) return; const T=BUILD_TYPES[b.type];
@@ -1423,7 +1435,7 @@ const game={
       const mxL=buildMaxLvl(s), mxW=buildMaxWorkers(s), ct=buildUpCost(b,'tempo',s), cm=buildUpCost(b,'menge',s);
       const tMax=b.tempo>=mxL, gMax=b.menge>=mxL, wMax=b.workers>=mxW;
       const flow=T.consumes ? `wandelt ${Object.keys(T.consumes).map(k=>NAME[k]).join('+')} → ${NAME[T.res]}` : `produziert ${NAME[T.res]}`;
-      set('tempo','era1',`Tempo Lvl ${b.tempo}/${mxL}`, tMax?'Max für diese Stufe — erst aufsteigen':`${flow} (jetzt ${buildRate(s,b).toFixed(2)}/s)`, tMax?'':'⤷ '+costStr(ct), tMax||!canAfford(s,ct));
+      set('tempo','up_gear',`Tempo Lvl ${b.tempo}/${mxL}`, tMax?'Max für diese Stufe — erst aufsteigen':`${flow} (jetzt ${buildRate(s,b).toFixed(2)}/s)`, tMax?'':'⤷ '+costStr(ct), tMax||!canAfford(s,ct));
       set('menge',T.res,`Menge Lvl ${b.menge}/${mxL}`, gMax?'Max für diese Stufe — erst aufsteigen':'Mehr Ertrag pro Zyklus', gMax?'':'⤷ '+costStr(cm), gMax||!canAfford(s,cm));
       set('assignAdd','worker',`Arbeiter zuweisen (${b.workers}/${mxW})`, wMax?'Hütte voll für diese Stufe':`+50% Output je Arbeiter`, wMax?'':'Frei im Pool: '+freeWorkers(s), wMax||freeWorkers(s)<=0);
       set('assignRem','worker','Arbeiter abziehen','zurück in den Pool der Burg','',b.workers<=0);
@@ -1448,7 +1460,7 @@ const game={
     if(typeof this.panelFor==='string' && this.panelFor.slice(0,2)==='tw'){   // TURM-PANEL refresh
       const tw=towerAt(s,+this.panelFor.slice(2)); if(!tw) return; const c=towerUpCost(tw), mx=(tw.lvl||0)>=troopMaxLvl(s);
       const pw=TOWER_TYPES[tw.type].role==='heal'?'Heilung':'Schaden';
-      set('tw_up','era1',`Truppe aufrüsten (Lvl ${tw.lvl||0}/${troopMaxLvl(s)})`, mx?'Max für diese Stufe — erst aufsteigen':`+HP & +${pw} (HP ${towerHp(tw)}, ${pw} ${towerAtk(tw).toFixed(0)})`, mx?'':'⤷ '+costStr(c), mx||!canAfford(s,c));
+      set('tw_up','up_attack',`Truppe aufrüsten (Lvl ${tw.lvl||0}/${troopMaxLvl(s)})`, mx?'Max für diese Stufe — erst aufsteigen':`+HP & +${pw} (HP ${towerHp(tw)}, ${pw} ${towerAtk(tw).toFixed(0)})`, mx?'':'⤷ '+costStr(c), mx||!canAfford(s,c));
       set('tw_mode','worker', tw.mode==='folgen'?'Modus: Folgen':'Modus: Wache', tw.mode==='folgen'?'Truppe folgt dir in den Kampf':'Truppe bewacht den Posten (Aggro)','',false);
       return;
     }
@@ -1457,7 +1469,11 @@ const game={
       if(up.show&&!up.show(s)){ el.style.display='none'; continue; }
       if(up.lvl){ const atMax=up.lvl(s)>=heroMaxLvl(s); const c=up.cost(s);
         set(up.id,up.icon,`${up.name(s)} (Lvl ${up.lvl(s)}/${heroMaxLvl(s)})`, atMax?'Max für diese Stufe — erst aufsteigen':up.desc(s), atMax?'':'⤷ '+costStr(c), atMax||!canAfford(s,c)); }
-      else { const c=up.cost(s), lk=up.locked&&up.locked(s); set(up.id,up.icon,up.name(s),up.desc(s), lk?'':'⤷ '+costStr(c), lk||!canAfford(s,c)); } }
+      else { const c=up.cost(s), lk=up.locked&&up.locked(s);
+        let ic=up.icon;   // Bau-Einträge zeigen das echte Mini-Gebäude-Sprite statt eines Icons (mid:6782)
+        if(up.id==='build'){ const t=nextBuildType(s); if(t) ic='@'+BUILD_TYPES[t].sprite; }
+        else if(up.id==='buildpost'){ const t=nextOutpostType(s); if(t) ic='@'+OUTPOST_TYPES[t].sprite; }
+        set(up.id,ic,up.name(s),up.desc(s), lk?'':'⤷ '+costStr(c), lk||!canAfford(s,c)); } }
     const nb=this.btns.nacht;   // 🌙 Nacht-Button: nur sichtbar wenn Nacht ansteht oder läuft (mid:6396)
     if(nb){ if(nightActive(s)){ const left=s.enemies.filter(e=>e.night).length; set('nacht','era4','🌙 Nacht läuft','Schlag die Welle zurück','Gegner übrig: '+left,true); }
       else if(nightPending(s)) set('nacht','era4','🌙 Nacht starten','Überstehe die Welle, um aufzusteigen','Tippen zum Starten',false);
@@ -1572,10 +1588,9 @@ cv.addEventListener('pointermove',e=>{ if(!pointers.has(e.pointerId)) return; e.
 cv.addEventListener('wheel',e=>{ e.preventDefault(); game.zoom=clampZoom(game.zoom*(e.deltaY<0?1.12:1/1.12)); },{passive:false});   // Desktop-Zoom per Mausrad (mid:6301)
 function endPointer(){ if(!pDown) return;
   if(!game.dragging){ const p=worldFromEvent({clientX:pDown.x,clientY:pDown.y}), s=game.s, panel=document.getElementById('panel');
-    const heroInVillage=dist(s.player.x,s.player.y,BASE.x,BASE.y)<OUTER_R+10;
-    // Hütte angetippt? (nur wenn Held im Dorf ist) → Hütten-Panel
-    let hutIdx=-1, hutD=70;
-    if(heroInVillage) for(let i=0;i<s.builds.length;i++){ const sl=buildPos(s.builds[i]); if(!sl)continue; const d=dist(p.x,p.y,sl.x,sl.y); if(d<hutD){ hutD=d; hutIdx=i; } }
+    // Hütte angetippt? → Hütten-Panel (Tap aufs Gebäude verwaltet es, unabhängig von der Held-Position; mid:6782)
+    let hutIdx=-1, hutD=72;
+    for(let i=0;i<s.builds.length;i++){ const sl=buildPos(s.builds[i]); if(!sl)continue; const d=dist(p.x,p.y,sl.x,sl.y); if(d<hutD){ hutD=d; hutIdx=i; } }
     // Außenposten angetippt (nur wenn der Held nah dran ist) → Außenposten-Panel (mid:6246)
     let opIdx=-1, opD=46;   // ENGE Hitbox auf dem Gebäude-Körper (mid:6276): nah vorbeilaufen ohne Menü; Tap aufs Gebäude öffnet Panel (unabhängig von Held-Position, mid:6261)
     if(s.outposts) for(let i=0;i<s.outposts.length;i++){ const o=s.outposts[i], d=dist(p.x,p.y,o.x,o.y-31); if(d<opD){ opD=d; opIdx=i; } }   // -31 = Gebäude-Mitte (Sprite ist fußverankert)
@@ -1583,11 +1598,12 @@ function endPointer(){ if(!pDown) return;
     let tsIdx=-1, tsD=58;
     if(s.towerSlots) for(let i=0;i<s.towerSlots.length;i++){ const ts=s.towerSlots[i], d=dist(p.x,p.y,ts.x,ts.y-12); if(d<tsD && (towerAt(s,i)||towersUnlocked(s))){ tsD=d; tsIdx=i; } }
     const tappedBase=dist(p.x,p.y,BASE.x,BASE.y)<BASE_SOLID+85;
-    // Gebäude öffnen NUR wenn der Held nah dran steht (sonst = hinlaufen); verhindert versehentliches Auslösen beim Bewegen (mid:6605)
-    const P=s.player, NEAR=88, heroNear=(x,y)=>dist(P.x,P.y,x,y)<NEAR;
-    if(opIdx>=0 && heroNear(s.outposts[opIdx].x,s.outposts[opIdx].y-31)){ game.openPanelFor('op'+opIdx); }
-    else if(tsIdx>=0 && heroNear(s.towerSlots[tsIdx].x,s.towerSlots[tsIdx].y)){ game.openPanelFor((towerAt(s,tsIdx)?'tw':'tb')+tsIdx); }
-    else if(hutIdx>=0){ const _bp=buildPos(s.builds[hutIdx]); if(heroNear(_bp.x,_bp.y)) game.openPanelFor(hutIdx); }
+    // Tap auf ein Fixture (Hütte/Außenposten/Turm) öffnet direkt sein Panel — kein „Held muss daneben stehen" mehr (mid:6782).
+    // Die enge Hitbox auf dem Gebäude-Körper verhindert versehentliches Auslösen beim Tap-to-Move im Feld.
+    const P=s.player, heroNear=(x,y)=>dist(P.x,P.y,x,y)<88;
+    if(opIdx>=0){ game.openPanelFor('op'+opIdx); }
+    else if(tsIdx>=0){ game.openPanelFor((towerAt(s,tsIdx)?'tw':'tb')+tsIdx); }
+    else if(hutIdx>=0){ game.openPanelFor(hutIdx); }
     else if(tappedBase && heroNear(BASE.x,BASE.y)){ if(panel.classList.contains('open')&&game.panelFor==='castle') panel.classList.remove('open'); else game.openPanelFor('castle'); }
     else moveTo(p); }
   pDown=null; game.dragging=false; }
