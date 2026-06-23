@@ -46,6 +46,9 @@
   #topbtns button svg{width:23px;height:23px}
   #topbtns button:active{transform:scale(.93)}
   #menuBtn{border-color:rgba(160,91,255,.7)!important}
+  #recenterBtn{position:absolute;left:calc(env(safe-area-inset-left) + 10px);bottom:calc(env(safe-area-inset-bottom) + 12px);width:46px;height:46px;border-radius:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:21px;line-height:1;background:rgba(20,14,36,.82);border:1px solid #3a2a63;color:#fff;z-index:8;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+  #recenterBtn:active{transform:scale(.93)}
+  #minimap{position:absolute;right:calc(env(safe-area-inset-right) + 10px);top:calc(env(safe-area-inset-top) + 62px);width:92px;height:92px;border-radius:12px;border:1px solid rgba(160,91,255,.45);background:rgba(10,8,20,.5);z-index:8;cursor:pointer;-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}
   #menuItems{display:none;flex-direction:column;gap:8px;align-items:flex-end}
   #menuItems.open{display:flex}
   #panel{position:absolute;left:0;right:0;bottom:0;max-height:46vh;
@@ -76,6 +79,12 @@
   button.up .d{color:#b9aee0;font-size:11.5px;margin-top:1px;display:block}
   button.up .k{color:#ffd98a;font-size:11.5px;margin-top:2px;display:block;font-weight:700}
   button.up.era{border-color:#a05bff;background:linear-gradient(180deg,rgba(160,91,255,.32),rgba(255,79,216,.18));margin-top:2px}
+  .netrate{font-size:11.5px;line-height:1.5;color:#b9aee0;background:rgba(22,14,43,.55);border:1px solid #2f2152;border-radius:10px;padding:7px 10px;margin-bottom:2px}
+  .netrate b{color:#ece7ff;font-weight:700}
+  .statsblock{background:rgba(22,14,43,.6);border:1px solid #2f2152;border-radius:12px;padding:10px 12px;margin-bottom:10px}
+  .statsblock .sh{font-weight:800;color:#ece7ff;margin-bottom:6px;font-size:14px}
+  .statsblock .sr{display:flex;justify-content:space-between;font-size:12.5px;color:#b9aee0;padding:2px 0}
+  .statsblock .sr b{color:#ffd98a;font-weight:700}
   #panel .ph{font-weight:800;font-size:16px;color:#fff;margin:0 40px 10px 2px;letter-spacing:.3px;display:flex;align-items:center;gap:9px;min-height:34px}
   #panel .ph img{height:34px;width:34px;flex:0 0 auto;image-rendering:pixelated;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
   #panel .ph .phx{display:none}
@@ -198,6 +207,8 @@
       <button id="resetBtn" title="Neu"></button>
     </div>
   </div>
+  <button id="recenterBtn" title="Zurück zum Helden">🎯</button>
+  <canvas id="minimap" title="Karte"></canvas>
   <div id="achOverlay"><div id="achCard">
     <div id="achHead"><span>🏆 Erfolge</span><button id="achClose" title="Schliessen"></button></div>
     <div id="achList"></div>
@@ -269,6 +280,8 @@ const BUILD_TYPES={
 const BUILD_ORDER=['holz','stein','schmiede','juwelier','gold','waffenkammer'];  // 6 Dorf-Gebäude = 6 Kuchenstücke (Kürbisfeld ist jetzt Außenposten, mid:6313)
 // Produktionsrate eines Gebäudes: Basis × Tempo × Menge × Arbeiter-Boost × Dampf-Boost
 function buildRate(s,b){ return BUILD_TYPES[b.type].base*(1+0.25*b.tempo)*(1+0.35*b.menge)*(1+0.5*b.workers)*s.wboost; }
+// Netto-Produktion pro Sekunde je Ressource (Produktion minus Konverter-Verbrauch) — macht den Konverter-Engpass sichtbar (Audit-Idee)
+function netRate(s){ const r={}; for(const b of s.builds){ const T=BUILD_TYPES[b.type]; if(!T||!T.res)continue; const out=buildRate(s,b); r[T.res]=(r[T.res]||0)+out; if(T.consumes) for(const k in T.consumes) r[k]=(r[k]||0)-out*T.consumes[k]; } return r; }
 // Ein Produktions-Tick: Konverter (mit consumes) ziehen Input ab und sind durch Input-Mangel gedeckelt; sonst reine Produktion.
 function produce(s,b,dt){ const T=BUILD_TYPES[b.type]; if(!T||!T.res) return 0;   // Waffenkammer u.ä. produzieren nichts (mid:6315)
   let out=buildRate(s,b)*dt;
@@ -1005,6 +1018,9 @@ const game={
     if(new URLSearchParams(location.search).has('dev')){ const dsb=document.getElementById('devSkipBtn'); dsb.style.display=''; dsb.onclick=()=>this.devQuickStart(); }   // Dev: Intro überspringen + Name TEST (mid:6784)
     document.getElementById('quest').onclick=function(){ this.classList.toggle('expanded'); };   // Ziel ausklappen (mid:6371)
     document.getElementById('resetBtn').onclick=()=>this.reset();
+    document.getElementById('recenterBtn').onclick=()=>{ this.camFollow=true; };   // zurück zum Helden (Audit-Idee)
+    document.getElementById('minimap').addEventListener('pointerdown',e=>{ e.preventDefault(); const mc=e.currentTarget, r=mc.getBoundingClientRect(), SZ=r.width, R=areaRadius(this.s.areas), sc=(SZ/2-3)/R, cx=SZ/2, cy=SZ/2;   // Minimap-Tap → Kamera dorthin schwenken
+      const wx=BASE.x+((e.clientX-r.left)-cx)/sc, wy=BASE.y+((e.clientY-r.top)-cy)/sc; this.camFollow=false; this.camGoal.x=Math.max(0,Math.min(WORLD,wx)); this.camGoal.y=Math.max(0,Math.min(WORLD,wy)); this.s.cam.x=this.camGoal.x; this.s.cam.y=this.camGoal.y; });
     document.getElementById('confirmYes').onclick=()=>this.doReset();
     document.getElementById('confirmNo').onclick=()=>document.getElementById('confirmOv').classList.remove('open');
     document.getElementById('confirmOv').onclick=e=>{ if(e.target.id==='confirmOv') document.getElementById('confirmOv').classList.remove('open'); };
@@ -1064,6 +1080,10 @@ const game={
   renderAch(){ const s=this.s, list=document.getElementById('achList'); list.innerHTML='';
     const got=ACHIEVEMENTS.filter(a=>s.achieved.includes(a.id)).length;
     const head=document.querySelector('#achHead span'); head.innerHTML='🏆 Erfolge <span id="achProg">'+got+'/'+ACHIEVEMENTS.length+'</span>';
+    const st=document.createElement('div'); st.className='statsblock'; const pm=Math.floor((s.playSec||0)/60);   // 📊 Statistik-Übersicht (Audit-Idee)
+    const row=(l,v)=>'<div class="sr"><span>'+l+'</span><b>'+v+'</b></div>';
+    st.innerHTML='<div class="sh">📊 Statistik</div>'+row('Spielzeit',humanDur(pm))+row('Insgesamt abgeliefert',Math.floor(s.lifetime||0))+row('Stufe',(s.era+1)+'/7')+row('Gebäude / Truppen',s.builds.length+' / '+((s.towers||[]).length))+row('Arbeiter',s.workerPool)+row('Tag',(s.day||1));
+    list.appendChild(st);
     for(const a of ACHIEVEMENTS){ const has=s.achieved.includes(a.id); const el=document.createElement('div');
       el.className='ach '+(has?'got':'locked');
       el.innerHTML='<img src="ts/icons/'+a.icon+'.png"><div><div class="an">'+a.name+'</div><div class="ad">'+a.desc+'</div></div>'+(has?'<span class="tick">✓</span>':'');
@@ -1214,8 +1234,21 @@ const game={
     const k=Math.min(1,dt*7);
     s.cam.x+=(this.camGoal.x-s.cam.x)*k; s.cam.y+=(this.camGoal.y-s.cam.y)*k;
   },
+  drawMinimap(){ const mc=document.getElementById('minimap'); if(!mc)return; const s=this.s;   // Minimap/Kompass (Audit-Idee)
+    const r=mc.getBoundingClientRect(), SZ=r.width||92, dpr=Math.min(2,window.devicePixelRatio||1);
+    if(mc.width!==Math.round(SZ*dpr)){ mc.width=Math.round(SZ*dpr); mc.height=Math.round(SZ*dpr); }
+    const g=mc.getContext('2d'); g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,SZ,SZ);
+    const R=areaRadius(s.areas), cx=SZ/2, cy=SZ/2, sc=(SZ/2-3)/R, w2m=(wx,wy)=>({x:cx+(wx-BASE.x)*sc,y:cy+(wy-BASE.y)*sc});
+    g.fillStyle='rgba(95,161,72,.5)'; g.beginPath(); g.arc(cx,cy,R*sc,0,7); g.fill();
+    if(s.outposts) for(const o of s.outposts){ const p=w2m(o.x,o.y); g.fillStyle=(o.store>=1)?'#ffe08a':'#9fd0ff'; g.beginPath();g.arc(p.x,p.y,2,0,7);g.fill(); }
+    g.fillStyle='#d8b25a'; g.fillRect(cx-3,cy-3,6,6);
+    if(s.enemies) for(const e of s.enemies){ if(e.dead)continue; const p=w2m(e.x,e.y); g.fillStyle='#e0573a'; g.beginPath();g.arc(p.x,p.y,1.6,0,7);g.fill(); }
+    const hp=w2m(s.player.x,s.player.y); g.fillStyle='#ff4fd8'; g.beginPath();g.arc(hp.x,hp.y,3,0,7);g.fill(); g.lineWidth=1;g.strokeStyle='#fff';g.stroke();
+    const vw=this.vw/this.zoom, vh=this.vh/this.zoom, tl=w2m(s.cam.x-vw/2,s.cam.y-vh/2);   // Sicht-Rechteck
+    g.strokeStyle='rgba(255,255,255,.4)';g.lineWidth=1;g.strokeRect(tl.x,tl.y,vw*sc,vh*sc); },
   loop(ts){ if(!this.running)return; if(!this.last)this.last=ts; let dt=(ts-this.last)/1000; this.last=ts; if(dt>0.1)dt=0.1;
     if(!this.s.paused) this.step(dt); this.draw(); updateMusic(dt);
+    this._mmAcc=(this._mmAcc||0)+1; if(this._mmAcc%4===0) this.drawMinimap();   // Minimap throttled (~15fps)
     this.uiAcc+=dt; if(this.uiAcc>0.2){ this.uiAcc=0; checkQuests(this.s); checkAchievements(this.s); this.checkTut(); this.renderRes(); this.updateShop(); this.renderQuest(); }
     this.saveAcc=(this.saveAcc||0)+dt; if(this.saveAcc>5){ this.saveAcc=0; saveGame(this.s); }  // Auto-Save alle 5s
     requestAnimationFrame(this.loop); },
@@ -1410,7 +1443,12 @@ const game={
   openPanelFor(target){ this.panelFor=target; this.buildShop(); document.getElementById('panel').classList.add('open'); },
   mkBtn(shop,id,cls,onclick){ const b=document.createElement('button'); b.className='up'+(cls?' '+cls:'');
     b.innerHTML='<img><span class="tx"><span class="t"></span><span class="c d"></span><span class="c k"></span></span>';
-    b.onclick=onclick; shop.appendChild(b); this.btns[id]=b; return b; },
+    b.onclick=onclick; shop.appendChild(b); this.btns[id]=b;
+    // Bulk-Upgrades: gedrückt halten → wiederholt kaufen, solange leistbar (Audit-Idee). Stoppt sobald disabled.
+    let holdT=null, repT=null; const stop=()=>{ if(holdT)clearTimeout(holdT); if(repT)clearInterval(repT); holdT=repT=null; };
+    b.addEventListener('pointerdown',()=>{ stop(); holdT=setTimeout(()=>{ repT=setInterval(()=>{ if(b.disabled){stop();return;} onclick(); }, 150); }, 400); });
+    ['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,stop));
+    return b; },
   buildShop(){ const shop=document.getElementById('shop'); shop.innerHTML=''; this.btns={};
     const tabsEl=document.getElementById('tabs'), ph=document.querySelector('#panel .ph');
     const setHead=(icon,text)=>{ const src=icon?(icon.charAt(0)==='@'?'ts/'+icon.slice(1):'ts/icons/'+icon)+'.png':''; ph.innerHTML=(src?'<img src="'+src+'">':'')+'<span>'+text+'</span>'; };   // Titel mit Gebäude-Icon (mid:6801)
@@ -1439,7 +1477,8 @@ const game={
       tabsEl.style.display='flex'; setHead('@era'+Math.min(6,this.s.era), this.s.playerName?('Burg — '+this.s.playerName):'Burg — Aufbau & Upgrades');
       const list=this.tab==='held'?UP_HELD:this.tab==='kampf'?UP_KAMPF:UP_DORF;
       for(const up of list) this.mkBtn(shop,up.id,'',()=>this.buy(up.id));
-      if(this.tab==='dorf'){ this.mkBtn(shop,'nacht','era',()=>this.startNight()); if(this.s.era>=3) this.mkBtn(shop,'heal','',()=>this.healVillage()); this.mkBtn(shop,'era','era',()=>this.buyEra()); }
+      if(this.tab==='dorf'){ const nr=document.createElement('div'); nr.id='netrate'; nr.className='netrate'; shop.insertBefore(nr,shop.firstChild);   // Dorf-Produktion/Sek oben (Audit-Idee)
+        this.mkBtn(shop,'nacht','era',()=>this.startNight()); if(this.s.era>=3) this.mkBtn(shop,'heal','',()=>this.healVillage()); this.mkBtn(shop,'era','era',()=>this.buyEra()); }
     }
     this.updateShop(); },
   updateShop(){ const s=this.s; if(!this.btns)return;
@@ -1500,7 +1539,10 @@ const game={
     const eb=this.btns.era; if(!eb) return; const next=s.era+1;
     if(next<ERAS.length){ const ec=eraCost(next); const gate=nightGated(next)&&!s.nightToken;
       set('era','era'+Math.min(4,next),'Aufstieg → '+ERAS[next].name,gate?'🌙 Erst eine Nacht überstehen':'',(canAfford(s,ec)?'⤷ ':'⤷ fehlt: ')+costStr(ec),!canAfford(s,ec)||gate||nightActive(s)); }
-    else set('era','era4','Stufe 7 erreicht','','Maximum erreicht.',true); },
+    else set('era','era4','Stufe 7 erreicht','','Maximum erreicht.',true);
+    const nrEl=document.getElementById('netrate');   // Dorf-Produktion/Sek anzeigen (Audit-Idee)
+    if(nrEl){ const rt=netRate(s), parts=ALL.filter(k=>Math.abs(rt[k]||0)>=0.05).map(k=>{ const rv=Math.round((rt[k]||0)*10)/10, txt=(rv===0)?'±0':((rv>0?'+':'')+rv.toFixed(1)), col=rv<0?'#ff8a6a':(rv>0?'#9fe0a0':'#b9aee0'); return `<span style="color:${col}">${txt} ${NAME[k]}</span>`; });
+      nrEl.innerHTML='<b>Dorf-Produktion /s:</b> '+(parts.length?parts.join('  ·  '):'baue Produktionsgebäude'); } },
   upgBuild(kind){ const s=this.s,b=s.builds[this.panelFor]; if(!b)return;
     if(b[kind]>=buildMaxLvl(s)){ say('Max für diese Stufe erreicht — erst aufsteigen.'); return; }
     const c=buildUpCost(b,kind,s);
