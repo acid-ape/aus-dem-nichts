@@ -491,10 +491,10 @@ function updateCombat(s,dt){ const P=s.player; P.attacking=false;
 const VILLAGE_R=Math.round(280*VS);  // innerer Dorf-KERN (Ring-Weg + Produktionsgebäude) — skaliert mit VS
 const OUTER_R=Math.round(400*VS);    // äußerer Ring-Weg (mid:6176); Band VILLAGE_R..OUTER_R = 12 Turm-Bauplätze — skaliert mit VS
 const TOWER_N=12, TOWER_RAD=Math.round((280+400)/2*VS);   // 12 Turm-Bauplätze im äußeren Ring-Band — skaliert mit VS
-// ----- Dorf-Layout aus s Editor-Entwurf (mid:6717-6730): Gebäude+Deko an exakten Positionen (Offset von BASE in Welt-Px) + Größe (worldSprite size-param) -----
+// ----- Dorf-Layout aus der Editor-Entwurf (mid:6717-6730): Gebäude+Deko an exakten Positionen (Offset von BASE in Welt-Px) + Größe (worldSprite size-param) -----
 const VLAYOUT={ base:{dx:-0.6,dy:-16.6}, holz:{dx:63.3,dy:106.4,sz:163}, stein:{dx:116.9,dy:-8.3,sz:163}, juwelier:{dx:-114.7,dy:0.3,sz:161}, waffenkammer:{dx:-60.4,dy:98.1,sz:140}, gold:{dx:-53.7,dy:-98.1,sz:115}, schmiede:{dx:63.9,dy:-112.5,sz:118} };
 const buildPos=b=>{ const L=VLAYOUT[b.type]; return L?{x:BASE.x+L.dx,y:BASE.y+L.dy}:{x:BASE.x,y:BASE.y}; };
-const BASE_STAGE_H=[126,128,131,135,139,143,146];   // Burg-Höhe je Stufe: minimal ansteigend, Anker Stufe 7 = s Größe (mid:6726)
+const BASE_STAGE_H=[126,128,131,135,139,143,146];   // Burg-Höhe je Stufe: minimal ansteigend, Anker Stufe 7 = der Größe (mid:6726)
 const VILLAGE_DECO=[{s:"vd_bushe1",dx:116.9,dy:115.0,sz:45.6},{s:"vd_bushe3",dx:60.4,dy:55.0,sz:53.0},{s:"vd_bushe4",dx:-151.4,dy:-47.0,sz:39.2},{s:"vd_bushe4",dx:-116.9,dy:-45.4,sz:31.3},{s:"vd_rock3",dx:150.5,dy:-60.4,sz:41.7},{s:"vd_rock3",dx:157.2,dy:25.9,sz:41.7},{s:"vd_stump2",dx:33.5,dy:-153.7,sz:20.8},{s:"vd_rock1",dx:-108.6,dy:-114.1,sz:60.4},{s:"vd_stump2",dx:125.6,dy:95.8,sz:23.3},{s:"vd_tree1",dx:36.1,dy:141.9,sz:106.0},{s:"vd_tree4",dx:-28.4,dy:58.5,sz:59.1},{s:"vd_bushe3",dx:76.0,dy:62.0,sz:42.3},{s:"vd_tree1",dx:146.3,dy:-70.6,sz:75.5},{s:"vd_bushe1",dx:131.0,dy:48.2,sz:45.6},{s:"vd_bushe1",dx:141.5,dy:59.1,sz:36.3},{s:"vd_rock1",dx:-25.9,dy:-155.0,sz:75.7},{s:"vd_rock1",dx:-49.2,dy:-148.2,sz:34.2},{s:"vd_goldstone",dx:-32.9,dy:-141.9,sz:38.7},{s:"vd_rock1",dx:-21.7,dy:-135.8,sz:60.4},{s:"vd_goldstone",dx:-116.6,dy:-94.2,sz:38.7},{s:"vd_tree4",dx:-145.7,dy:49.8,sz:59.1},{s:"vd_bushe3",dx:-146.6,dy:-69.3,sz:42.3}];
 // Ressourcen/Wasser liegen DRAUSSEN im Land; der erschlossene Land-Radius wächst mit s.areas
 const areaRadius=s=>2000+(((s.areas||1)-1)*600);  // sanftere Erweiterung (mid:6596): 2400,3250,4100,4950 (vorher zu krass +2400/Schritt)
@@ -523,7 +523,7 @@ const A={};  // alle fertigen Sprites
  'holz','stein','korn','pilze','gold','beeren','kristall',
  'deco_mushroom','deco_rock','deco_bush','deco_pumpkin','sheep','sheep_idle','sheep_move',
  'b_holz','b_korn','b_pilze','b_beeren','b_schmiede','b_juwelier','b_waffen',   // eigene Produzenten-Sprites (mid:6317/6346)
- 'vd_bushe1','vd_bushe3','vd_bushe4','vd_rock1','vd_rock3','vd_stump2','vd_tree1','vd_tree4','vd_goldstone'   // Dorf-Deko aus s Layout (mid:6730)
+ 'vd_bushe1','vd_bushe3','vd_bushe4','vd_rock1','vd_rock3','vd_stump2','vd_tree1','vd_tree4','vd_goldstone'   // Dorf-Deko aus der Layout (mid:6730)
 ].forEach(k=>{ const i=new Image(); i.src='ts/'+k+'.png'; A[k]=i; });
 // Animierte Held-Sheets (Tiny Swords Warrior, 192px-Frames, 6 Spalten × 8 Reihen). Pro Startcharakter eine Farbe.
 // Animierte Einheiten (Tiny Swords v2 Free Pack): pro (Unit,Farbe) je Anim-Strip (idle/run/atk), 192px-Frames horizontal.
@@ -704,7 +704,7 @@ function buildLevel(s){
   const placeD=(key,x,y,size,solid,obR)=>{ if(dist(x,y,BASE.x,BASE.y)<OUTER_R+22||inLake(x,y,26)||onSand(s,x,y)||blocked(s,x,y,16)) return;   // Deko: nicht im Dorf-Ring, nicht auf Wasser/Sand (mid:6258/6260)
     s.deco.push({key,x,y,size,solid:!!solid}); if(solid) s.obstacles.push({x,y,r:obR||size*0.30}); };
   const clump=(cx,cy,n,spread,fn)=>{ for(let j=0;j<n;j++){ const a=rnd(0,6.2832), d=Math.pow(Math.random(),0.7)*spread; fn(cx+Math.cos(a)*d, cy+Math.sin(a)*d); } };
-  const NCL=1400;   // weniger Klumpen-Zentren = weniger voll (mid:6600)
+  const NCL=1120;   // -20% Klumpen-Zentren = weniger voll (mid:6765; war 1400 @mid:6600)
   for(let i=0;i<NCL;i++){ const a=rnd(0,6.2832), d=Math.sqrt(Math.random())*FULLR, cx=BASE.x+Math.cos(a)*d, cy=BASE.y+Math.sin(a)*d;
     if(dist(cx,cy,BASE.x,BASE.y)<OUTER_R+30) continue;
     const bk=biomeAt(s,cx,cy);
@@ -727,7 +727,7 @@ function buildLevel(s){
   for(let gx=-CR; gx<=CR; gx+=CGRID) for(let gy=-CR; gy<=CR; gy+=CGRID){ if(Math.hypot(gx,gy)>CR) continue;
     s.clouds.push({x:BASE.x+gx+rnd(-1400,1400), y:BASE.y+gy+rnd(-1400,1400), ci:1+Math.floor(rnd(0,8)), spd:rnd(6,15), sz:rnd(1.4,2.5), al:rnd(0.5,0.78)}); }
   // animierte Sträucher/Büsche als Insel-Deko (mid:6503): mehr Leben, nicht auf Sand/Wasser/Dorf
-  s.bushes=[]; for(let i=0;i<260;i++){ const a=rnd(0,6.2832), dd=rnd(VILLAGE_R+60, FULLR*0.95), x=BASE.x+Math.cos(a)*dd, y=BASE.y+Math.sin(a)*dd;   // mehr Büsche/Sträucher (mid:6600), 4 Sorten
+  s.bushes=[]; for(let i=0;i<208;i++){ const a=rnd(0,6.2832), dd=rnd(VILLAGE_R+60, FULLR*0.95), x=BASE.x+Math.cos(a)*dd, y=BASE.y+Math.sin(a)*dd;   // -20% Büsche/Sträucher (mid:6765; war 260 @mid:6600), 4 Sorten
     if(dist(x,y,BASE.x,BASE.y)<OUTER_R+22||inLake(x,y,26)||onSand(s,x,y)||blocked(s,x,y,14)) continue;
     s.bushes.push({x,y,bi:1+Math.floor(rnd(0,4)),t:rnd(0,3),sz:rnd(95,165)}); }   // größer + breite Variation (mid:6523)
   // (Plateaus-Gen entfernt mid:6531 — kommt als echtes tile-basiertes Höhensystem mit dem Paid-Pack)
@@ -1132,7 +1132,10 @@ const game={
 
   step(dt){ const s=this.s; s.playSec+=dt;
     const psp=onSand(s,s.player.x,s.player.y)?s.speed*0.55:s.speed;  // Sand bremst (mid:6060)
+    const _px=s.player.x, _py=s.player.y;
     moveToward(s.player,s.player.tx,s.player.ty,psp,dt); collide(s,s.player,PR); villageCollide(s,s.player,PR);
+    // Stuck an Gebäude/Deko: wollte laufen, Kollision blockt head-on → Ziel auf Standpunkt setzen statt ewig anrennen (mid:6764)
+    if(dist(s.player.x,s.player.y,s.player.tx,s.player.ty)>4 && dist(_px,_py,s.player.x,s.player.y)<psp*dt*0.3){ s.player.tx=s.player.x; s.player.ty=s.player.y; }
     // Animation: Laufen vs Idle + Blickrichtung (fürs animierte Warrior-Sheet)
     s.player.moving = dist(s.player.x,s.player.y,s.player.tx,s.player.ty)>4;
     if(s.player.moving){ const dx=s.player.tx-s.player.x; if(Math.abs(dx)>2) s.player.face=dx<0?-1:1; }
@@ -1255,7 +1258,7 @@ const game={
     if(s.bushes) for(const b of s.bushes){ if(!vis(b.x,b.y))continue; if(dist(b.x,b.y,BASE.x,BASE.y)>lr-8)continue; const im=BUSH[b.bi];   // animierte Sträucher (mid:6503)
       if(!im||!im.complete||!im.naturalWidth)continue; const fw=im.naturalHeight, fr=Math.max(1,Math.round(im.naturalWidth/fw)), col=Math.floor(this.animT*5+b.t*7)%fr;
       const sc=b.sz*SC/fw*1.7, dw=fw*sc; shadow(b.x,b.y,b.sz*SC*0.34,b.sz*SC*0.12); ctx.drawImage(im,col*fw,0,fw,fw,b.x-dw/2,b.y-dw*0.84,dw,dw); }
-    // Dorf-Objekte (s Deko + Gebäude + Basis) sammeln, y-SORTIEREN und zeichnen (mid:6746): Sachen weiter unten = vorne → kein Baum mehr in der Burg
+    // Dorf-Objekte (der Deko + Gebäude + Basis) sammeln, y-SORTIEREN und zeichnen (mid:6746): Sachen weiter unten = vorne → kein Baum mehr in der Burg
     const vocc=[];
     for(const dd of VILLAGE_DECO){ const x=BASE.x+dd.dx, y=BASE.y+dd.dy; if(!vis(x,y))continue; const im=A[dd.s]; if(!(im&&im.complete&&im.naturalWidth))continue;
       const asp=im.naturalWidth/im.naturalHeight, rh=(asp>1?dd.sz*SC/asp:dd.sz*SC); vocc.push({fy:y+rh*0.5,x,y,sz:dd.sz,sp:dd.s,shdy:rh*0.42,shrx:rh*0.42,shry:rh*0.16}); }
