@@ -46,8 +46,6 @@
   #topbtns button svg{width:23px;height:23px}
   #topbtns button:active{transform:scale(.93)}
   #menuBtn{border-color:rgba(160,91,255,.7)!important}
-  #recenterBtn{position:absolute;left:calc(env(safe-area-inset-left) + 10px);bottom:calc(env(safe-area-inset-bottom) + 12px);width:46px;height:46px;border-radius:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:21px;line-height:1;background:rgba(20,14,36,.82);border:1px solid #3a2a63;color:#fff;z-index:8;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
-  #recenterBtn:active{transform:scale(.93)}
   #minimap{position:absolute;right:calc(env(safe-area-inset-right) + 10px);bottom:calc(env(safe-area-inset-bottom) + 12px);width:92px;height:92px;border-radius:12px;border:1px solid rgba(160,91,255,.45);background:rgba(10,8,20,.5);z-index:8;cursor:pointer;-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}
   #menuItems{display:none;flex-direction:column;gap:8px;align-items:flex-end}
   #menuItems.open{display:flex}
@@ -207,7 +205,6 @@
       <button id="resetBtn" title="Neu"></button>
     </div>
   </div>
-  <button id="recenterBtn" title="Zurück zum Helden">🎯</button>
   <canvas id="minimap" title="Karte"></canvas>
   <div id="achOverlay"><div id="achCard">
     <div id="achHead"><span>🏆 Erfolge</span><button id="achClose" title="Schliessen"></button></div>
@@ -1027,7 +1024,6 @@ const game={
     if(new URLSearchParams(location.search).has('dev')){ const dsb=document.getElementById('devSkipBtn'); dsb.style.display=''; dsb.onclick=()=>this.devQuickStart(); }   // Dev: Intro überspringen + Name TEST (mid:6784)
     document.getElementById('quest').onclick=function(){ this.classList.toggle('expanded'); };   // Ziel ausklappen (mid:6371)
     document.getElementById('resetBtn').onclick=()=>this.reset();
-    document.getElementById('recenterBtn').onclick=()=>{ this.camFollow=true; };   // zurück zum Helden (Audit-Idee)
     document.getElementById('minimap').addEventListener('pointerdown',e=>{ e.preventDefault(); const mc=e.currentTarget, r=mc.getBoundingClientRect(), SZ=r.width, R=areaRadius(this.s.areas), sc=(SZ/2-3)/R, cx=SZ/2, cy=SZ/2;   // Minimap-Tap → Kamera dorthin schwenken
       const wx=BASE.x+((e.clientX-r.left)-cx)/sc, wy=BASE.y+((e.clientY-r.top)-cy)/sc; this.camFollow=false; this.camGoal.x=Math.max(0,Math.min(WORLD,wx)); this.camGoal.y=Math.max(0,Math.min(WORLD,wy)); this.s.cam.x=this.camGoal.x; this.s.cam.y=this.camGoal.y; });
     document.getElementById('confirmYes').onclick=()=>this.doReset();
@@ -1577,10 +1573,15 @@ const game={
 };
 
 // world sprite: zeichnet ein fertiges Tiny-Swords-Sprite (A[key]), aspekt-korrekt; anchorBottom = Füsse auf (x,y)
+// Solider Koerper endet bei manchen Sprites ueber dem Bildrand (blasse Anti-Alias-Pixel reichen bis ganz unten)
+// -> ohne Korrektur schweben Felsen/Ressourcen ueber ihrem Schatten. Wert = Anteil der Bildhoehe UNTER dem
+// soliden Koerper (alpha>128, gemessen). Schiebt das Sprite bei anchorBottom entsprechend nach unten.
+const FOOTPAD={stein:0.17, gold:0.17, pilze:0.16, beeren:0.14, kristall:0.09, korn:0.08, holz:0.03,
+  deco_rock:0.09, deco_bush:0.13, deco_mushroom:0.11, deco_pumpkin:0.09};
 function worldSprite(key,x,y,size,anchorBottom){ const im=A[key];
   if(!im||!im.complete||!im.naturalWidth) return;
   size*=SC; const asp=im.naturalWidth/im.naturalHeight; let w=size,h=size; if(asp>1)h=size/asp; else w=size*asp;
-  const dy=anchorBottom? y-h : y-h/2;  // anchorBottom: Sprite steht mit den Füßen auf (x,y)
+  const dy=anchorBottom? y-h+(FOOTPAD[key]||0)*h : y-h/2;  // anchorBottom: Sprite steht mit den Füßen auf (x,y)
   ctx.drawImage(im,x-w/2,dy,w,h); }
 function shadow(x,y,rx,ry){ ctx.fillStyle='rgba(0,0,0,.24)'; ctx.beginPath(); ctx.ellipse(x,y,rx*SC,ry*SC,0,0,7); ctx.fill(); }
 function label(t,x,y){ ctx.save(); ctx.font='bold 14px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
