@@ -869,7 +869,7 @@ function applyOffline(s, elapsedSec){ const t=Math.min(Math.max(0,elapsedSec), O
   const g={}; ALL.forEach(k=>{ const d=Math.floor((s.store[k]||0)-before[k]); if(d>0) g[NAME[k]]=d; });
   const mins=Math.round(t/60); const parts=Object.entries(g).map(([k,v])=>`+${v} ${k}`);
   return parts.length? {mins, txt:parts.join(', ')} : null; }
-function humanDur(mins){ if(mins<60) return mins+' Min'; const h=Math.floor(mins/60); return h+(h===1?' Stunde':' Stunden'); }
+function humanDur(mins){ if(mins<60) return mins+' Min'; const h=Math.floor(mins/60), m=mins%60; return h+(h===1?' Stunde':' Stunden')+(m?' '+m+' Min':''); }   // Restminuten nicht mehr verwerfen (Audit-Idee)
 
 const scaled=(b,f,l)=>Math.round(b*Math.pow(f,l));
 // Helden-Upgrades sind pro Zeitalter gedeckelt (mid:6042) — kein 7×-Sofort-Maxen, Power ans Zeitalter gekoppelt
@@ -1281,8 +1281,8 @@ const game={
         ctx.save(); if(v.face<0){ ctx.translate(v.x,0); ctx.scale(-1,1); ctx.translate(-v.x,0); } ctx.drawImage(im,col*fh,0,fh,fh, v.x-dw/2, v.y-dw*0.86, dw, dw); ctx.restore();
       } else worldSprite(v.key,v.x,v.y,v.size,true); }
     // Natur-Deko (Bäume/Felsen/Pilze) — nur auf der erschlossenen Insel (unerschlossenes liegt im Wasser)
-    for(const d of s.deco){ if(!vis(d.x,d.y))continue; if(dist(d.x,d.y,BASE.x,BASE.y)>lr-8)continue; shadow(d.x,d.y,d.size*0.34,d.size*0.13); worldSprite(d.key,d.x,d.y,d.size,true); }
-    if(s.bushes) for(const b of s.bushes){ if(!vis(b.x,b.y))continue; if(dist(b.x,b.y,BASE.x,BASE.y)>lr-8)continue; const im=BUSH[b.bi];   // animierte Sträucher (mid:6503)
+    if((vx1-vx0)<5200) for(const d of s.deco){ if(!vis(d.x,d.y))continue; if(dist(d.x,d.y,BASE.x,BASE.y)>lr-8)continue; shadow(d.x,d.y,d.size*0.34,d.size*0.13); worldSprite(d.key,d.x,d.y,d.size,true); }   // bei extremem Auszoomen Deko überspringen (sub-pixel), Iteration kappen (Audit M6)
+    if(s.bushes && (vx1-vx0)<5200) for(const b of s.bushes){ if(!vis(b.x,b.y))continue; if(dist(b.x,b.y,BASE.x,BASE.y)>lr-8)continue; const im=BUSH[b.bi];   // animierte Sträucher (mid:6503)
       if(!im||!im.complete||!im.naturalWidth)continue; const fw=im.naturalHeight, fr=Math.max(1,Math.round(im.naturalWidth/fw)), col=Math.floor(this.animT*5+b.t*7)%fr;
       const sc=b.sz*SC/fw*1.7, dw=fw*sc; shadow(b.x,b.y,b.sz*SC*0.34,b.sz*SC*0.12); ctx.drawImage(im,col*fw,0,fw,fw,b.x-dw/2,b.y-dw*0.60,dw,dw); }   // Anker: Busch-Pixel-Unterkante (0.59 des Frames) sitzt auf b.y, nicht mehr schwebend (mid:6780)
     // Dorf-Objekte (der Deko + Gebäude + Basis) sammeln, y-SORTIEREN und zeichnen (mid:6746): Sachen weiter unten = vorne → kein Baum mehr in der Burg
