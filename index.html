@@ -350,7 +350,7 @@ const OUTPOST_TYPES={
 const OUTPOST_ORDER=['holz','korn','stein','pilze'];
 function nextOutpostType(s){ return OUTPOST_ORDER.find(t=>OUTPOST_TYPES[t].era<=s.era && !(s.outposts||[]).some(o=>o.type===t)); }
 // Redesign §5: Sammler-Upgrades sind GLOBAL (alle Sammler zusammen). s = State (globale Level sammlerTempoLvl/sammlerCapLvl).
-function outpostRate(o,s){ return OUTPOST_TYPES[o.type].rate*(1+0.5*((s&&s.sammlerTempoLvl)||0))*(1+0.5*(o.workers||0)); }   // globales Tempo-Level + Pawns im Sammler (max 4, §1/mid:7122) erhöhen die Sammelrate
+function outpostRate(o,s){ return OUTPOST_TYPES[o.type].rate*(1+0.5*((s&&s.sammlerTempoLvl)||0)); }   // Produktion ins eigene Lager — IMMER gleich, unabhängig von Pawns (mid:7249); Pawns liefern nur einen Teil automatisch heim (s. step)
 function outpostCap(o,s){ return Math.round(OUTPOST_TYPES[o.type].cap*(1+0.6*((s&&s.sammlerCapLvl)||0))); }   // globales Cap-Level erhöht Lager
 function sammlerGlobalMax(s){ return (s.era||0)+1; }   // pro Stufe ein globaler Rang je Stat
 function sammlerGlobalCost(kind,lvl){ return kind==='tempo'? {holz:scaled(60,1.5,lvl)} : {holz:scaled(40,1.5,lvl),stein:scaled(50,1.5,lvl)}; }   // Handwerk-Schiene (Holz→Stein §6)
@@ -502,8 +502,12 @@ function updateCombat(s,dt){ const P=s.player; P.attacking=false;
     addPop(s,d.x,d.y-20,'#fff','+'+Math.floor(tot)); burst(s,d.x,d.y-8,'#ffe9a8',8); SFX.deposit(); d.got=true; } }
   s.drops=s.drops.filter(d=>!d.got);
   // Außenposten-Sammler (mid:6246): sammeln ihre Ressource über Zeit bis Cap; Held holt sie ab (direkt ins Lager) sobald er nah genug ist
-  if(s.outposts) for(const o of s.outposts){ o.store=Math.min(outpostCap(o,s),(o.store||0)+outpostRate(o,s)*dt);
-    if(o.store>=1 && dist(P.x,P.y,o.x,o.y)<HARVEST_R+14){ const res=OUTPOST_TYPES[o.type].res, amt=Math.floor(o.store);
+  if(s.outposts) for(const o of s.outposts){ const rate=outpostRate(o,s), res=OUTPOST_TYPES[o.type].res;
+    o.store=Math.min(outpostCap(o,s),(o.store||0)+rate*dt);
+    if((o.workers||0)>0 && o.store>0){   // §1/mid:7248: Pawns tragen einen TEIL automatisch heim — nicht genug, sodass sich der Sammler trotzdem füllt
+      const hf=Math.min(0.7, 0.25*o.workers); o._home=(o._home||0)+rate*hf*dt; const amt=Math.floor(o._home);
+      if(amt>0 && o.store>=amt){ o._home-=amt; o.store-=amt; s.store[res]=(s.store[res]||0)+amt; s.lifetime=(s.lifetime||0)+amt; addPop(s,o.x,o.y-30,'#bfe9ff','+'+amt+' '+NAME[res]); } }
+    if(o.store>=1 && dist(P.x,P.y,o.x,o.y)<HARVEST_R+14){ const amt=Math.floor(o.store);   // manuelles Abholen (holt auch den Rest, der sich trotz Pawns angesammelt hat)
       s.store[res]=(s.store[res]||0)+amt; o.store-=amt; s.lifetime=(s.lifetime||0)+amt; addPop(s,o.x,o.y-30,'#fff','+'+amt+' '+NAME[res]); burst(s,o.x,o.y-8,'#ffe9a8',8); SFX.deposit(); } }   // Abholung zaehlt zur Liefer-Statistik (Audit M15)
   // Bestände skalieren mit der MAP-Größe (areas): Grunts ab Start (auch era0), Brutes erst ab Dorf-Era (mid:6108)
   if(s.phase!=='night' && s.era>=2) { s.spawnT+=dt;   // Overworld-Gegner erst ab Stufe 3 (era2, §3/Steffen mid:7110). Langsam+sequenziell; Cap skaliert mit Map. Bei Nacht ruht der Tag-Spawner.
@@ -1042,7 +1046,9 @@ const UP_HELD=[
 ];
 const EXPAND_REQ={1:1, 2:3, 3:5};   // Gebiet-Erschliessen-Gate je aktueller Gebietszahl → era (Stufe-1): Gebiet2 ab Stufe2, Gebiet3 ab Stufe4, Gebiet4 ab Stufe6 (mid:6618)
 const UP_DORF=[
-  {id:'hire',icon:'worker',name:s=>'Helfer anheuern',desc:s=>`Arbeiter für die Hütten zuweisen (frei: ${freeWorkers(s)}/${s.workerPool})`,
+  {id:'hire',icon:'worker',name:s=>'Helfer anheuern',
+   desc:s=> s.workerPool>=s.era+1 ? 'Nur 1 Helfer pro Stufe — der nächste ab der nächsten Stufe.' : `1 Helfer für Sammler/Hütten (${freeWorkers(s)} frei von ${s.workerPool})`,
+   locked:s=> s.workerPool>=s.era+1,   // §2.3 Pacing: genau 1 Arbeiter pro Stufe rekrutierbar, Pool-Cap = era+1 (mid:7246)
    cost:s=>{ const c={korn:scaled(22,1.55,s.workerPool)}; if(s.era>=5)c.pilze=scaled(12,1.55,s.workerPool); return c; },  // Nahrung füttert Helfer; ab Stufe 6 Pilze dazu
    apply:s=>{s.workerPool++;}},
   {id:'build',icon:'era1',name:s=>{const t=nextBuildType(s);return t?'Bau: '+BUILD_TYPES[t].name:'Alle Hütten gebaut';},
@@ -1361,7 +1367,8 @@ const game={
     if(nightGated(next)){   // §4: Aufstieg = bezahlen → Nacht überstehen → aufsteigen. Verlust: 20% zurück, Stufe bleibt.
       pay(s,c); s.pendingEra=next; s.pendingCost=c; spawnNightWave(s); this.flash=1; SFX.era();
       say('🌙 Bezahlt — überlebe die Nacht, dann steigst du auf '+ERAS[next].name+'!'); this.updateShop(); saveGame(s); return; }
-    pay(s,c); applyAscend(s,next); this.flash=1; this.updateShop(); saveGame(s); },
+    pay(s,c); document.getElementById('panel').classList.remove('open');   // §4 (mid:7251): Kauf-Dialog schließt, kurze Nacht→Tag-Blende, Aufstieg bei Tagesanbruch
+    this.ascFx=0.0001; this.ascPending=next; this.ascDone=false; SFX.era(); this.updateShop(); saveGame(s); },
   startNight(){ const s=this.s; if(nightActive(s)){ say('Die Nacht läuft bereits.'); return; }
     const next=s.era+1; if(next<ERAS.length && nightGated(next)) this.buyEra();   // Nacht ist jetzt Teil des Aufstiegs (§4) → leitet in buyEra
     else if(s.endless) this.endlessNight();
@@ -1393,6 +1400,9 @@ const game={
     SFX.buy(); burst(s,BASE.x,BASE.y-20,'#5fd06a',22); addPop(s,BASE.x,BASE.y-52,'#5fd06a','Dorf geheilt!'); say('🌿 Dorf geheilt — Lebensleiste wieder voll.'); this.updateShop(); saveGame(s); },
 
   step(dt){ const s=this.s; s.playSec+=dt;
+    if(this.ascFx>0){ this.ascFx+=dt/1.6;   // §4 Aufstiegs-Blende: Nacht→Tag über ~1.6s
+      if(!this.ascDone && this.ascFx>=0.5){ this.ascDone=true; applyAscend(s,this.ascPending); saveGame(s); }   // Tagesanbruch → Aufstieg + Belohnung
+      if(this.ascFx>=1) this.ascFx=0; }
     if(s.won && !s.wonShown){ s.wonShown=true; this.showVictory(); saveGame(s); }   // §12: Stufe 20 erreicht → Sieg-Screen einmalig
     if(s.wirbelCd>0)s.wirbelCd-=dt; if(s.sturmCd>0)s.sturmCd-=dt; this.updateSkillbar();   // §5: Spezial-Attacken-Cooldowns + Button-Update
     updateLight(s,dt);   // Wander-Licht: Sonne folgt der Aufstiegs-Bereitschaft (mid:7057/7067)
@@ -1656,6 +1666,7 @@ const game={
     const nn=nearestNode(s.player.x,s.player.y,s.nodes);
     if(nn) edgeArrow(nn.type,nn.x,nn.y,offx,offy,VW,VH,z,COL[nn.type]);
     if(this.flash>0){ ctx.fillStyle='rgba(255,255,255,'+(this.flash*0.35)+')'; ctx.fillRect(0,0,VW,VH); }  // Era-Aufstieg-Blitz
+    if(this.ascFx>0){ const a=Math.sin(Math.min(1,this.ascFx)*Math.PI)*0.62; ctx.fillStyle='rgba(14,18,48,'+a.toFixed(3)+')'; ctx.fillRect(0,0,VW,VH); }  // §4 Aufstiegs-Blende: kurz auf Nacht, dann zurück zum Tag (mid:7251)
   },
   renderRes(){ const s=this.s;
     document.getElementById('resbar').innerHTML =
@@ -1747,7 +1758,7 @@ const game={
       set('optempo','era1',`Alle Sammler: Tempo ${tL}/${mxL}`, tMax?'Max für diese Stufe — erst aufsteigen':`schneller sammeln (dieser: ${outpostRate(o,s).toFixed(2)}/s)`, tMax?'':'⤷ '+costStr(ct), tMax||!canAfford(s,ct));
       set('opmenge',T.res,`Alle Sammler: Lager ${cL}/${mxL}`, mMax?'Max für diese Stufe — erst aufsteigen':`mehr Lager (dieser: ${outpostCap(o,s)} ${NAME[T.res]})`, mMax?'':'⤷ '+costStr(cm), mMax||!canAfford(s,cm));
       const ow=o.workers||0, free=freeWorkers(s);   // §1: Pawns in diesem Sammler (max 4) boosten die Sammelrate
-      set('opAssignAdd','worker',`Arbeiter hier (${ow}/4)`, ow>=4?'Sammler voll — max 4 Arbeiter':`+50% Sammelrate je Arbeiter (sammelt von allein, du musst nicht abholen)`, ow>=4?'':'Frei im Pool: '+free, ow>=4||free<=0);
+      set('opAssignAdd','worker',`Arbeiter hier (${ow}/4)`, ow>=4?'Sammler voll — max 4 Arbeiter':`Pawns tragen automatisch einen Teil ins Dorf (mehr Pawns = mehr; Rest sammelt sich weiter an)`, ow>=4?'':'Frei im Pool: '+free, ow>=4||free<=0);
       set('opAssignRem','worker','Arbeiter abziehen','zurück in den Pool der Burg','',ow<=0);
       return;
     }
@@ -1856,13 +1867,14 @@ function spriteShadow(key,footX,footY,w,h){ const sil=silhouette(key); if(!sil){
 // Antrieb = 3 weiche „korrektes Spiel"-Marker (Steffen mid:7078), anteilig gemittelt — keine Pflicht, kein Springen, nur ein Gefühl:
 // (1) verfügbare Strukturen gebaut (Sammler+Dorf-Gebäude) · (2) verfügbare Arbeiter angeheuert (~1/Stufe) · (3) Truppenplätze besetzt.
 // 0=Morgen (frisch aufgestiegen, neue Sachen offen) → 1=Dämmerung (Stufe ordentlich abgearbeitet). Indirekte Belohnung.
-function stageProgress(s){ const e=s.era||0;
+function stageProgress(s){ const e=s.era||0;   // nur über die WIRKLICH freigeschalteten Dimensionen mitteln, sonst hält der tP=1-Fallback (era<4, keine Truppen) das Licht künstlich auf Abend (mid:7251)
   const structExp=BUILD_ORDER.filter(t=>BUILD_TYPES[t].era<=e).length + OUTPOST_ORDER.filter(t=>OUTPOST_TYPES[t].era<=e).length;
   const structHave=(s.builds?s.builds.length:0)+(s.outposts?s.outposts.length:0);
-  const bP=structExp>0?Math.min(1,structHave/structExp):1;
-  const wP=Math.min(1,(s.workerPool||0)/(e+1));
-  const tExp=towerAllowance(s), tP=tExp>0?Math.min(1,(s.towers?s.towers.length:0)/tExp):1;
-  return Math.max(0,Math.min(1,(bP+wP+tP)/3)); }
+  const parts=[];
+  if(structExp>0) parts.push(Math.min(1,structHave/structExp));
+  parts.push(Math.min(1,(s.workerPool||0)/(e+1)));   // 1 Arbeiter pro Stufe — immer relevant
+  const tExp=towerAllowance(s); if(tExp>0) parts.push(Math.min(1,(s.towers?s.towers.length:0)/tExp));
+  return parts.length ? Math.max(0,Math.min(1, parts.reduce((a,b)=>a+b,0)/parts.length)) : 0; }
 function updateLight(s,dt){ const p=stageProgress(s), k=Math.min(1,dt*1.2);   // sanft gleiten, nicht springen
   LIGHT.shx+=((-0.40+p*0.80)-LIGHT.shx)*k;   // Schatten-Richtung: Morgen (Sonne links) → Abend (Sonne rechts), enger gehalten (mid:7108)
   LIGHT.day+=((1-p*0.45)-LIGHT.day)*k;        // Helligkeit → dunkler zur Dämmerung
@@ -2006,7 +2018,7 @@ const Bot={
   think(dt){ if(!this.on) return; const s=game.s; if(!s||!s.charChosen) return; this.runTime=(this.runTime||0)+dt; this.steer();   // runTime = aufsummierte Spielzeit (dt×Speed pro Frame, mid:7215)
     this.acc+=dt; if(this.acc<0.8) return; this.acc=0; this.decide(s); this.updateHud(); },
   fmtTime(t){ t=Math.floor(t||0); const hh=Math.floor(t/3600), mm=Math.floor((t%3600)/60), ss=t%60, p=n=>String(n).padStart(2,'0'); return (hh>0?hh+':':'')+p(mm)+':'+p(ss); },
-  aff(s,id){ const u=ALLUP.find(x=>x.id===id); return u && (!u.show||u.show(s)) && (!u.lvl||u.lvl(s)<heroMaxLvl(s)) && canAfford(s,u.cost(s)); },
+  aff(s,id){ const u=ALLUP.find(x=>x.id===id); return u && (!u.show||u.show(s)) && !(u.locked&&u.locked(s)) && (!u.lvl||u.lvl(s)<heroMaxLvl(s)) && canAfford(s,u.cost(s)); },   // locked (z.B. Helfer-Pro-Stufe-Cap) respektieren, sonst loopt der Bot
   schmiedeIdx(s){ return (s.builds||[]).findIndex(b=>b.type==='schmiede'); },
   peek(t,tab){ if(tab) game.tab=tab; game.openPanelFor(t); },   // Panel sichtbar öffnen, damit der Zuschauer den Dialog sieht (mid:7189)
   upPanel(s,id){ if(UP_KAMPF.some(u=>u.id===id)){ const i=this.schmiedeIdx(s); return i>=0?[i,null]:null; }   // Kampf-Upgrades → Schmiede-Panel
