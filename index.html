@@ -1037,11 +1037,11 @@ const UP_HELD=[
    cost:s=>({pilze:40,edelstein:5}), apply:s=>{ s.player.hp=s.player.hpmax; addFx(s,'heal',s.player.x,s.player.y-18,52); if(s.towers)for(const t of s.towers)if(t.unit)t.unit.hp=t.unit.hpmax; }},
   {id:'cap',icon:'up_bag',name:()=>'Größerer Beutel',desc:s=>`Tragen +4 (jetzt ${s.cap})`,lvl:s=>s.capLvl,
    cost:s=>{ const l=s.capLvl,c={holz:scaled(12,1.45,l)}; if(s.era>=2)c.stein=scaled(8,1.45,l); return c; },apply:s=>{s.cap+=4;s.capLvl++;}},
-  {id:'speed',icon:'up_boots',name:()=>'Schnellere Beine',desc:()=>'Tempo +15%',lvl:s=>s.speedLvl,
+  {id:'speed',icon:'up_boots',name:()=>'Schnellere Beine',desc:s=>`Tempo +15% (jetzt +${Math.round((Math.pow(1.15,s.speedLvl||0)-1)*100)}%)`,lvl:s=>s.speedLvl,
    cost:s=>{ const l=s.speedLvl,c={korn:scaled(10,1.45,l)}; if(s.era>=5)c.pilze=scaled(6,1.45,l); return c; },apply:s=>{s.speed*=1.15;s.speedLvl++;}},
-  {id:'gather',icon:'up_tools',name:()=>'Bessere Werkzeuge',desc:()=>'Sammeln deutlich schneller',lvl:s=>s.gatherLvl,
+  {id:'gather',icon:'up_tools',name:()=>'Bessere Werkzeuge',desc:s=>`Sammeln schneller (jetzt ${(s.gather||0).toFixed(1)}/s)`,lvl:s=>s.gatherLvl,
    cost:s=>{ const l=s.gatherLvl,c={stein:scaled(10,1.45,l)}; if(s.era>=3)c.gold=scaled(6,1.45,l); return c; },apply:s=>{s.gather+=BAL.gatherPerLvl;s.gatherLvl++;}},
-  {id:'steam',icon:'up_gear',name:()=>'Dampfmaschine',desc:()=>'Sammeln +3 & Helfer +10%',show:s=>s.era>=4,lvl:s=>s.steamLvl,
+  {id:'steam',icon:'up_gear',name:()=>'Dampfmaschine',desc:s=>`Sammeln +3 & Helfer +10% (jetzt ${(s.gather||0).toFixed(1)}/s · Helfer ×${(s.wboost||1).toFixed(2)})`,show:s=>s.era>=4,lvl:s=>s.steamLvl,
    cost:s=>({edelstein:scaled(8,1.55,s.steamLvl),gold:scaled(45,1.4,s.steamLvl)}),apply:s=>{s.gather+=3;s.wboost+=0.1;s.steamLvl++;}},
 ];
 const EXPAND_REQ={1:1, 2:3, 3:5};   // Gebiet-Erschliessen-Gate je aktueller Gebietszahl → era (Stufe-1): Gebiet2 ab Stufe2, Gebiet3 ab Stufe4, Gebiet4 ab Stufe6 (mid:6618)
@@ -1477,6 +1477,7 @@ const game={
     g.strokeStyle='rgba(255,255,255,.4)';g.lineWidth=1;g.strokeRect(tl.x,tl.y,vw*sc,vh*sc); },
   loop(ts){ if(!this.running)return; if(!this.last)this.last=ts; let dt=(ts-this.last)/1000; this.last=ts; if(dt>0.1)dt=0.1;
     if(!this.s.paused){ const reps=(Bot&&Bot.on)?Bot.speed:1; for(let i=0;i<reps;i++){ this.step(dt); if(Bot&&Bot.on) Bot.think(dt); } } this.draw(); updateMusic(dt);
+    if(!LOWPERF){ this._ft=(this._ft||16.7)*0.9+(dt*1000)*0.1; if(this.s.playSec>3 && this._ft>30){ LOWPERF=true; try{ say('⚙️ Sparmodus aktiviert (Schatten aus) für flüssigeres Spiel.'); }catch(_){} } }   // adaptive Perf-Degradierung (mid:7271)
     this._mmAcc=(this._mmAcc||0)+1; if(this._mmAcc%4===0) this.drawMinimap();   // Minimap throttled (~15fps)
     this.uiAcc+=dt; if(this.uiAcc>0.2){ this.uiAcc=0; checkQuests(this.s); checkAchievements(this.s); this.checkTut(); this.renderRes(); this.updateShop(); this.renderQuest(); }
     this.saveAcc=(this.saveAcc||0)+dt; if(this.saveAcc>5){ this.saveAcc=0; saveGame(this.s); }  // Auto-Save alle 5s
@@ -1496,10 +1497,11 @@ const game={
     this._gp=this._gp||((GROUND.grass.complete&&GROUND.grass.naturalWidth)?ctx.createPattern(GROUND.grass,'repeat'):null);
     this._sp=this._sp||((GROUND.sand.complete&&GROUND.sand.naturalWidth)?ctx.createPattern(GROUND.sand,'repeat'):null);
     ctx.fillStyle=this._wp||'#2f8a9e'; ctx.fillRect(RX,RY,RW,RH);   // Ozean-Textur
-    // Tiefen-Gradient: hell/türkis am Ufer → dunkelblau in der Tiefe (mid:6190/6191 — echtes Wasser, nicht nur ein Tile)
-    { const g=ctx.createRadialGradient(BASE.x,BASE.y,lr, BASE.x,BASE.y,lr+1700);
+    // Tiefen-Gradient: hell/türkis am Ufer → dunkelblau in der Tiefe (mid:6190/6191). Gradient cachen (Welt-Koords, kameraunabhängig) → nicht pro Frame neu bauen (Perf, mid:7271)
+    if(!this._oceanGrad || this._oceanGradR!==lr){ const g=ctx.createRadialGradient(BASE.x,BASE.y,lr, BASE.x,BASE.y,lr+1700);
       g.addColorStop(0,'rgba(150,222,214,.35)'); g.addColorStop(0.10,'rgba(70,170,180,.20)'); g.addColorStop(0.45,'rgba(34,110,135,.45)'); g.addColorStop(1,'rgba(14,58,86,.72)');
-      ctx.fillStyle=g; ctx.fillRect(RX,RY,RW,RH); }
+      this._oceanGrad=g; this._oceanGradR=lr; }
+    ctx.fillStyle=this._oceanGrad; ctx.fillRect(RX,RY,RW,RH);
     // sanftes Ufer-Schimmern: schmaler Saum direkt an der Küste, leicht pulsierend (KEINE großen wandernden Ringe, mid:6209)
     { const pulse=0.5+0.5*Math.sin(this.animT*0.8); ctx.lineWidth=4;
       ctx.strokeStyle='rgba(235,255,252,'+(0.09+0.05*pulse)+')'; ctx.beginPath(); ctx.arc(BASE.x,BASE.y,lr+9+3*pulse,0,Math.PI*2); ctx.stroke(); }
@@ -1742,7 +1744,7 @@ const game={
       const cons=buildConsumes(b);
       const flow=cons ? `wandelt ${Object.keys(cons).map(k=>NAME[k]).join('+')} → ${NAME[T.res]}` : `produziert ${NAME[T.res]}`;
       set('tempo','up_gear',`Tempo Lvl ${b.tempo}/${mxL}`, tMax?'Max für diese Stufe — erst aufsteigen':`${flow} (jetzt ${buildRate(s,b).toFixed(2)}/s)`, tMax?'':'⤷ '+costStr(ct), tMax||!canAfford(s,ct));
-      set('menge',T.res,`Menge Lvl ${b.menge}/${mxL}`, gMax?'Max für diese Stufe — erst aufsteigen':'Mehr Ertrag pro Zyklus', gMax?'':'⤷ '+costStr(cm), gMax||!canAfford(s,cm));
+      set('menge',T.res,`Menge Lvl ${b.menge}/${mxL}`, gMax?'Max für diese Stufe — erst aufsteigen':`Mehr Ertrag pro Zyklus (jetzt ${buildRate(s,b).toFixed(2)}/s)`, gMax?'':'⤷ '+costStr(cm), gMax||!canAfford(s,cm));
       set('assignAdd','worker',`Arbeiter zuweisen (${b.workers}/${mxW})`, wMax?'Hütte voll für diese Stufe':`+50% Output je Arbeiter`, wMax?'':'Frei im Pool: '+freeWorkers(s), wMax||freeWorkers(s)<=0);
       set('assignRem','worker','Arbeiter abziehen','zurück in den Pool der Burg','',b.workers<=0);
       if(b.type==='schmiede'){ for(const up of UP_KAMPF){ const el=this.btns[up.id]; if(!el)continue;   // §5: Helden-Kampf-Upgrades (mid:7162) — gleiche Render-Logik wie im Burg-Panel
@@ -1859,7 +1861,9 @@ function silhouette(key){ if(key in _SIL) return _SIL[key]; const im=A[key];
   if(!im||!im.complete||!im.naturalWidth){ return null; }   // noch nicht geladen → nicht cachen, später erneut
   const c=document.createElement('canvas'); c.width=im.naturalWidth; c.height=im.naturalHeight; const g=c.getContext('2d');
   g.drawImage(im,0,0); g.globalCompositeOperation='source-in'; g.fillStyle='#000'; g.fillRect(0,0,c.width,c.height); _SIL[key]=c; return c; }
-function spriteShadow(key,footX,footY,w,h){ const sil=silhouette(key); if(!sil){ return; }   // (footX,footY) = Fußpunkt des Objekts
+let LOWPERF=false;   // adaptiver Sparmodus für schwache Geräte (mid:7271): teure Silhouetten-Schatten aus
+window.setLowperf=(v)=>{ LOWPERF=!!v; };   // manueller Override / Test-Hook
+function spriteShadow(key,footX,footY,w,h){ if(LOWPERF) return; const sil=silhouette(key); if(!sil){ return; }   // (footX,footY) = Fußpunkt des Objekts
   ctx.save(); ctx.globalAlpha=0.30*(0.55+0.45*LIGHT.day); ctx.translate(footX,footY);
   ctx.transform(1,0, LIGHT.shx, -LIGHT.sqz, 0,0);   // py=0 (Fuß) bleibt; py=-h (Spitze) → unten-rechts + gestaucht/geflippt = Boden-Projektion
   ctx.drawImage(sil, -w/2, -h, w, h); ctx.globalAlpha=1; ctx.restore(); }
