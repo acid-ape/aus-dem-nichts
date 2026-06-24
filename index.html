@@ -258,7 +258,7 @@
     <div class="grab"></div>
     <button id="closeShop" title="Schliessen"></button>
     <div class="ph">Aufbau &amp; Upgrades</div>
-    <div id="tabs"><button data-tab="held" class="on"></button><button data-tab="dorf"></button><button data-tab="kampf"></button></div>
+    <div id="tabs"><button data-tab="held" class="on"></button><button data-tab="dorf"></button></div>
     <div id="shop"></div>
   </div>
   <div id="skillbar">
@@ -1242,7 +1242,7 @@ const game={
     document.getElementById('closeShop').innerHTML=svg('close');
     document.getElementById('closeShop').onclick=closeShop;
     document.querySelector('#panel .grab').onclick=closeShop;
-    const TABS={held:['person','Held'], dorf:['house','Dorf'], kampf:['sword','Kampf']};
+    const TABS={held:['person','Held'], dorf:['house','Dorf']};   // Kampf-Tab raus → Helden-Kampf-Upgrades sind jetzt in der Schmiede (mid:7162/7165)
     for(const b of document.querySelectorAll('#tabs button')){ const td=TABS[b.dataset.tab]||['person','?'];
       b.onclick=()=>this.setTab(b.dataset.tab); b.innerHTML=svg(td[0])+td[1]; }
     // Test-Cheats nur im Dev-Modus (URL ?dev=1) — JETZT im Burger-Menü statt im Shop (mid:7027), damit der Shop-Scrollbereich nicht zugebaut wird.
@@ -1691,6 +1691,7 @@ const game={
       this.mkBtn(shop,'menge','',()=>this.upgBuild('menge'));
       this.mkBtn(shop,'assignAdd','',()=>this.assign(1));
       this.mkBtn(shop,'assignRem','',()=>this.assign(-1)); }
+      if(b.type==='schmiede'){ for(const up of UP_KAMPF) this.mkBtn(shop,up.id,'',()=>this.buy(up.id)); }   // §5: Helden-Kampf-Upgrades in der Schmiede (mid:7162/7165)
     } else if(typeof this.panelFor==='string' && this.panelFor.slice(0,2)==='op'){   // ----- AUSSENPOSTEN-Panel -----
       const o=this.s.outposts&&this.s.outposts[+this.panelFor.slice(2)]; if(!o){ this.panelFor='castle'; return this.buildShop(); }
       tabsEl.style.display='none'; setHead('@'+OUTPOST_TYPES[o.type].sprite, OUTPOST_TYPES[o.type].name);
@@ -1708,7 +1709,7 @@ const game={
       this.mkBtn(shop,'tw_mode','',()=>this.toggleTowerMode());
     } else {                                        // ----- BURG-Panel (Held/Dorf) -----
       tabsEl.style.display='flex'; setHead('@era'+Math.min(6,this.s.era), this.s.playerName?('Burg — '+this.s.playerName):'Burg — Aufbau & Upgrades');
-      const list=this.tab==='held'?UP_HELD:this.tab==='kampf'?UP_KAMPF:UP_DORF;
+      const list=this.tab==='held'?UP_HELD:UP_DORF;   // Kampf-Upgrades sind in der Schmiede (mid:7162)
       for(const up of list) this.mkBtn(shop,up.id,'',()=>this.buy(up.id));
       if(this.tab==='dorf'){ const nr=document.createElement('div'); nr.id='netrate'; nr.className='netrate'; shop.insertBefore(nr,shop.firstChild);   // Dorf-Produktion/Sek oben (Audit-Idee)
         this.mkBtn(shop,'nacht','era',()=>this.startNight()); if(this.s.era>=3) this.mkBtn(shop,'heal','',()=>this.healVillage()); this.mkBtn(shop,'era','era',()=>this.buyEra()); }
@@ -1733,6 +1734,11 @@ const game={
       set('menge',T.res,`Menge Lvl ${b.menge}/${mxL}`, gMax?'Max für diese Stufe — erst aufsteigen':'Mehr Ertrag pro Zyklus', gMax?'':'⤷ '+costStr(cm), gMax||!canAfford(s,cm));
       set('assignAdd','worker',`Arbeiter zuweisen (${b.workers}/${mxW})`, wMax?'Hütte voll für diese Stufe':`+50% Output je Arbeiter`, wMax?'':'Frei im Pool: '+freeWorkers(s), wMax||freeWorkers(s)<=0);
       set('assignRem','worker','Arbeiter abziehen','zurück in den Pool der Burg','',b.workers<=0);
+      if(b.type==='schmiede'){ for(const up of UP_KAMPF){ const el=this.btns[up.id]; if(!el)continue;   // §5: Helden-Kampf-Upgrades (mid:7162) — gleiche Render-Logik wie im Burg-Panel
+        if(up.show&&!up.show(s)){ el.style.display='none'; continue; }
+        if(up.lvl){ const atMax=up.lvl(s)>=heroMaxLvl(s), c=up.cost(s);
+          set(up.id,up.icon,`${up.name(s)} (Lvl ${up.lvl(s)}/${heroMaxLvl(s)})`, atMax?'Max für diese Stufe — erst aufsteigen':up.desc(s), atMax?'':'⤷ '+costStr(c), atMax||!canAfford(s,c)); }
+        else { const c=up.cost(s); set(up.id,up.icon,up.name(s),up.desc(s),'⤷ '+costStr(c),!canAfford(s,c)); } } }
       return;
     }
     if(typeof this.panelFor==='string' && this.panelFor.slice(0,2)==='op'){   // AUSSENPOSTEN-Panel refresh
@@ -1762,7 +1768,7 @@ const game={
         set('tw_mode','worker', ml[m], dl[m], 'Tippen: nächster Modus →', false); }
       return;
     }
-    const list=this.tab==='held'?UP_HELD:this.tab==='kampf'?UP_KAMPF:UP_DORF;
+    const list=this.tab==='held'?UP_HELD:UP_DORF;   // Kampf-Upgrades sind in der Schmiede (mid:7162)
     for(const up of list){ const el=this.btns[up.id]; if(!el)continue;
       if(up.show&&!up.show(s)){ el.style.display='none'; continue; }
       if(up.lvl){ const atMax=up.lvl(s)>=heroMaxLvl(s); const c=up.cost(s);
