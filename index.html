@@ -964,7 +964,8 @@ function clearSave(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} }
 // ----- Lokale Bestenliste (§12 Endgame): wer Stufe 20 erreicht + wie viele Endless-Nächte. localStorage, Top 10 nach Score. -----
 const LB_KEY='ausdemnichts_leaderboard';
 function lbLoad(){ try{ const a=JSON.parse(localStorage.getItem(LB_KEY)||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
-function lbAdd(name,score){ const lb=lbLoad(), nm=((name||'').replace(/[^A-Za-z0-9 ]/g,'').slice(0,12))||'Held';
+function lbAdd(name,score){ if(typeof Bot!=='undefined' && Bot.on) return lbLoad();   // Auto-Play-Bot kommt NICHT in die Bestenliste (mid:7147)
+  const lb=lbLoad(), nm=((name||'').replace(/[^A-Za-z0-9 ]/g,'').slice(0,12))||'Held';
   lb.push({n:nm,s:score,t:Date.now()}); lb.sort((a,b)=>(b.s-a.s)||(b.t-a.t)); const top=lb.slice(0,10);
   try{ localStorage.setItem(LB_KEY,JSON.stringify(top)); }catch(e){} return top; }
 // Safe-Area-Top (Notch/Dynamic Island) einmal messen — fuer Canvas-gezeichnetes UI, das env() nicht direkt kennt (Audit H2)
