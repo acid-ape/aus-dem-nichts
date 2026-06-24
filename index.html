@@ -342,15 +342,16 @@ function nextBuildType(s){ return BUILD_ORDER.find(t=>BUILD_TYPES[t].era<=s.era 
 // Redesign 2026-06-24 (§1/§3): 4 SAMMLER, alle außerhalb. Freischalt-Reihenfolge: Holz S1, Kürbis S2, Stein S3, Pilz S9.
 // (Manuelles Sammeln der Knoten bleibt immer möglich — der Sammler automatisiert+skaliert die Ressource, §7016.)
 const OUTPOST_TYPES={
-  holz:   {name:'Holz-Sammler',   res:'holz',   sprite:'b_holz',   biome:'wald',    era:0, cost:{holz:25},               rate:0.45, cap:55},   // Stufe 1
-  korn:   {name:'Kürbis-Sammler', res:'korn',   sprite:'b_korn',   biome:'felder',  era:1, cost:{holz:80},               rate:0.45, cap:55},   // Stufe 2
-  stein:  {name:'Stein-Sammler',  res:'stein',  sprite:'quarry',   biome:'gebirge', era:2, cost:{holz:120},              rate:0.40, cap:55},   // Stufe 3
-  pilze:  {name:'Pilz-Sammler',   res:'pilze',  sprite:'b_pilze',  biome:'wald',    era:8, cost:{holz:160,korn:70},      rate:0.45, cap:55},   // Stufe 9
+  holz:   {name:'Holz-Sammler',   res:'holz',   sprite:'b_holz',   biome:'wald',    era:0, cost:{holz:25},               rate:0.45, cap:28},   // Stufe 1 (cap 55→28, mid:7256)
+  korn:   {name:'Kürbis-Sammler', res:'korn',   sprite:'b_korn',   biome:'felder',  era:1, cost:{holz:80},               rate:0.45, cap:28},   // Stufe 2
+  stein:  {name:'Stein-Sammler',  res:'stein',  sprite:'quarry',   biome:'gebirge', era:2, cost:{holz:120},              rate:0.40, cap:28},   // Stufe 3
+  pilze:  {name:'Pilz-Sammler',   res:'pilze',  sprite:'b_pilze',  biome:'wald',    era:8, cost:{holz:160,korn:70},      rate:0.45, cap:32},   // Stufe 9
 };
 const OUTPOST_ORDER=['holz','korn','stein','pilze'];
 function nextOutpostType(s){ return OUTPOST_ORDER.find(t=>OUTPOST_TYPES[t].era<=s.era && !(s.outposts||[]).some(o=>o.type===t)); }
 // Redesign §5: Sammler-Upgrades sind GLOBAL (alle Sammler zusammen). s = State (globale Level sammlerTempoLvl/sammlerCapLvl).
-function outpostRate(o,s){ return OUTPOST_TYPES[o.type].rate*(1+0.5*((s&&s.sammlerTempoLvl)||0)); }   // Produktion ins eigene Lager — IMMER gleich, unabhängig von Pawns (mid:7249); Pawns liefern nur einen Teil automatisch heim (s. step)
+const WIRT_HAERTE=0.55;   // EIN Drehknopf fürs Sammel-Einkommen (mid:7254-7257): <1 = härter/langsamer. Skaliert Sammler-Raten + Held-Sammeln. Tunebar.
+function outpostRate(o,s){ return OUTPOST_TYPES[o.type].rate*(1+0.5*((s&&s.sammlerTempoLvl)||0))*WIRT_HAERTE; }   // Produktion ins eigene Lager — IMMER gleich, unabhängig von Pawns (mid:7249); Pawns liefern nur einen Teil automatisch heim (s. step)
 function outpostCap(o,s){ return Math.round(OUTPOST_TYPES[o.type].cap*(1+0.6*((s&&s.sammlerCapLvl)||0))); }   // globales Cap-Level erhöht Lager
 function sammlerGlobalMax(s){ return (s.era||0)+1; }   // pro Stufe ein globaler Rang je Stat
 function sammlerGlobalCost(kind,lvl){ return kind==='tempo'? {holz:scaled(60,1.5,lvl)} : {holz:scaled(40,1.5,lvl),stein:scaled(50,1.5,lvl)}; }   // Handwerk-Schiene (Holz→Stein §6)
@@ -505,8 +506,8 @@ function updateCombat(s,dt){ const P=s.player; P.attacking=false;
   if(s.outposts) for(const o of s.outposts){ const rate=outpostRate(o,s), res=OUTPOST_TYPES[o.type].res;
     o.store=Math.min(outpostCap(o,s),(o.store||0)+rate*dt);
     if((o.workers||0)>0 && o.store>0){   // §1/mid:7248: Pawns tragen einen TEIL automatisch heim — nicht genug, sodass sich der Sammler trotzdem füllt
-      const hf=Math.min(0.7, 0.25*o.workers); o._home=(o._home||0)+rate*hf*dt; const amt=Math.floor(o._home);
-      if(amt>0 && o.store>=amt){ o._home-=amt; o.store-=amt; s.store[res]=(s.store[res]||0)+amt; s.lifetime=(s.lifetime||0)+amt; addPop(s,o.x,o.y-30,'#bfe9ff','+'+amt+' '+NAME[res]); } }
+      const hf=Math.min(0.7, 0.25*o.workers); o._home=(o._home||0)+rate*hf*dt; const amt=Math.min(Math.floor(o._home), Math.floor(o.store));   // liefere min(angesammelt, vorhanden) → kein Stall wenn Lager knapp (Self-Review)
+      if(amt>0){ o._home-=amt; o.store-=amt; s.store[res]=(s.store[res]||0)+amt; s.lifetime=(s.lifetime||0)+amt; addPop(s,o.x,o.y-30,'#bfe9ff','+'+amt+' '+NAME[res]); } }
     if(o.store>=1 && dist(P.x,P.y,o.x,o.y)<HARVEST_R+14){ const amt=Math.floor(o.store);   // manuelles Abholen (holt auch den Rest, der sich trotz Pawns angesammelt hat)
       s.store[res]=(s.store[res]||0)+amt; o.store-=amt; s.lifetime=(s.lifetime||0)+amt; addPop(s,o.x,o.y-30,'#fff','+'+amt+' '+NAME[res]); burst(s,o.x,o.y-8,'#ffe9a8',8); SFX.deposit(); } }   // Abholung zaehlt zur Liefer-Statistik (Audit M15)
   // Bestände skalieren mit der MAP-Größe (areas): Grunts ab Start (auch era0), Brutes erst ab Dorf-Era (mid:6108)
@@ -861,9 +862,9 @@ function buildLevel(s){
   s.waterRocks=[]; const maxR=2000+3*600;   // = FULLR (mid:6596)
   for(let i=0;i<26;i++){ const a=rnd(0,6.2832), d=rnd(maxR+120, maxR+900); s.waterRocks.push({x:BASE.x+Math.cos(a)*d, y:BASE.y+Math.sin(a)*d, kind:Math.random()<0.5?'env_waterrock1':'env_waterrock3', t:rnd(0,2)}); }
   // Wolken (mid:6503): driften langsam übers Meer + bisschen über die Insel, leicht transparent
-  s.clouds=[]; s.cloudSpan=maxR+1600; const CGRID=4200, CR=maxR+1400;   // weniger, größer (mid:6513); jittert → immer welche im Bild
+  s.clouds=[]; s.cloudSpan=maxR+1600; const CGRID=3000, CR=maxR+1400;   // dichteres Raster → ein paar mehr Wolken (mid:7250), aber dezenter (niedrigere Deckkraft) damit es Atmosphäre macht statt zu stören
   for(let gx=-CR; gx<=CR; gx+=CGRID) for(let gy=-CR; gy<=CR; gy+=CGRID){ if(Math.hypot(gx,gy)>CR) continue;
-    s.clouds.push({x:BASE.x+gx+rnd(-1400,1400), y:BASE.y+gy+rnd(-1400,1400), ci:1+Math.floor(rnd(0,8)), spd:rnd(6,15), sz:rnd(1.4,2.5), al:rnd(0.5,0.78)}); }
+    s.clouds.push({x:BASE.x+gx+rnd(-1100,1100), y:BASE.y+gy+rnd(-1100,1100), ci:1+Math.floor(rnd(0,8)), spd:rnd(6,15), sz:rnd(1.3,2.4), al:rnd(0.4,0.66)}); }
   // animierte Sträucher/Büsche als Insel-Deko (mid:6503): mehr Leben, nicht auf Sand/Wasser/Dorf
   s.bushes=[]; for(let i=0;i<208;i++){ const a=rnd(0,6.2832), dd=rnd(VILLAGE_R+60, FULLR*0.95), x=BASE.x+Math.cos(a)*dd, y=BASE.y+Math.sin(a)*dd;   // -20% Büsche/Sträucher (mid:6765; war 260 @mid:6600), 4 Sorten
     { const _dB=dist(x,y,BASE.x,BASE.y); if(_dB<OUTER_R+22||inLake(x,y,26)||onSand(s,x,y)||blocked(s,x,y,14)) continue; if(_dB<enemyNoSpawn(s)-30 && Math.random()>0.15) continue; }   // Sträucher: wenig im Sammler-Ring (mid:7120/7121)
@@ -1359,7 +1360,7 @@ const game={
     if(up.lvl && up.lvl(s)>=heroMaxLvl(s)){ say('Max für diese Stufe erreicht — erst aufsteigen.'); return; }
     const c=up.cost(s);
     if(!canAfford(s,c)){ say('Dafür fehlen noch Ressourcen.'); return; } pay(s,c); up.apply(s); ((up.id==='build'||up.id==='buildpost')?SFX.build:up.id==='expand'?SFX.expand:SFX.buy)(); burst(s,BASE.x,BASE.y-20,'#cbb8ff',10);
-    if(!up.expand) say(['Investiert. Schau dich an, du Kapitalist.','Aufgerüstet. Es wächst!','Gut angelegt.','Mehr, mehr, mehr — dein Stil gefällt mir.'][Math.floor(s.store.holz+s.store.korn)%4]);
+    // (mid:7234) kein Kommentar mehr bei jedem Kauf — SFX + sichtbare Stat-Änderung reichen; build/buildpost/expand sagen eh ihr eigenes
     this.updateShop(); saveGame(s); },
   buyEra(){ const s=this.s,next=s.era+1; if(next>=ERAS.length){ if(s.endless) return this.endlessNight(); say('Du bist am Gipfel. Genieß die Aussicht.'); return; }
     if(nightActive(s)){ say('Die Nacht läuft — erst die Welle zurückschlagen.'); return; }
@@ -1417,7 +1418,7 @@ const game={
     this.animT=(this.animT||0)+dt;
     s.player.harvesting=false;
     if(carryTotal(s.player.carry)<s.cap){ for(const n of s.nodes){ if(n.amount>0.4 && dist(s.player.x,s.player.y,n.x,n.y)<HARVEST_R){
-      const amt=Math.min(s.gather*dt,n.amount,s.cap-carryTotal(s.player.carry)); if(amt>0){ n.amount-=amt; s.player.carry[n.type]+=amt; s.tutHarvested=true;   // Tutorial-Schritt 2 (mid:6450)
+      const amt=Math.min(s.gather*dt*WIRT_HAERTE,n.amount,s.cap-carryTotal(s.player.carry)); if(amt>0){ n.amount-=amt; s.player.carry[n.type]+=amt; s.tutHarvested=true;   // Held-Sammeln × WIRT_HAERTE (mid:7254); Tutorial-Schritt 2 (mid:6450)
         s.player.harvesting=true; const hdx=n.x-s.player.x; if(Math.abs(hdx)>2) s.player.face=hdx<0?-1:1;   // Schlag-Anim beim Ernten + zum Knoten drehen (mid:6582)
         s.harvAcc=(s.harvAcc||0)+dt; if(s.harvAcc>0.18){ s.harvAcc=0; addParticle(s,n.x,n.y-6,COL[n.type]); addLoot(s,n.x,n.y,n.type); SFX.harvest(); } } break; } } }
     for(const n of s.nodes){ if(n.amount<=0.4&&!n.dead){ n.dead=true; addPop(s,n.x,n.y,COL[n.type]); burst(s,n.x,n.y-6,COL[n.type],7); s.respawns.push({type:n.type,t:rnd(3,5)}); } }
@@ -1464,6 +1465,7 @@ const game={
     s.cam.x+=(this.camGoal.x-s.cam.x)*k; s.cam.y+=(this.camGoal.y-s.cam.y)*k;
   },
   drawMinimap(){ const mc=document.getElementById('minimap'); if(!mc)return; const s=this.s;   // Minimap/Kompass (Audit-Idee)
+    { const open=document.getElementById('panel').classList.contains('open'); mc.style.opacity=open?'0':'1'; mc.style.pointerEvents=open?'none':''; if(open) return; }   // (mid:7232) Minimap ausblenden wenn ein Panel offen ist → kein Overlap überm Shop
     const r=mc.getBoundingClientRect(), SZ=r.width||92, dpr=Math.min(2,window.devicePixelRatio||1);
     if(mc.width!==Math.round(SZ*dpr)){ mc.width=Math.round(SZ*dpr); mc.height=Math.round(SZ*dpr); }
     const g=mc.getContext('2d'); g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,SZ,SZ);
@@ -1477,7 +1479,8 @@ const game={
     g.strokeStyle='rgba(255,255,255,.4)';g.lineWidth=1;g.strokeRect(tl.x,tl.y,vw*sc,vh*sc); },
   loop(ts){ if(!this.running)return; if(!this.last)this.last=ts; let dt=(ts-this.last)/1000; this.last=ts; if(dt>0.1)dt=0.1;
     if(!this.s.paused){ const reps=(Bot&&Bot.on)?Bot.speed:1; for(let i=0;i<reps;i++){ this.step(dt); if(Bot&&Bot.on) Bot.think(dt); } } this.draw(); updateMusic(dt);
-    if(!LOWPERF){ this._ft=(this._ft||16.7)*0.9+(dt*1000)*0.1; if(this.s.playSec>3 && this._ft>30){ LOWPERF=true; try{ say('⚙️ Sparmodus aktiviert (Schatten aus) für flüssigeres Spiel.'); }catch(_){} } }   // adaptive Perf-Degradierung (mid:7271)
+    if(this.s.playSec>3){ this._ft=(this._ft||16.7)*0.9+(dt*1000)*0.1;   // adaptive Perf-Degradierung, STUFENWEISE (mid:7271/7287)
+      if(this._ft>30 && PERF>0 && this.s.playSec>(this._lastDrop||0)+1.6){ PERF--; this._lastDrop=this.s.playSec; this._ft=16.7; try{ say(PERF<=0?'⚙️ Schatten aus für mehr Tempo.':'⚙️ Sparmodus: einfachere Schatten für flüssigeres Spiel.'); }catch(_){} } }
     this._mmAcc=(this._mmAcc||0)+1; if(this._mmAcc%4===0) this.drawMinimap();   // Minimap throttled (~15fps)
     this.uiAcc+=dt; if(this.uiAcc>0.2){ this.uiAcc=0; checkQuests(this.s); checkAchievements(this.s); this.checkTut(); this.renderRes(); this.updateShop(); this.renderQuest(); }
     this.saveAcc=(this.saveAcc||0)+dt; if(this.saveAcc>5){ this.saveAcc=0; saveGame(this.s); }  // Auto-Save alle 5s
@@ -1548,7 +1551,7 @@ const game={
     if((vx1-vx0)<5200) for(const d of s.deco){ if(!vis(d.x,d.y))continue; if(dist(d.x,d.y,BASE.x,BASE.y)>lr-8)continue;
       if(d.size>=85){ const _di=A[d.key], _da=(_di&&_di.naturalWidth)?_di.naturalWidth/_di.naturalHeight:1, _dh=(_da>1?d.size*SC/_da:d.size*SC), _dw=(_da>1?d.size*SC:d.size*SC*_da);
         spriteShadow(d.key, d.x, d.y+(FOOTPAD[d.key]||0)*_dh, _dw, _dh); }   // große Deko (Bäume/Felsen): Silhouetten-Schatten (mid:7083)
-      else shadow(d.x,d.y,d.size*0.34,d.size*0.13);   // kleine Deko: Ellipse (Performance)
+      else if(PERF>=1) groundShadow(d.x,d.y,d.size*SC*0.8,d.size*SC*0.36);   // kleine Deko: geneigte Ellipse (Stufe ≥1) — gleiche Lichtrichtung wie die Silhouetten (mid:7283/7287)
       worldSprite(d.key,d.x,d.y,d.size,true); }   // bei extremem Auszoomen Deko überspringen (sub-pixel), Iteration kappen (Audit M6)
     if(s.bushes && (vx1-vx0)<5200) for(const b of s.bushes){ if(!vis(b.x,b.y))continue; if(dist(b.x,b.y,BASE.x,BASE.y)>lr-8)continue; const im=BUSH[b.bi];   // animierte Sträucher (mid:6503)
       if(!im||!im.complete||!im.naturalWidth)continue; const fw=im.naturalHeight, fr=Math.max(1,Math.round(im.naturalWidth/fw)), col=Math.floor(this.animT*5+b.t*7)%fr;
@@ -1708,6 +1711,7 @@ const game={
     } else if(typeof this.panelFor==='string' && this.panelFor.slice(0,2)==='op'){   // ----- AUSSENPOSTEN-Panel -----
       const o=this.s.outposts&&this.s.outposts[+this.panelFor.slice(2)]; if(!o){ this.panelFor='castle'; return this.buildShop(); }
       tabsEl.style.display='none'; setHead('@'+OUTPOST_TYPES[o.type].sprite, OUTPOST_TYPES[o.type].name);
+      this.mkBtn(shop,'opinfo','',()=>{});   // (mid:7236) Bestand + Rate immer sichtbar — Info-Zeile, nicht klickbar
       this.mkBtn(shop,'optempo','',()=>this.upgSammlerGlobal('tempo'));   // §5: globale Sammler-Upgrades (gelten für alle Sammler)
       this.mkBtn(shop,'opmenge','',()=>this.upgSammlerGlobal('cap'));
       this.mkBtn(shop,'opAssignAdd','',()=>this.assignOutpost(1));   // §1: Pawns in den Sammler (mid:7122)
@@ -1757,6 +1761,8 @@ const game={
     if(typeof this.panelFor==='string' && this.panelFor.slice(0,2)==='op'){   // AUSSENPOSTEN-Panel refresh
       const o=s.outposts&&s.outposts[+this.panelFor.slice(2)]; if(!o) return; const T=OUTPOST_TYPES[o.type], mxL=sammlerGlobalMax(s);
       const tL=s.sammlerTempoLvl||0, cL=s.sammlerCapLvl||0, ct=sammlerGlobalCost('tempo',tL), cm=sammlerGlobalCost('cap',cL), tMax=tL>=mxL, mMax=cL>=mxL;
+      const cap=outpostCap(o,s), bestand=Math.floor(o.store||0), pawnHeim=(o.workers||0)>0?` · ${o.workers} Pawn liefert heim`:'';   // (mid:7236) Bestand + Rate immer sichtbar
+      set('opinfo','@'+T.sprite,`Lager: ${bestand}/${cap} ${NAME[T.res]}`,`Sammelrate ${outpostRate(o,s).toFixed(2)}/s${pawnHeim}`,'',true);
       set('optempo','era1',`Alle Sammler: Tempo ${tL}/${mxL}`, tMax?'Max für diese Stufe — erst aufsteigen':`schneller sammeln (dieser: ${outpostRate(o,s).toFixed(2)}/s)`, tMax?'':'⤷ '+costStr(ct), tMax||!canAfford(s,ct));
       set('opmenge',T.res,`Alle Sammler: Lager ${cL}/${mxL}`, mMax?'Max für diese Stufe — erst aufsteigen':`mehr Lager (dieser: ${outpostCap(o,s)} ${NAME[T.res]})`, mMax?'':'⤷ '+costStr(cm), mMax||!canAfford(s,cm));
       const ow=o.workers||0, free=freeWorkers(s);   // §1: Pawns in diesem Sammler (max 4) boosten die Sammelrate
@@ -1855,15 +1861,22 @@ const LIGHT={dx:0.48, dy:0.26, stretch:1.16, day:1, shx:-0.40, sqz:0.34, dusk:0}
 function shadow(x,y,rx,ry){ const RX=rx*SC, RY=ry*SC;   // Ellipsen-Schatten (Einheiten/Kleinkram)
   ctx.fillStyle='rgba(0,0,0,'+(0.26*(0.55+0.45*LIGHT.day)).toFixed(3)+')';
   ctx.beginPath(); ctx.ellipse(x+RX*LIGHT.dx, y+RY*LIGHT.dy, RX*LIGHT.stretch, RY, 0, 0, 7); ctx.fill(); }
+// Boden-Schatten als geneigte Ellipse — in DERSELBEN Lichtrichtung geschert wie die Silhouetten (mid:7283), damit kleine + große Deko konsistent geneigt sind. w,h in Screen-Einheiten.
+function groundShadow(x,y,w,h){ ctx.save(); ctx.fillStyle='rgba(0,0,0,'+(0.26*(0.55+0.45*LIGHT.day)).toFixed(3)+')';
+  ctx.translate(x,y); ctx.transform(1,0, LIGHT.shx, 1, 0,0);   // Scherung = Neigung wie spriteShadow (c=LIGHT.shx)
+  ctx.beginPath(); ctx.ellipse(0, -h*0.18, w*0.5, h*0.5, 0, 0, 7); ctx.fill(); ctx.restore(); }
 // Silhouetten-Schatten (Steffen mid:7062): schwarze Form des Sprites flach auf den Boden projiziert (gestaucht+geschert in Lichtrichtung) → Schatten in Objekt-Form.
 const _SIL={};
 function silhouette(key){ if(key in _SIL) return _SIL[key]; const im=A[key];
   if(!im||!im.complete||!im.naturalWidth){ return null; }   // noch nicht geladen → nicht cachen, später erneut
   const c=document.createElement('canvas'); c.width=im.naturalWidth; c.height=im.naturalHeight; const g=c.getContext('2d');
   g.drawImage(im,0,0); g.globalCompositeOperation='source-in'; g.fillStyle='#000'; g.fillRect(0,0,c.width,c.height); _SIL[key]=c; return c; }
-let LOWPERF=false;   // adaptiver Sparmodus für schwache Geräte (mid:7271): teure Silhouetten-Schatten aus
-window.setLowperf=(v)=>{ LOWPERF=!!v; };   // manueller Override / Test-Hook
-function spriteShadow(key,footX,footY,w,h){ if(LOWPERF) return; const sil=silhouette(key); if(!sil){ return; }   // (footX,footY) = Fußpunkt des Objekts
+let PERF=2;   // Schatten-Detailstufe (mid:7287): 2=Silhouetten · 1=geneigte Ellipsen (billig, sieht fast gleich aus) · 0=keine. Adaptiv stufenweise runter bei niedriger FPS.
+window.setPerf=(v)=>{ PERF=Math.max(0,Math.min(2,v|0)); };
+window.setLowperf=(v)=>{ PERF=v?1:2; };   // Alt-Hook (Tests/Override): an = Ellipsen-Stufe
+function spriteShadow(key,footX,footY,w,h){ if(PERF<=0) return;   // Stufe 0: keine Schatten
+  if(PERF===1){ groundShadow(footX,footY,w*0.8,h*0.4); return; }   // Stufe 1: billige geneigte Ellipse statt Silhouette (mid:7287)
+  const sil=silhouette(key); if(!sil){ return; }   // Stufe 2: volle Silhouette. (footX,footY) = Fußpunkt
   ctx.save(); ctx.globalAlpha=0.30*(0.55+0.45*LIGHT.day); ctx.translate(footX,footY);
   ctx.transform(1,0, LIGHT.shx, -LIGHT.sqz, 0,0);   // py=0 (Fuß) bleibt; py=-h (Spitze) → unten-rechts + gestaucht/geflippt = Boden-Projektion
   ctx.drawImage(sil, -w/2, -h, w, h); ctx.globalAlpha=1; ctx.restore(); }
@@ -1882,7 +1895,7 @@ function stageProgress(s){ const e=s.era||0;   // nur über die WIRKLICH freiges
 function updateLight(s,dt){ const p=stageProgress(s), k=Math.min(1,dt*1.2);   // sanft gleiten, nicht springen
   LIGHT.shx+=((-0.40+p*0.80)-LIGHT.shx)*k;   // Schatten-Richtung: Morgen (Sonne links) → Abend (Sonne rechts), enger gehalten (mid:7108)
   LIGHT.day+=((1-p*0.45)-LIGHT.day)*k;        // Helligkeit → dunkler zur Dämmerung
-  LIGHT.sqz+=((0.34+p*0.26)-LIGHT.sqz)*k;     // tiefstehende Sonne → längere Schatten
+  LIGHT.sqz+=((0.22+p*0.16)-LIGHT.sqz)*k;     // tiefstehende Sonne → längere Schatten (gekürzt, mid:7283: Schatten waren zu lang)
   LIGHT.dusk=p; }
 function label(t,x,y){ ctx.save(); ctx.font='bold 14px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillStyle='rgba(0,0,0,.55)'; ctx.fillText(t,x+1,y+1); ctx.fillStyle='rgba(236,231,255,.92)'; ctx.fillText(t,x,y); ctx.restore(); }
