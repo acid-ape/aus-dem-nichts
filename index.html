@@ -20,6 +20,10 @@
     padding:1px 9px;border-radius:8px;background:rgba(12,9,22,.6);border:1px solid rgba(255,224,138,.45);text-shadow:0 1px 2px #000}
   #resbar .cportrait{width:50px;height:50px;image-rendering:pixelated;object-fit:contain;
     background:rgba(12,9,22,.6);border:1px solid rgba(160,91,255,.5);border-radius:12px;padding:2px}
+  #resbar .chp{position:relative;width:54px;height:15px;border-radius:8px;margin-top:3px;overflow:hidden;
+    background:rgba(12,9,22,.75);border:1px solid rgba(255,255,255,.28);box-shadow:0 1px 2px rgba(0,0,0,.5)}   /* Held-Lebensleiste unterm Portrait (mid:7115) */
+  #resbar .chpfill{position:absolute;left:0;top:0;bottom:0;border-radius:8px;transition:width .2s,background .2s}
+  #resbar .chpv{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:800;color:#fff;text-shadow:0 1px 2px #000,0 0 3px #000;letter-spacing:.2px}
   #resbar .r{display:flex;align-items:center;gap:5px;font-weight:800;font-size:16px;color:#fff;
     text-shadow:0 1px 2px #000,0 0 4px rgba(0,0,0,.75)}
   #resbar .r img{height:28px;width:28px;image-rendering:pixelated;filter:drop-shadow(0 1px 1px rgba(0,0,0,.6))}
@@ -811,8 +815,18 @@ function buildLevel(s){
   s.deco=[];
   // Deko in NATÜRLICHEN KLUMPEN statt gleichmäßigem Streuen (mid:6229): Wäldchen mit großen Bäumen eng zusammen,
   // Felsfelder (viele Brocken + ein paar große solide), Wiesen offener mit Kürbissen/Pilzen. → volle, „gebaute" Karte.
+  // Verteilungs-Raster (Steffen mid:7111): Objekte nicht in/hinter andere Deko spawnen — kleine sollen nicht hinter großen verschwinden.
+  const DGRID=260, dgrid={}; const dkey=(x,y)=>(Math.floor(x/DGRID)+','+Math.floor(y/DGRID));
+  const decoClear=(x,y,size)=>{ const gx=Math.floor(x/DGRID), gy=Math.floor(y/DGRID);
+    for(let ax=gx-1;ax<=gx+1;ax++) for(let ay=gy-1;ay<=gy+1;ay++){ const cell=dgrid[ax+','+ay]; if(!cell)continue;
+      for(const o of cell){ const dd=dist(x,y,o.x,o.y), big=Math.max(size,o.size), sm=Math.min(size,o.size);
+        if(dd < (size+o.size)*SC*0.17) return false;                 // hartes Clipping (Körper bugt ineinander)
+        if(big>sm*1.3 && dd < big*SC*0.46) return false;             // kleines Objekt würde hinter dem großen verschwinden
+      } } return true; };
   const placeD=(key,x,y,size,solid,obR)=>{ if(dist(x,y,BASE.x,BASE.y)<OUTER_R+22||inLake(x,y,26)||onSand(s,x,y)||blocked(s,x,y,16)) return;   // Deko: nicht im Dorf-Ring, nicht auf Wasser/Sand (mid:6258/6260)
-    s.deco.push({key,x,y,size,solid:!!solid}); if(solid) s.obstacles.push({x,y,r:obR||size*0.30}); };
+    if(!decoClear(x,y,size)) return;   // nicht in/hinter andere Deko (mid:7111)
+    s.deco.push({key,x,y,size,solid:!!solid}); if(solid) s.obstacles.push({x,y,r:obR||size*0.30});
+    const k=dkey(x,y); (dgrid[k]=dgrid[k]||[]).push({x,y,size}); };
   const clump=(cx,cy,n,spread,fn)=>{ for(let j=0;j<n;j++){ const a=rnd(0,6.2832), d=Math.pow(Math.random(),0.7)*spread; fn(cx+Math.cos(a)*d, cy+Math.sin(a)*d); } };
   const NCL=1120;   // -20% Klumpen-Zentren = weniger voll (mid:6765; war 1400 @mid:6600)
   for(let i=0;i<NCL;i++){ const a=rnd(0,6.2832), d=Math.sqrt(Math.random())*FULLR, cx=BASE.x+Math.cos(a)*d, cy=BASE.y+Math.sin(a)*d;
@@ -1634,7 +1648,8 @@ const game={
   },
   renderRes(){ const s=this.s;
     document.getElementById('resbar').innerHTML =
-      (s.charChosen?`<div class="charhdr">${s.playerName?`<div class="cname">${s.playerName}</div>`:''}<img class="cportrait" src="ts/u/portrait_${CHARS[s.char]?s.char:'krieger'}.png"></div>`:'')   // Charakter-Ecke (mid:6468)
+      (s.charChosen?(()=>{ const hpf=Math.max(0,Math.min(1,(s.player.hp||0)/(s.player.hpmax||1))), hpc=hpf>0.5?'#5fd06a':hpf>0.25?'#e0a93a':'#e0573a';   // Held-HP-Leiste + Wert (mid:7115)
+        return `<div class="charhdr">${s.playerName?`<div class="cname">${s.playerName}</div>`:''}<img class="cportrait" src="ts/u/portrait_${CHARS[s.char]?s.char:'krieger'}.png"><div class="chp"><div class="chpfill" style="width:${(hpf*100).toFixed(0)}%;background:${hpc}"></div><span class="chpv">${Math.ceil(s.player.hp||0)}/${Math.round(s.player.hpmax||0)}</span></div></div>`; })():'')   // Charakter-Ecke (mid:6468) + HP-Leiste
       + `<span class="sack"><span class="bag">👝</span>${Math.floor(carryTotal(s.player.carry))}/${s.cap}</span>`  // Tasche (was du gerade trägst)
       + `<span class="rdiv"></span>`                                                                            // Trennstrich → ab hier das Lager
       + activeKeys(s.era).map(k=>`<span class="r"><img src="ts/icons/${k}.png"><b>${Math.floor(s.store[k])}</b></span>`).join('')
