@@ -68,10 +68,11 @@
   #herohud .herorow{display:flex;flex-direction:row;align-items:flex-end;gap:7px}   /* Held-Portrait + Inventar nach rechts (mid:7357) */
   /* zwischen Resbar (links) und Burger (rechts) gespannt → überlappt die Inventar-Zahl nicht mehr (mid:6063) */
   /* Quest fährt vom Symbol (oben links der Map) nach links aus (mid:7380 / Plan A4) */
-  #quest{position:absolute;top:calc(env(safe-area-inset-top) + 14px);right:calc(env(safe-area-inset-right) + 178px);max-width:min(58vw,340px);
-    text-align:left;font-size:13px;font-weight:600;color:#fff;background:rgba(12,9,22,.82);backdrop-filter:blur(6px);
-    border:1px solid rgba(255,224,138,.55);border-radius:13px;padding:7px 13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-    pointer-events:auto;box-shadow:0 2px 10px rgba(0,0,0,.4);cursor:pointer;
+  #quest{position:absolute;top:calc(env(safe-area-inset-top) + 12px);right:calc(env(safe-area-inset-right) + 172px);max-width:min(58vw,340px);
+    text-align:left;font-size:13px;font-weight:700;color:#fff;text-shadow:0 1px 2px #000,0 0 3px rgba(0,0,0,.6);
+    border-image:url(ts/ui/frame_blue.png) 16 fill / 13px / 0 stretch;image-rendering:pixelated;filter:brightness(.96);
+    padding:9px 15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    pointer-events:auto;cursor:pointer;
     transform:translateX(24px);opacity:0;visibility:hidden;transition:transform .28s ease,opacity .22s ease,visibility .28s}
   #quest.qopen{transform:translateX(0);opacity:1;visibility:visible}
   #quest .qt{color:#ffe08a;font-weight:800;margin-right:6px}
