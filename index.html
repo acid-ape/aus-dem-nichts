@@ -20,10 +20,10 @@
     padding:1px 9px;border-radius:8px;background:rgba(12,9,22,.6);border:1px solid rgba(255,224,138,.45);text-shadow:0 1px 2px #000}
   #resbar .cportrait{width:50px;height:50px;image-rendering:pixelated;object-fit:contain;
     background:rgba(12,9,22,.6);border:1px solid rgba(160,91,255,.5);border-radius:12px;padding:2px}
-  #resbar .chp{position:relative;width:54px;height:15px;border-radius:8px;margin-top:3px;overflow:hidden;
-    background:rgba(12,9,22,.75);border:1px solid rgba(255,255,255,.28);box-shadow:0 1px 2px rgba(0,0,0,.5)}   /* Held-Lebensleiste unterm Portrait (mid:7115) */
-  #resbar .chpfill{position:absolute;left:0;top:0;bottom:0;border-radius:8px;transition:width .2s,background .2s}
-  #resbar .chpv{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:800;color:#fff;text-shadow:0 1px 2px #000,0 0 3px #000;letter-spacing:.2px}
+  .chp{position:relative;width:54px;height:15px;border-radius:8px;margin-top:3px;overflow:hidden;
+    background:rgba(12,9,22,.75);border:1px solid rgba(255,255,255,.28);box-shadow:0 1px 2px rgba(0,0,0,.5)}   /* Held-/Burg-Lebensleiste (mid:7115); global, da Held jetzt im #herohud (mid:7381) */
+  .chpfill{position:absolute;left:0;top:0;bottom:0;border-radius:8px;transition:width .2s,background .2s}
+  .chpv{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:800;color:#fff;text-shadow:0 1px 2px #000,0 0 3px #000;letter-spacing:.2px}
   #resbar .r{display:flex;align-items:center;gap:5px;font-weight:800;font-size:16px;color:#fff;
     text-shadow:0 1px 2px #000,0 0 4px rgba(0,0,0,.75)}
   #resbar .r img{height:28px;width:28px;image-rendering:pixelated;filter:drop-shadow(0 1px 1px rgba(0,0,0,.6))}
@@ -34,23 +34,71 @@
   #resbar .sack .bag{font-size:26px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.7))}
   #resbar .rdiv{width:62px;height:2px;border-radius:2px;background:rgba(255,255,255,.4);margin:5px 0 6px;
     box-shadow:0 1px 1px rgba(0,0,0,.5)}
+  /* A1 Portrait-Hub (mid:7299): zwei Portraits + ausklappbares Inventar */
+  #resbar .hub{display:flex;align-items:flex-start}
+  #resbar .leftcol{display:flex;flex-direction:column;gap:11px;align-items:flex-start}   /* Burg ganz oben in die Ecke (mid:7359) */
+  #resbar .prow{display:flex;align-items:flex-start;gap:6px}   /* Spieler-Portrait + Tasche-Slots in einer Reihe rechts */
+  /* größere gerahmte Portraits (json scale 1.574 → relativ groß) */
+  .portrait{position:relative;width:98px;padding:15px 15px 16px;border:0;border-radius:0;background:none;cursor:pointer;pointer-events:auto;
+    border-image:url(ts/ui/frame_blue.png) 16 fill / 15px / 0 stretch;image-rendering:pixelated;
+    display:flex;flex-direction:column;align-items:center;gap:3px;transition:filter .15s}   /* größer = leichter zu treffen (mid:7350); pointer-events:auto trotz #ui pe:none (mid:7335/7339) */
+  .portrait.village{filter:brightness(.74) saturate(1.15)}   /* Burg = blau-Basis, nur dunkler → gruppen-freundlich; ROT bleibt für Gegner (mid:7341) */
+  .portrait.on{box-shadow:0 0 9px 2px rgba(255,216,106,.75)}   /* aktiv = weicher Glow (box-shadow, da border-image keine border-color nimmt) */
+  .portrait .cportrait{width:66px;height:66px;image-rendering:pixelated;object-fit:contain}
+  .portrait .chp{width:68px;margin-top:1px}
+  /* Inventar: ALLE Werte auf EINEM geschlossenen Panel (mid:7327), schiebt aus dem Portrait raus */
+  /* Inventar-Panel = gleicher Portrait-Frame als Basis, als EIN langes Teil gestreckt (border-image: Ecken bleiben, Kanten strecken, keine Innen-Rahmen) — mid:7342 */
+  .invpanel{background:none;border:0;border-radius:0;border-image:url(ts/ui/frame_blue.png) 16 fill / 11px / 0 stretch;image-rendering:pixelated;padding:9px 11px;filter:brightness(.92)}
+  .invpanel.pgrid{display:grid;grid-template-columns:repeat(3,auto);gap:4px 11px;transform-origin:left center}              /* Held-Tasche: 3×2, klappt nach RECHTS auf (mid:7357) */
+  .invpanel.vcol{display:flex;flex-direction:column;gap:3px;transform-origin:top center}                            /* Dorf: Spalte, schiebt nach unten raus */
+  .invpanel.pgrid.anim{animation:invSlideR .22s ease-out}
+  .invpanel.vcol.anim{animation:invSlideD .22s ease-out}
+  @keyframes invSlideR{from{opacity:0;transform:translateX(-14px) scaleX(.55)}to{opacity:1;transform:none}}
+  @keyframes invSlideD{from{opacity:0;transform:translateY(-14px) scaleY(.55)}to{opacity:1;transform:none}}
+  .ri{display:flex;align-items:center;gap:4px}
+  .ri img{width:21px;height:21px;image-rendering:pixelated}
+  .ri b{font-size:12px;font-weight:800;color:#fff;min-width:24px;text-shadow:0 1px 2px #000}
+  .bagtot .bagi{font-size:18px;line-height:1}
+  .bagtot b{color:#ffe08a}
+  .bagtot.full b{color:#ff7a5a}   /* Tasche voll → rot */
+  .bagtot.full{animation:bagpulse 1s ease-in-out infinite}
+  @keyframes bagpulse{0%,100%{filter:none}50%{filter:drop-shadow(0 0 4px #ff7a5a)}}
+  /* Held-Block unten-links (mid:7354): Portrait in der Ecke, Inventar klappt nach OBEN, drüber später Zauber */
+  #herohud{position:absolute;left:calc(env(safe-area-inset-left) + 8px);bottom:calc(env(safe-area-inset-bottom) + 12px);z-index:9}
+  #herohud .herorow{display:flex;flex-direction:row;align-items:flex-end;gap:7px}   /* Held-Portrait + Inventar nach rechts (mid:7357) */
   /* zwischen Resbar (links) und Burger (rechts) gespannt → überlappt die Inventar-Zahl nicht mehr (mid:6063) */
-  #quest{position:absolute;top:calc(env(safe-area-inset-top) + 8px);
-    left:calc(env(safe-area-inset-left) + 138px);right:calc(env(safe-area-inset-right) + 64px);
-    text-align:center;font-size:13.5px;font-weight:600;color:#fff;background:rgba(12,9,22,.7);backdrop-filter:blur(6px);
-    border:1px solid rgba(255,224,138,.55);border-radius:13px;padding:6px 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;
-    pointer-events:auto;box-shadow:0 2px 10px rgba(0,0,0,.35)}   /* anklickbar trotz #ui pointer-events:none (mid:6468) */
-  #quest.expanded{white-space:normal;overflow:visible;text-overflow:clip;z-index:30}   /* antippen klappt das Ziel voll aus (mid:6371) */
+  /* Quest fährt vom Symbol (oben links der Map) nach links aus (mid:7380 / Plan A4) */
+  #quest{position:absolute;top:calc(env(safe-area-inset-top) + 14px);right:calc(env(safe-area-inset-right) + 178px);max-width:min(58vw,340px);
+    text-align:left;font-size:13px;font-weight:600;color:#fff;background:rgba(12,9,22,.82);backdrop-filter:blur(6px);
+    border:1px solid rgba(255,224,138,.55);border-radius:13px;padding:7px 13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    pointer-events:auto;box-shadow:0 2px 10px rgba(0,0,0,.4);cursor:pointer;
+    transform:translateX(24px);opacity:0;visibility:hidden;transition:transform .28s ease,opacity .22s ease,visibility .28s}
+  #quest.qopen{transform:translateX(0);opacity:1;visibility:visible}
   #quest .qt{color:#ffe08a;font-weight:800;margin-right:6px}
   #quest .qp{color:#9fe0b0;font-weight:700;margin-left:6px}
-  #topbtns{position:absolute;top:calc(env(safe-area-inset-top) + 8px);right:calc(env(safe-area-inset-right) + 10px);
+  #questBtn{position:absolute;top:calc(env(safe-area-inset-top) + 16px);right:calc(env(safe-area-inset-right) + 112px);
+    width:46px;height:49px;border:0;background:url(ts/ui/frame_round.png) center/100% 100% no-repeat;image-rendering:pixelated;
+    filter:brightness(.92) saturate(1.05);pointer-events:auto;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}   /* kleiner (mid:7385) */
+  #questBtn b{font-size:25px;font-weight:900;color:#ffb43a;-webkit-text-stroke:1.6px #000;line-height:1;transform:translateY(-2px)}
+  #questBtn.qnew{animation:qblink 1.1s ease-in-out infinite}
+  @keyframes qblink{0%,100%{filter:brightness(.92) saturate(1.05)}50%{filter:brightness(1.55) saturate(1.2) drop-shadow(0 0 6px #ffb43a)}}
+  #topbtns{position:absolute;top:calc(env(safe-area-inset-top) + 112px);right:calc(env(safe-area-inset-right) + 9px);   /* unter die Minimap (mid:7361) */
     display:flex;flex-direction:column;gap:8px;pointer-events:auto;align-items:flex-end}
   #topbtns button{width:46px;height:46px;border-radius:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;
     background:rgba(22,14,43,.72);backdrop-filter:blur(6px);border:1px solid rgba(160,91,255,.4);color:#ece7ff}
   #topbtns button svg{width:23px;height:23px}
+  /* Burger = runder Tile-Pack-Rahmen wie die Minimap, nur kleiner (mid:7361) */
+  #topbtns #menuBtn{width:50px;height:53px;border:0!important;border-radius:50%;background:url(ts/ui/frame_round.png) center/100% 100% no-repeat;
+    backdrop-filter:none;image-rendering:pixelated;filter:brightness(.78) saturate(1.1);color:#fff}   /* höhere Spezifität als #topbtns button (mid:7364); kleiner (mid:7386) */
+  #topbtns #menuBtn svg{width:21px;height:21px}
   #topbtns button:active{transform:scale(.93)}
   #menuBtn{border-color:rgba(160,91,255,.7)!important}
-  #minimap{position:absolute;right:calc(env(safe-area-inset-right) + 10px);bottom:calc(env(safe-area-inset-bottom) + 12px);width:92px;height:92px;border-radius:12px;border:1px solid rgba(160,91,255,.45);background:rgba(10,8,20,.5);z-index:8;cursor:pointer;-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}
+  /* Minimap: runder Tile-Pack-Rahmen (dunkler wie Burg), Karte rund ausgeschnitten drauf (mid:7361) */
+  #minimapWrap{position:absolute;right:calc(env(safe-area-inset-right) + 9px);top:calc(env(safe-area-inset-top) + 8px);width:96px;height:102px;   /* Aspekt 88:94 → nicht verzerren */
+    background:url(ts/ui/frame_round.png) center/100% 100% no-repeat;image-rendering:pixelated;filter:brightness(.78) saturate(1.1);
+    z-index:8;pointer-events:auto;cursor:pointer}
+  /* Karte absolut auf den GEMESSENEN Kreis-Mittelpunkt (x47.5,y44.5 im 96×102-Wrap; Kreis sitzt 6px über Bildmitte) — mid:7363/7367 */
+  #minimap{position:absolute;left:13px;top:12px;width:70px;height:70px;border-radius:50%;background:rgba(10,8,20,.5);image-rendering:auto;display:block}   /* kleiner → ringsum gleichmäßig Teal-Untergrund sichtbar vorm goldenen Ring (mid:7369) */
   #menuItems{display:none;flex-direction:column;gap:8px;align-items:flex-end}
   #menuItems.open{display:flex}
   #panel{position:absolute;left:0;right:0;bottom:0;max-height:46vh;
@@ -225,6 +273,7 @@
 <canvas id="cv"></canvas>
 <div id="ui">
   <div id="resbar"></div>
+  <div id="herohud"></div>
   <div id="quest"></div>
   <div id="topbtns">
     <button id="menuBtn" title="Menü"></button>
@@ -236,7 +285,8 @@
       <button id="resetBtn" title="Neu"></button>
     </div>
   </div>
-  <canvas id="minimap" title="Karte"></canvas>
+  <div id="minimapWrap"><canvas id="minimap" title="Karte"></canvas></div>
+  <button id="questBtn" title="Quest" onclick="game.toggleQuest()"><b>!</b></button>
   <div id="achOverlay"><div id="achCard">
     <div id="achHead"><span>🏆 Erfolge</span><button id="achClose" title="Schliessen"></button></div>
     <div id="achList"></div>
@@ -1009,7 +1059,8 @@ function stateFromSave(d){ const s=freshState();  // frische Welt, dann Fortschr
   s.nodes=[]; const n=24+s.areas*16; for(let i=0;i<n;i++) spawnNode(s);  // weniger Sammel-Knoten (mid:6513)
   return s; }
 // Offline-Ertrag: Auto-Producer voll, Helfer grob geschätzt (reduziert), gedeckelt
-function applyOffline(s, elapsedSec){ const t=Math.min(Math.max(0,elapsedSec), OFFLINE_CAP); if(t<30) return null;
+function applyOffline(s, elapsedSec){ return null;   // (mid:7309) Offline-Ertrag KOMPLETT gestrichen — unkalkulierbare Inflation, untergräbt die Economy-Eichung. Spiel schreitet nur im offenen Tab voran.
+  const t=Math.min(Math.max(0,elapsedSec), OFFLINE_CAP); if(t<30) return null;
   const before={}; ALL.forEach(k=>before[k]=s.store[k]||0);
   // Konverter brauchen Input → in groben Schritten simulieren statt 1 Riesen-Tick (sonst Input-Deckel falsch)
   const steps=Math.min(240, Math.max(1, Math.round(t/30))), sdt=t/steps;
@@ -1469,14 +1520,34 @@ const game={
     const r=mc.getBoundingClientRect(), SZ=r.width||92, dpr=Math.min(2,window.devicePixelRatio||1);
     if(mc.width!==Math.round(SZ*dpr)){ mc.width=Math.round(SZ*dpr); mc.height=Math.round(SZ*dpr); }
     const g=mc.getContext('2d'); g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,SZ,SZ);
-    const R=areaRadius(s.areas), cx=SZ/2, cy=SZ/2, sc=(SZ/2-3)/R, w2m=(wx,wy)=>({x:cx+(wx-BASE.x)*sc,y:cy+(wy-BASE.y)*sc});
-    g.fillStyle='rgba(95,161,72,.5)'; g.beginPath(); g.arc(cx,cy,R*sc,0,7); g.fill();
-    if(s.outposts) for(const o of s.outposts){ const p=w2m(o.x,o.y); g.fillStyle=(o.store>=1)?'#ffe08a':'#9fd0ff'; g.beginPath();g.arc(p.x,p.y,2,0,7);g.fill(); }
-    g.fillStyle='#d8b25a'; g.fillRect(cx-3,cy-3,6,6);
+    const R=areaRadius(s.areas), cx=SZ/2, cy=SZ/2, sc=(SZ/2-2)/R, w2m=(wx,wy)=>({x:cx+(wx-BASE.x)*sc,y:cy+(wy-BASE.y)*sc});
+    // --- Terrain-Layer gecacht (Biom-Farben + Seen + Sand), nur neu bauen wenn Gebiet/Größe wechselt (mid:7371) ---
+    const key=R+'_'+SZ;
+    if(this._mmKey!==key || !this._mmTer){ const c=document.createElement('canvas'); c.width=SZ; c.height=SZ; const tg=c.getContext('2d');
+      tg.save(); tg.beginPath(); tg.arc(cx,cy,R*sc,0,7); tg.clip();
+      tg.fillStyle='#2f6f86'; tg.fillRect(0,0,SZ,SZ);   // Ozean
+      const CELL=3;
+      for(let py=0;py<SZ;py+=CELL) for(let px=0;px<SZ;px+=CELL){ const wx=BASE.x+(px-cx)/sc, wy=BASE.y+(py-cy)/sc; if(dist(wx,wy,BASE.x,BASE.y)>R) continue;
+        const bk=biomeAt(s,wx,wy); tg.fillStyle=(BIOMES[bk]&&BIOMES[bk].ground)||'#5fa148'; tg.fillRect(px,py,CELL+1,CELL+1); }
+      if(s.sand) for(const B of s.sand){ if(dist(B.x,B.y,BASE.x,BASE.y)>R+B.r)continue; const p=w2m(B.x,B.y); tg.fillStyle='rgba(216,192,138,.85)'; tg.beginPath();tg.arc(p.x,p.y,Math.max(1.2,B.r*sc),0,7);tg.fill(); }
+      if(s.lakes) for(const L of s.lakes){ if(dist(L.x,L.y,BASE.x,BASE.y)>R+L.r)continue; const p=w2m(L.x,L.y); tg.fillStyle='#3f9fb0'; tg.beginPath();tg.arc(p.x,p.y,Math.max(1.2,L.r*sc),0,7);tg.fill(); }
+      tg.restore(); this._mmTer=c; this._mmKey=key; }
+    g.drawImage(this._mmTer,0,0);
+    g.save(); g.beginPath(); g.arc(cx,cy,R*sc,0,7); g.clip();   // dynamische Marker im Kreis halten
+    if(s.outposts) for(const o of s.outposts){ const p=w2m(o.x,o.y); g.fillStyle=(o.store>=1)?'#ffe08a':'#9fd0ff'; g.beginPath();g.arc(p.x,p.y,2,0,7);g.fill(); g.lineWidth=.5;g.strokeStyle='rgba(0,0,0,.5)';g.stroke(); }
+    g.fillStyle='#7a5a2a'; g.strokeStyle='#ffe08a'; g.lineWidth=1; g.fillRect(cx-3,cy-3,6,6); g.strokeRect(cx-3,cy-3,6,6);   // Dorf/Burg
     if(s.enemies) for(const e of s.enemies){ if(e.dead)continue; const p=w2m(e.x,e.y); g.fillStyle='#e0573a'; g.beginPath();g.arc(p.x,p.y,1.6,0,7);g.fill(); }
     const hp=w2m(s.player.x,s.player.y); g.fillStyle='#ff4fd8'; g.beginPath();g.arc(hp.x,hp.y,3,0,7);g.fill(); g.lineWidth=1;g.strokeStyle='#fff';g.stroke();
     const vw=this.vw/this.zoom, vh=this.vh/this.zoom, tl=w2m(s.cam.x-vw/2,s.cam.y-vh/2);   // Sicht-Rechteck
-    g.strokeStyle='rgba(255,255,255,.4)';g.lineWidth=1;g.strokeRect(tl.x,tl.y,vw*sc,vh*sc); },
+    g.strokeStyle='rgba(255,255,255,.45)';g.lineWidth=1;g.strokeRect(tl.x,tl.y,vw*sc,vh*sc);
+    g.restore();
+    // --- Kompass (für den Effekt, mid:7372): N oben + dezente Himmelsrichtungs-Ticks ---
+    g.save(); g.translate(cx,cy); const rr=R*sc;
+    g.font='bold '+(SZ*0.135).toFixed(0)+'px system-ui'; g.textAlign='center'; g.textBaseline='middle';
+    g.lineJoin='round'; g.lineWidth=Math.max(2,SZ*0.035); g.strokeStyle='#000';   // schwarze Outline (mid:7378)
+    const off=rr-SZ*0.055;   // Buchstaben sitzen genau am Map-Rand (mid:7376)
+    for(const [ch,dx,dy] of [['N',0,-1],['O',1,0],['S',0,1],['W',-1,0]]){ g.fillStyle=(ch==='N')?'#ffd24a':'#ffe9a8'; g.strokeText(ch, dx*off, dy*off); g.fillText(ch, dx*off, dy*off); }
+    g.restore(); },
   loop(ts){ if(!this.running)return; if(!this.last)this.last=ts; let dt=(ts-this.last)/1000; this.last=ts; if(dt>0.1)dt=0.1;
     if(!this.s.paused){ const reps=(Bot&&Bot.on)?Bot.speed:1; for(let i=0;i<reps;i++){ this.step(dt); if(Bot&&Bot.on) Bot.think(dt); } } this.draw(); updateMusic(dt);
     if(this.s.playSec>3){ this._ft=(this._ft||16.7)*0.9+(dt*1000)*0.1;   // adaptive Perf-Degradierung, STUFENWEISE (mid:7271/7287)
@@ -1673,15 +1744,25 @@ const game={
     if(this.flash>0){ ctx.fillStyle='rgba(255,255,255,'+(this.flash*0.35)+')'; ctx.fillRect(0,0,VW,VH); }  // Era-Aufstieg-Blitz
     if(this.ascFx>0){ const a=Math.sin(Math.min(1,this.ascFx)*Math.PI)*0.62; ctx.fillStyle='rgba(14,18,48,'+a.toFixed(3)+')'; ctx.fillRect(0,0,VW,VH); }  // §4 Aufstiegs-Blende: kurz auf Nacht, dann zurück zum Tag (mid:7251)
   },
-  renderRes(){ const s=this.s;
-    document.getElementById('resbar').innerHTML =
-      (s.charChosen?(()=>{ const hpf=Math.max(0,Math.min(1,(s.player.hp||0)/(s.player.hpmax||1))), hpc=hpf>0.5?'#5fd06a':hpf>0.25?'#e0a93a':'#e0573a';   // Held-HP-Leiste + Wert (mid:7115)
-        return `<div class="charhdr">${s.playerName?`<div class="cname">${s.playerName}</div>`:''}<img class="cportrait" src="ts/u/portrait_${CHARS[s.char]?s.char:'krieger'}.png"><div class="chp"><div class="chpfill" style="width:${(hpf*100).toFixed(0)}%;background:${hpc}"></div><span class="chpv">${Math.ceil(s.player.hp||0)}/${Math.round(s.player.hpmax||0)}</span></div></div>`; })():'')   // Charakter-Ecke (mid:6468) + HP-Leiste
-      + `<span class="sack"><span class="bag">👝</span>${Math.floor(carryTotal(s.player.carry))}/${s.cap}</span>`  // Tasche (was du gerade trägst)
-      + `<span class="rdiv"></span>`                                                                            // Trennstrich → ab hier das Lager
-      + activeKeys(s.era).map(k=>`<span class="r"><img src="ts/icons/${k}.png"><b>${Math.floor(s.store[k])}</b></span>`).join('')
-      + `<span class="r"><img src="ts/icons/worker.png"><b>${freeWorkers(s)}/${s.workerPool}</b></span>`; },   // Namen weg (mid:6301), nur Icon + Zahl
-  renderQuest(){ const s=this.s, el=document.getElementById('quest');
+  // A1 Portrait-Hub (mid:7285/7292/7299): zwei Portraits (Spieler + Dorf) mit je HP; Klick klappt das jeweilige Inventar aus (Tasche / Dorf-Lager). Ersetzt die alte Seitenleiste.
+  toggleInv(which){ if(which==='player') this.invP=!this.invP; else this.invV=!this.invV; this.renderRes(); },   // beide unabhängig auf/zu — können gleichzeitig offen sein (mid:7348)
+  renderRes(){ const s=this.s; const el=document.getElementById('resbar'), hh=document.getElementById('herohud'); if(!s.charChosen){ el.innerHTML=''; if(hh)hh.innerHTML=''; return; }
+    const hpBar=(hp,max)=>{ const f=Math.max(0,Math.min(1,(hp||0)/(max||1))), c=f>0.5?'#5fd06a':f>0.25?'#e0a93a':'#e0573a'; return `<div class="chp"><div class="chpfill" style="width:${(f*100).toFixed(0)}%;background:${c}"></div><span class="chpv">${Math.ceil(hp||0)}/${Math.round(max||0)}</span></div>`; };
+    if(this.invP===undefined){ this.invP=false; this.invV=true; }   // Default: Dorf-Lager offen, Tasche zu — beide unabhängig (mid:7348)
+    const oP=this.invP, oV=this.invV, item=(k,v)=>`<span class="ri"><img src="ts/icons/${k}.png"><b>${v}</b></span>`;   // Symbol+Wert auf EINEM Panel (mid:7327)
+    const justP=(oP&&!this._lastP), justV=(oV&&!this._lastV); this._lastP=oP; this._lastV=oV;   // Slide-Animation nur beim echten Aufklappen
+    const pPort=`<button class="portrait player${oP?' on':''}" onclick="game.toggleInv('player')"><img class="cportrait" src="ts/u/portrait_${CHARS[s.char]?s.char:'krieger'}.png">${hpBar(s.player.hp,s.player.hpmax)}</button>`;
+    const vPort=`<button class="portrait village${oV?' on':''}" onclick="game.toggleInv('village')"><img class="cportrait" src="ts/era${Math.min(6,s.era||0)}.png">${hpBar(s.baseHP,s.baseHPmax)}</button>`;   // ts/ root (era0..6 vorhanden; ts/icons/ hat nur 0..4 → 404)
+    let pInv='', vInv='';   // BEIDE können gleichzeitig offen sein (mid:7348). Spieler-Tasche = 3×2 rechts; Dorf-Lager = Spalte unter dem Portrait
+    if(oP){ const c=s.player.carry, keys=activeKeys(s.era).filter(k=>k!=='edelstein'), tf=carryTotal(c)>=s.cap*0.999;   // Held: 5 Ressourcen (Edelstein=Markt-only, mid:7331) + Taschen-Gesamt-Zelle
+      pInv=`<div class="invpanel pgrid${justP?' anim':''}">${keys.map(k=>item(k,Math.floor(c[k]||0))).join('')}<span class="ri bagtot${tf?' full':''}"><span class="bagi">👝</span><b>${Math.floor(carryTotal(c))}/${s.cap}</b></span></div>`; }
+    if(oV){ vInv=`<div class="invpanel vcol${justV?' anim':''}">${activeKeys(s.era).map(k=>item(k,Math.floor(s.store[k]))).join('')+item('worker',`${freeWorkers(s)}/${s.workerPool}`)}</div>`; }
+    el.innerHTML=`<div class="hub"><div class="leftcol">${vPort}${vInv}</div></div>`;   // OBEN-LINKS: Burg + Inventar nach unten (mid:7354)
+    if(hh) hh.innerHTML=`<div class="herorow">${pPort}${pInv}</div>`; },   // UNTEN-LINKS: Held in der Ecke, Inventar klappt nach RECHTS aus der rechten Seite (mid:7357); Zauber später drüber
+  toggleQuest(){ const el=document.getElementById('quest'), b=document.getElementById('questBtn');
+    const open=el.classList.toggle('qopen'); if(open&&b)b.classList.remove('qnew'); },
+  renderQuest(){ const s=this.s, el=document.getElementById('quest'), b=document.getElementById('questBtn');
+    if(s.questIdx!==this._lastQuestIdx){ if(this._lastQuestIdx!=null && b && !el.classList.contains('qopen')) b.classList.add('qnew'); this._lastQuestIdx=s.questIdx; }
     if(s.questIdx>=QUESTS.length){ el.innerHTML='<span class="qt">Ziel</span> Alle Ziele erreicht — bau dein Imperium aus!'; return; }
     const q=QUESTS[s.questIdx], cur=Math.min(Math.floor(q.g(s)),q.n);
     el.innerHTML=`<span class="qt">Ziel</span>${q.t}<span class="qp">${cur}/${q.n}</span>`; },
@@ -2096,6 +2177,7 @@ const Bot={
   updateHud(){ if(!this.hud) return; const s=game.s, l=document.getElementById('botHudLine'); if(!l) return;
     l.innerHTML='🤖 <b>'+(s.paused?'⏸ Pause':'Auto-Play')+'</b> · '+this.speed+'× · ⏱ '+this.fmtTime(this.runTime)+(this.offlinePlay?' · 💤':'')+'<br>Stufe '+((s.era||0)+1)+' · Tag '+(s.day||1)+'<br><span style="color:#b9a7ff">'+this.hero+'</span> · <span style="color:#8fe0a0">'+this.note+'</span>'; },
 };
+window.game=game;   // WICHTIG: Inline-onclick-Handler (z.B. Portrait-Hub) sehen das const game sonst NICHT (const landet nicht auf window) → Klicks tot (mid:7335)
 window.Bot=Bot;   // für Debugging + Tests erreichbar
 if(new URLSearchParams(location.search).has('autoplay')||new URLSearchParams(location.search).has('bot')) setTimeout(()=>Bot.start(), 400);
 
