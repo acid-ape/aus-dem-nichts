@@ -51,7 +51,7 @@
   #menuItems.open{display:flex}
   #panel{position:absolute;left:0;right:0;bottom:0;max-height:46vh;
     padding:14px 14px calc(env(safe-area-inset-bottom) + 16px);
-    background:linear-gradient(180deg,rgba(12,9,22,.50),rgba(12,9,22,.74));backdrop-filter:blur(9px);
+    background:linear-gradient(180deg,rgba(20,15,36,.96),rgba(13,9,24,.99));backdrop-filter:blur(10px);   /* opak: deckt die Karte ab statt durchscheinen (Steffen mid:7107) */
     border-top:1px solid rgba(160,91,255,.35);border-radius:20px 20px 0 0;box-shadow:0 -8px 30px rgba(0,0,0,.4);
     transform:translateY(104%);transition:transform .26s cubic-bezier(.22,1,.36,1);
     overflow:hidden;pointer-events:none;display:flex;flex-direction:column}   /* nur #shop scrollt → Header+X bleiben sichtbar (mid:6801) */
@@ -497,7 +497,7 @@ function updateCombat(s,dt){ const P=s.player; P.attacking=false;
     if(o.store>=1 && dist(P.x,P.y,o.x,o.y)<HARVEST_R+14){ const res=OUTPOST_TYPES[o.type].res, amt=Math.floor(o.store);
       s.store[res]=(s.store[res]||0)+amt; o.store-=amt; s.lifetime=(s.lifetime||0)+amt; addPop(s,o.x,o.y-30,'#fff','+'+amt+' '+NAME[res]); burst(s,o.x,o.y-8,'#ffe9a8',8); SFX.deposit(); } }   // Abholung zaehlt zur Liefer-Statistik (Audit M15)
   // Bestände skalieren mit der MAP-Größe (areas): Grunts ab Start (auch era0), Brutes erst ab Dorf-Era (mid:6108)
-  if(s.phase!=='night') { s.spawnT+=dt;   // langsam+sequenziell; Cap skaliert mit Map-Größe (mid:6233/6242): Gebiet 1-4 → 10/15/20/25 (Floor 10, sonst trifft man zu selten einen). Bei Nacht ruht der Tag-Spawner.
+  if(s.phase!=='night' && s.era>=2) { s.spawnT+=dt;   // Overworld-Gegner erst ab Stufe 3 (era2, §3/Steffen mid:7110). Langsam+sequenziell; Cap skaliert mit Map. Bei Nacht ruht der Tag-Spawner.
     const CAP=5+((s.areas||1))*5;
     if(s.enemies.length<CAP && s.spawnT>7){ s.spawnT=0;
       const nb=s.enemies.filter(e=>e.kind==='brute').length, nboss=s.enemies.filter(e=>e.kind==='miniboss').length;
@@ -1560,7 +1560,8 @@ const game={
     for(const n of s.nodes){ if(!vis(n.x,n.y))continue; const sc=0.7+0.3*(n.scale||1), ns=(NODE_SIZE[n.type]||64), gw=ns*sc*VS*0.40, gh=ns*sc*VS*0.19;   // Knoten größer als normale Deko gleicher Art (mid:6236); Glow/Schatten skalieren mit
       ctx.fillStyle='rgba(255,238,150,.20)'; ctx.beginPath(); ctx.ellipse(n.x,n.y+2*VS,gw,gh,0,0,7); ctx.fill();
       ctx.strokeStyle='rgba(255,238,150,.6)'; ctx.lineWidth=2.5*VS; ctx.beginPath(); ctx.ellipse(n.x,n.y+2*VS,gw,gh,0,0,7); ctx.stroke();
-      shadow(n.x,n.y,ns*sc*0.30,ns*sc*0.12); worldSprite(n.type, n.x, n.y+6*VS, ns*sc, true); amountBar(n); }
+      { const _ni=A[n.type], _na=(_ni&&_ni.naturalWidth)?_ni.naturalWidth/_ni.naturalHeight:1, _ndh=(_na>1?ns*sc*SC/_na:ns*sc*SC), _ndw=(_na>1?ns*sc*SC:ns*sc*SC*_na); spriteShadow(n.type, n.x, n.y+6*VS+(FOOTPAD[n.type]||0)*_ndh, _ndw, _ndh); }   // Ressourcen-Knoten: Silhouetten-Schatten (Steffen mid:7108)
+      worldSprite(n.type, n.x, n.y+6*VS, ns*sc, true); amountBar(n); }
     // gefallene Säcke (vom Tod) — leuchtender Beutel, einsammelbar
     for(const d of s.drops){ if(!vis(d.x,d.y))continue; const tk=ALL.find(k=>d.carry[k]>0.4)||'holz';
       ctx.fillStyle='rgba(255,238,150,.3)'; ctx.beginPath(); ctx.ellipse(d.x,d.y,20*VS,9*VS,0,0,7); ctx.fill();
@@ -1795,7 +1796,7 @@ function worldSprite(key,x,y,size,anchorBottom){ const im=A[key];
   ctx.drawImage(im,x-w/2,dy,w,h); }
 // Globale Lichtquelle (Steffen mid:7056): Richtung oben-links → Schatten konsistent nach unten-rechts versetzt + leicht gestreckt.
 // dx/dy = Versatz als Bruchteil des Schatten-Radius; stretch = horizontale Streckung; day = Helligkeit (1=Tag), für späteres Wander-Licht/Dämmerung animierbar.
-const LIGHT={dx:0.48, dy:0.26, stretch:1.16, day:1, shx:-0.62, sqz:0.40, dusk:0};   // shx=Scherung (Lichtrichtung), sqz=Boden-Stauchung; dusk 0→1 = Dämmerungs-Fortschritt (Wander-Licht mid:7057)
+const LIGHT={dx:0.48, dy:0.26, stretch:1.16, day:1, shx:-0.40, sqz:0.34, dusk:0};   // shx=Scherung (Lichtrichtung, enger=Schatten näher am Sprite), sqz=Boden-Stauchung; dusk 0→1 = Dämmerung (mid:7057/7108)
 function shadow(x,y,rx,ry){ const RX=rx*SC, RY=ry*SC;   // Ellipsen-Schatten (Einheiten/Kleinkram)
   ctx.fillStyle='rgba(0,0,0,'+(0.26*(0.55+0.45*LIGHT.day)).toFixed(3)+')';
   ctx.beginPath(); ctx.ellipse(x+RX*LIGHT.dx, y+RY*LIGHT.dy, RX*LIGHT.stretch, RY, 0, 0, 7); ctx.fill(); }
@@ -1821,9 +1822,9 @@ function stageProgress(s){ const e=s.era||0;
   const tExp=towerAllowance(s), tP=tExp>0?Math.min(1,(s.towers?s.towers.length:0)/tExp):1;
   return Math.max(0,Math.min(1,(bP+wP+tP)/3)); }
 function updateLight(s,dt){ const p=stageProgress(s), k=Math.min(1,dt*1.2);   // sanft gleiten, nicht springen
-  LIGHT.shx+=((-0.62+p*1.24)-LIGHT.shx)*k;   // Schatten-Richtung: Morgen (Sonne links) → Abend (Sonne rechts)
+  LIGHT.shx+=((-0.40+p*0.80)-LIGHT.shx)*k;   // Schatten-Richtung: Morgen (Sonne links) → Abend (Sonne rechts), enger gehalten (mid:7108)
   LIGHT.day+=((1-p*0.45)-LIGHT.day)*k;        // Helligkeit → dunkler zur Dämmerung
-  LIGHT.sqz+=((0.40+p*0.34)-LIGHT.sqz)*k;     // tiefstehende Sonne → längere Schatten
+  LIGHT.sqz+=((0.34+p*0.26)-LIGHT.sqz)*k;     // tiefstehende Sonne → längere Schatten
   LIGHT.dusk=p; }
 function label(t,x,y){ ctx.save(); ctx.font='bold 14px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillStyle='rgba(0,0,0,.55)'; ctx.fillText(t,x+1,y+1); ctx.fillStyle='rgba(236,231,255,.92)'; ctx.fillText(t,x,y); ctx.restore(); }
@@ -1847,14 +1848,14 @@ const TUT_STEPS=[
   {t:'🌱 Lauf los',b:'Tippe irgendwo auf die Karte — dein Held läuft dorthin.',done:s=>s.tutMoved},
   {t:'⛏️ Sammeln',b:'Lauf zu einem leuchtenden Ressourcen-Knoten und bleib kurz daneben stehen. Du sammelst automatisch.',done:s=>s.tutHarvested},
   {t:'🏰 Abladen',b:'Bring die Beute zur Basis in der Mitte — lauf einfach hinein, dann landet alles im Lager.',done:s=>s.firstDeposit},
-  {t:'⬆️ Aufbauen',b:'Tippe unten auf ☰ und öffne den Reiter „Dorf" — dort steigst du auf und baust. Viel Spaß!',done:s=>s.tutMenu},
+  {t:'⬆️ Aufbauen',b:'Tippe auf deine Burg in der Mitte — da öffnet sich das Aufbau-Menü. Wechsle dort auf den Reiter „Dorf", um Sammler zu bauen und aufzusteigen. Viel Spaß!',done:s=>s.tutMenu},
 ];
 // Kontext-Tooltips (mid:6438): je eine kurze Karte beim Freischalten von Neuem. Jede nur 1x (in s.tutShown persistiert).
 // Tutorial-Texte (Redesign 2026-06-24, §3-Reihenfolge). Voller Onboarding-Pass = späterer Go-Live-Block (§11.3).
 const TUT={
   era1:{t:'🪓 Stufe 2',b:'Neu: der Kürbis-Sammler als Außenposten draußen im Feld. Sammler sammeln von allein — du läufst hin und holst die Ernte ab. Manuell sammeln geht weiter.'},
   towers:{t:'⚔️ Truppen',b:'Im äußeren Dorf-Ring kannst du jetzt Truppen bauen — tippe einen freien Bauplatz an. Jede Truppe bewacht das Dorf oder folgt dir in den Kampf (umschaltbar).'},
-  night1:{t:'🌙 Die Nacht',b:'Ab Stufe 6 musst du vor dem Aufstieg eine Nacht überstehen: im Dorf-Menü „Nacht starten". Gegner stürmen das Dorf — halt sie mit Held und Truppen auf, sonst sinkt die Dorf-Lebensleiste!'},
+  night1:{t:'🌙 Die Nacht',b:'Ab Stufe 6 ist jeder Aufstieg eine Nacht: tippe deine Burg an und drücke im Reiter „Dorf" auf „Aufstieg" — das bezahlt den Aufstieg und startet die Nachtwelle. Überlebst du sie, steigst du auf; verlierst du, bleibst du auf der Stufe (Teil des Preises zurück). Halt die Gegner mit Held + Truppen auf!'},
   era3:{t:'🔨 Stufe 4',b:'Die Schmiede steht — sie macht dich kampftauglich. Rüste Schaden, Rüstung und Leben auf, bevor draußen die Gegner härter werden.'},
   era4:{t:'⚔️ Stufe 5',b:'Die Kaserne öffnet! Bau deine erste Truppe (Schwert oder Bogen). Sie verteidigt das Dorf oder folgt dir in den Kampf.'},
   era5:{t:'🌙 Stufe 6',b:'Die erste Nacht naht. Ab jetzt brauchst du für jeden weiteren Aufstieg eine frisch überstandene Nacht — deine Truppen tragen das Endspiel.'},
