@@ -2044,13 +2044,22 @@ const Bot={
     const type=avail[avail.length-1]; game.panelFor='tb'+seg; game.buildTower(type); return true; },   // buildTower öffnet danach das Truppen-Panel (sichtbar für den Zuschauer)
   setSpeed(n){ this.speed=n; this.updateHud(); },
   toggle(){ game.toggle(); say(game.s.paused?'⏸ Pause — die Show steht still.':'▶ Weiter geht\'s.'); this.updateHud(); },   // ⏸ im Bot-HUD = ganzes Spiel einfrieren/fortsetzen (mid:7195); friert auch den Bot, da der Loop bei s.paused step+think überspringt
-  buildHud(){ if(this.hud) return; const h=document.createElement('div'); h.id='botHud';
-    h.style.cssText='position:fixed;left:50%;transform:translateX(-50%);top:6px;z-index:80;background:rgba(20,16,30,.86);border:1px solid #5a3fb0;border-radius:10px;padding:6px 10px;font:600 12px/1.3 system-ui,sans-serif;color:#e8e0ff;box-shadow:0 4px 14px rgba(0,0,0,.45);min-width:150px;text-align:center;backdrop-filter:blur(3px)';   // oben-mittig, über dem Bottom-Panel (mid:7189)
-    const mkb=(t,fn,w)=>{ const b=document.createElement('button'); b.textContent=t; b.style.cssText='margin:0 3px 0 0;padding:3px 8px;border:1px solid #6b4fd0;border-radius:6px;background:#2a2042;color:#e8e0ff;font:600 11px system-ui;cursor:pointer'; b.onclick=fn; return b; };
-    const line=document.createElement('div'); line.id='botHudLine'; line.style.marginBottom='5px';
-    const row=document.createElement('div'); row.style.display='flex'; row.style.flexWrap='wrap'; row.style.gap='2px';
-    [['1×',()=>this.setSpeed(1)],['2×',()=>this.setSpeed(2)],['4×',()=>this.setSpeed(4)],['⏸',()=>this.toggle()]].forEach(([t,fn])=>row.appendChild(mkb(t,fn)));
-    h.appendChild(line); h.appendChild(row); document.body.appendChild(h); this.hud=h; this.updateHud(); },
+  buildHud(){ if(this.hud) return;
+    // Read-only Status-Overlay oben-mittig — NICHT klickbar (mid:7203: im Autoplay nur das Burger-Menü bedienbar)
+    const h=document.createElement('div'); h.id='botHud';
+    h.style.cssText='position:fixed;left:50%;transform:translateX(-50%);top:6px;z-index:80;pointer-events:none;background:rgba(20,16,30,.86);border:1px solid #5a3fb0;border-radius:10px;padding:6px 10px;font:600 12px/1.3 system-ui,sans-serif;color:#e8e0ff;box-shadow:0 4px 14px rgba(0,0,0,.45);min-width:150px;text-align:center;backdrop-filter:blur(3px)';
+    const line=document.createElement('div'); line.id='botHudLine'; h.appendChild(line); document.body.appendChild(h); this.hud=h;
+    // Steuerung (Speed + Pause) ins Burger-Menü verstecken (mid:7203)
+    const mi=document.getElementById('menuItems');
+    if(mi && !document.getElementById('botCtrl')){ const wrap=document.createElement('div'); wrap.id='botCtrl'; wrap.style.cssText='width:190px;margin-top:6px';
+      const hd=document.createElement('div'); hd.textContent='🤖 Auto-Play'; hd.style.cssText='margin-top:10px;font-size:10px;font-weight:800;letter-spacing:.5px;color:#a98fe0;text-transform:uppercase'; wrap.appendChild(hd);
+      const mkb=(t,fn)=>{ const b=document.createElement('button'); b.className='devbtn'; b.style.cssText+=';color:#cbb8ff;border-color:#6b4fd0;background:rgba(30,22,46,.7)'; b.textContent=t; b.onclick=fn; return b; };
+      const row=document.createElement('div'); row.style.cssText='display:flex;gap:5px;margin-top:7px';
+      [['1×',()=>this.setSpeed(1)],['2×',()=>this.setSpeed(2)],['4×',()=>this.setSpeed(4)]].forEach(([t,fn])=>{ const b=mkb(t,fn); b.style.marginTop='0'; row.appendChild(b); });
+      wrap.appendChild(row); wrap.appendChild(mkb('⏸ Pause / ▶ Weiter',()=>this.toggle())); mi.appendChild(wrap); }
+    // Spieler-Interaktion sperren — Canvas, Panel, Minimap nicht klickbar; nur Burger bleibt (mid:7203)
+    cv.style.pointerEvents='none'; ['panel','minimap'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.pointerEvents='none'; });
+    this.updateHud(); },
   updateHud(){ if(!this.hud) return; const s=game.s, l=document.getElementById('botHudLine'); if(!l) return;
     l.innerHTML='🤖 <b>'+(s.paused?'⏸ Pause':'Auto-Play')+'</b> · '+this.speed+'×<br>Stufe '+((s.era||0)+1)+' · Tag '+(s.day||1)+'<br><span style="color:#b9a7ff">'+this.hero+'</span> · <span style="color:#8fe0a0">'+this.note+'</span>'; },
 };

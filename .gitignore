@@ -15,3 +15,8 @@ _kenney_dl/
 # os
 .DS_Store
 Thumbs.db
+
+# ungenutzte Tiny-Swords-Editor-/Backup-Dumps (versehentlich beim Launch reingerutscht, mid:7203)
+ts/ed/
+ts/gallery/
+ts/_era_backup_*/
