@@ -754,7 +754,9 @@ function spawnNode(s,type,ringMin){ const R=areaRadius(s), lo=ringMin||(OUTER_R+
     let chosen;
     if(type){ if(!bt.res[type]) continue; chosen=type; }       // Knoten nur in ein Biom legen, das diesen Typ führt
     else { chosen=weightedFromTable(bt.res, allowed); if(!chosen) continue; }
-    if(s.nodes.every(n=>dist(x,y,n.x,n.y)>82) && !blocked(s,x,y,36) && !onSand(s,x,y) && !s.lakes.some(L=>dist(x,y,L.x,L.y)<L.r+24)){   // nicht auf Sand/Wasser (mid:6260), dichter packbar
+    const ns=NODE_SIZE[chosen]||100;   // eigener Knoten-Footprint, damit große Knoten (Holz 210) mehr Abstand halten
+    if(s.nodes.every(n=>dist(x,y,n.x,n.y)>82) && !blocked(s,x,y,36) && !onSand(s,x,y) && !s.lakes.some(L=>dist(x,y,L.x,L.y)<L.r+24)
+       && (!s.deco || s.deco.every(d=>dist(x,y,d.x,d.y) > d.size*SC*0.35 + ns*SC*0.30))){   // nicht in/hinter Deko buggen (mid:7157) — gleiche Regel wie Outposts (Z.361)
       const amt=Math.round(rnd(12,18)); s.nodes.push({id:++nodeId,type:chosen,x,y,amount:amt,max:amt,scale:0}); return; }  // langlebiger (mid:6098)
   } }
 
