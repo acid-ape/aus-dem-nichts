@@ -874,7 +874,7 @@ function freshState(){ const store={},carry={}; ALL.forEach(k=>{store[k]=0;carry
     phase:'day', day:1, baseHP:100, baseHPmax:100, towers:[],  // Naht fuer spaetere Tag/Nacht-TD-Phase
     outposts:[],   // Außenposten-Sammler (mid:6246) — werden vom Spieler gebaut
     questIdx:0, achieved:[], lifetime:0, playSec:0, tutShown:{}, heroRangeMul:1, playerName:'', tutStep:-1, tutMoved:false, tutHarvested:false, tutMenu:false,
-    pendingEra:null, pendingCost:null, won:false, wonShown:false, endless:false, endlessNights:0,   // §12 Endgame: Sieg-Flag + Endless-Modus
+    pendingEra:null, pendingCost:null, won:false, wonShown:false, endless:false, endlessNights:0, cheated:false,   // §12 Endgame: Sieg-Flag + Endless-Modus; cheated=Dev-Cheat benutzt → nicht in Bestenliste (mid:7153)
     troopAtkLvl:0, troopHpLvl:0, sammlerTempoLvl:0, sammlerCapLvl:0,   // §5: globale Truppen- (Kaserne) + Sammler-Upgrades
     skillWirbel:false, skillSturm:false, wirbelCd:0, sturmCd:0,   // §5: aktive Spezial-Attacken + Cooldowns
     stageStartLifetime:0 };   // Wander-Licht-Baseline (mid:7071)
@@ -950,7 +950,7 @@ function serialize(s){ return { // nur Fortschritt (Welt/Knoten/Deko werden neu 
   workerPool:s.workerPool, builds:s.builds, char:s.char, charChosen:s.charChosen, tutShown:s.tutShown||{}, tutStep:(s.tutStep===undefined?-1:s.tutStep), tutMoved:!!s.tutMoved, tutHarvested:!!s.tutHarvested, tutMenu:!!s.tutMenu, playerName:s.playerName||'', heroRangeMul:s.heroRangeMul||1, atk:s.atk, def:s.def, hpmax:s.player.hpmax,
   atkLvl:s.atkLvl, defLvl:s.defLvl, hpLvl:s.hpLvl,
   areas:s.areas, areaLvl:s.areaLvl, era:s.era, firstDeposit:s.firstDeposit,
-  phase:s.phase, nightToken:!!s.nightToken, pendingEra:(s.pendingEra==null?null:s.pendingEra), pendingCost:s.pendingCost||null, won:!!s.won, wonShown:!!s.wonShown, endless:!!s.endless, endlessNights:s.endlessNights||0, troopAtkLvl:s.troopAtkLvl||0, troopHpLvl:s.troopHpLvl||0, sammlerTempoLvl:s.sammlerTempoLvl||0, sammlerCapLvl:s.sammlerCapLvl||0, skillWirbel:!!s.skillWirbel, skillSturm:!!s.skillSturm, healBought:s.healBought||0, day:s.day, baseHP:s.baseHP, baseHPmax:s.baseHPmax, towers:(s.towers||[]).map(t=>({seg:t.seg,type:t.type,lvl:t.lvl||0,mode:t.mode||'wache'})), questIdx:s.questIdx, outposts:s.outposts,
+  phase:s.phase, nightToken:!!s.nightToken, pendingEra:(s.pendingEra==null?null:s.pendingEra), pendingCost:s.pendingCost||null, won:!!s.won, wonShown:!!s.wonShown, endless:!!s.endless, cheated:!!s.cheated, endlessNights:s.endlessNights||0, troopAtkLvl:s.troopAtkLvl||0, troopHpLvl:s.troopHpLvl||0, sammlerTempoLvl:s.sammlerTempoLvl||0, sammlerCapLvl:s.sammlerCapLvl||0, skillWirbel:!!s.skillWirbel, skillSturm:!!s.skillSturm, healBought:s.healBought||0, day:s.day, baseHP:s.baseHP, baseHPmax:s.baseHPmax, towers:(s.towers||[]).map(t=>({seg:t.seg,type:t.type,lvl:t.lvl||0,mode:t.mode||'wache'})), questIdx:s.questIdx, outposts:s.outposts,
   achieved:s.achieved, lifetime:s.lifetime, stageStartLifetime:s.stageStartLifetime||0, playSec:s.playSec }; }
 let saveFailN=0;
 function saveGame(s){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify({v:SAVE_VERSION, t:Date.now(), d:serialize(s)})); saveFailN=0; }
@@ -964,7 +964,7 @@ function clearSave(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} }
 // ----- Lokale Bestenliste (§12 Endgame): wer Stufe 20 erreicht + wie viele Endless-Nächte. localStorage, Top 10 nach Score. -----
 const LB_KEY='ausdemnichts_leaderboard';
 function lbLoad(){ try{ const a=JSON.parse(localStorage.getItem(LB_KEY)||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
-function lbAdd(name,score){ if(typeof Bot!=='undefined' && Bot.on) return lbLoad();   // Auto-Play-Bot kommt NICHT in die Bestenliste (mid:7147)
+function lbAdd(name,score){ if((typeof Bot!=='undefined' && Bot.on) || (game.s && game.s.cheated)) return lbLoad();   // Auto-Play-Bot UND gecheatete (Dev) Läufe kommen NICHT in die Bestenliste (mid:7147/7153)
   const lb=lbLoad(), nm=((name||'').replace(/[^A-Za-z0-9 ]/g,'').slice(0,12))||'Held';
   lb.push({n:nm,s:score,t:Date.now()}); lb.sort((a,b)=>(b.s-a.s)||(b.t-a.t)); const top=lb.slice(0,10);
   try{ localStorage.setItem(LB_KEY,JSON.stringify(top)); }catch(e){} return top; }
@@ -976,7 +976,7 @@ function stateFromSave(d){ const s=freshState();  // frische Welt, dann Fortschr
   if(!d||typeof d!=='object') return s;   // voellig kaputter Save → frischer Zustand (Audit M3)
   const ds=(d.store&&typeof d.store==='object')?d.store:{};   // fehlendes/kaputtes store-Objekt abfangen statt Crash (Audit M3)
   ALL.forEach(k=>{ if(typeof ds[k]==='number') s.store[k]=ds[k]; });
-  ['cap','speed','gather','wboost','capLvl','speedLvl','gatherLvl','steamLvl','workerPool','areas','areaLvl','era','firstDeposit','day','baseHP','baseHPmax','questIdx','nightToken','healBought','tutStep','tutMoved','tutHarvested','tutMenu','won','wonShown','endless','endlessNights','troopAtkLvl','troopHpLvl','sammlerTempoLvl','sammlerCapLvl','skillWirbel','skillSturm'].forEach(k=>{ if(d[k]!==undefined && typeof d[k]===typeof s[k]) s[k]=d[k]; });   // nur typ-gleiche Werte uebernehmen → Muell-Typen (z.B. era:'x') fallen auf Default zurueck statt NaN (Audit M3)
+  ['cap','speed','gather','wboost','capLvl','speedLvl','gatherLvl','steamLvl','workerPool','areas','areaLvl','era','firstDeposit','day','baseHP','baseHPmax','questIdx','nightToken','healBought','tutStep','tutMoved','tutHarvested','tutMenu','won','wonShown','endless','endlessNights','cheated','troopAtkLvl','troopHpLvl','sammlerTempoLvl','sammlerCapLvl','skillWirbel','skillSturm'].forEach(k=>{ if(d[k]!==undefined && typeof d[k]===typeof s[k]) s[k]=d[k]; });   // nur typ-gleiche Werte uebernehmen → Muell-Typen (z.B. era:'x') fallen auf Default zurueck statt NaN (Audit M3)
   if(d.tutStep===undefined && d.charChosen) s.tutStep=TUT_STEPS.length;   // Altsave: interaktives Tutorial nicht nachträglich zeigen (mid:6450)
   s.phase='day';   // laufende Nacht beim Laden abbrechen (Nacht-Gegner werden nicht persistiert)
   if(d.pendingCost){ Object.keys(d.pendingCost).forEach(k=>{ s.store[k]=(s.store[k]||0)+(d.pendingCost[k]||0); }); }   // Aufstiegs-Nacht durch Reload unterbrochen → vollen Preis erstatten (fair, §4)
@@ -1250,7 +1250,7 @@ const game={
       const hd=document.createElement('div'); hd.className='dh'; hd.textContent='🛠 Test-Cheats (Dev)'; wrap.appendChild(hd);
       document.getElementById('menuItems').appendChild(wrap);
       const endNight=()=>{ if(nightActive(s)){ s.phase='day'; s.enemies=(s.enemies||[]).filter(e=>!e.night); s.baseHP=s.baseHPmax||100; } };
-      const mk=(txt,fn)=>{ const x=document.createElement('button'); x.className='devbtn'; x.textContent=txt; x.onclick=()=>{ fn(); refresh(); }; wrap.appendChild(x); };
+      const mk=(txt,fn)=>{ const x=document.createElement('button'); x.className='devbtn'; x.textContent=txt; x.onclick=()=>{ s.cheated=true; fn(); refresh(); }; wrap.appendChild(x); };   // jeder Cheat taintet den Lauf → raus aus der Bestenliste (mid:7153)
       mk('💰 +50 alle Ressourcen', ()=>{ activeKeys(s.era).forEach(k=>s.store[k]+=50); say('Cheat: +50 Ressourcen.'); });
       mk('💰 +50.000 auf alle Ressourcen', ()=>{ activeKeys(s.era).forEach(k=>s.store[k]=(s.store[k]||0)+50000); say('Cheat: +50.000 Ressourcen.'); });
       mk('⬆ Stufe +1 (Nacht überspringen)', ()=>{ endNight(); s.pendingEra=null; s.pendingCost=null; if(s.era<ERAS.length-1){ applyAscend(s,s.era+1); say('Cheat: Stufe '+(s.era+1)+'.'); } else say('Schon auf Stufe 20.'); });
@@ -2040,6 +2040,7 @@ const Bot={
   updateHud(){ if(!this.hud) return; const s=game.s, l=document.getElementById('botHudLine'); if(!l) return;
     l.innerHTML='🤖 <b>'+(this.on?'Auto-Play':'pausiert')+'</b> · '+this.speed+'×<br>Stufe '+((s.era||0)+1)+' · Tag '+(s.day||1)+'<br><span style="color:#b9a7ff">'+this.hero+'</span> · <span style="color:#8fe0a0">'+this.note+'</span>'; },
 };
+window.Bot=Bot;   // für Debugging + Tests erreichbar
 if(new URLSearchParams(location.search).has('autoplay')||new URLSearchParams(location.search).has('bot')) setTimeout(()=>Bot.start(), 400);
 
 game.init();
