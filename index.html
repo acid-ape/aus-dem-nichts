@@ -356,10 +356,15 @@ function sammlerGlobalMax(s){ return (s.era||0)+1; }   // pro Stufe ein globaler
 function sammlerGlobalCost(kind,lvl){ return kind==='tempo'? {holz:scaled(60,1.5,lvl)} : {holz:scaled(40,1.5,lvl),stein:scaled(50,1.5,lvl)}; }   // Handwerk-Schiene (Holz→Stein §6)
 // platziert einen Außenposten im passenden Biom im Ring knapp außerhalb des Dorfs (innerhalb des Gegner-Frei-Rings), frei von Hindernissen/Wasser
 function placeOutpost(s,type){ const T=OUTPOST_TYPES[type], r0=OUTER_R+70, r1=Math.max(r0+140, enemyNoSpawn(s)-40);
-  for(let t=0;t<240;t++){ const a=rnd(0,6.2832), d=rnd(r0,r1), x=BASE.x+Math.cos(a)*d, y=BASE.y+Math.sin(a)*d;
-    if(biomeAt(s,x,y)===T.biome && !blocked(s,x,y,30)) return {type,x,y,store:0,tempoLvl:0,mengeLvl:0}; }
-  for(let t=0;t<120;t++){ const a=rnd(0,6.2832), d=rnd(r0,r1), x=BASE.x+Math.cos(a)*d, y=BASE.y+Math.sin(a)*d;
-    if(!blocked(s,x,y,30)) return {type,x,y,store:0,tempoLvl:0,mengeLvl:0}; }
+  // Sammler darf NICHT mit Deko/Ressourcen-Knoten kollidieren (Steffen mid:7121)
+  const clear=(x,y)=>{ if(blocked(s,x,y,34)) return false;
+    if(s.deco) for(const d of s.deco){ if(dist(x,y,d.x,d.y) < d.size*SC*0.35+46) return false; }
+    if(s.nodes) for(const n of s.nodes){ if(dist(x,y,n.x,n.y) < (NODE_SIZE[n.type]||64)*SC*0.35+46) return false; }
+    return true; };
+  for(let t=0;t<300;t++){ const a=rnd(0,6.2832), d=rnd(r0,r1), x=BASE.x+Math.cos(a)*d, y=BASE.y+Math.sin(a)*d;
+    if(biomeAt(s,x,y)===T.biome && clear(x,y)) return {type,x,y,store:0,tempoLvl:0,mengeLvl:0}; }   // 1. Wahl: passendes Biotop + frei
+  for(let t=0;t<200;t++){ const a=rnd(0,6.2832), d=rnd(r0,r1), x=BASE.x+Math.cos(a)*d, y=BASE.y+Math.sin(a)*d;
+    if(clear(x,y)) return {type,x,y,store:0,tempoLvl:0,mengeLvl:0}; }   // 2. Wahl: irgendwo frei im Ring
   const a=rnd(0,6.2832); return {type,x:BASE.x+Math.cos(a)*r1,y:BASE.y+Math.sin(a)*r1,store:0,tempoLvl:0,mengeLvl:0}; }
 // ----- Türme (mid:6357/6359): auf den 12 Ring-Slots, Waffenkammer (Stufe 7) als Gate. Je Turm 1 Einheit (Kämpfer=Nahkampf / Bogenschütze=Fernkampf), bewacht den Turm per Aggro oder folgt dem Held. Upgradebar. -----
 // Redesign §5b: Truppen-Typen mit neuer Stufen-Staffel. era = ab welcher internen Era baubar (Stufe = era+1).
@@ -823,7 +828,10 @@ function buildLevel(s){
         if(dd < (size+o.size)*SC*0.17) return false;                 // hartes Clipping (Körper bugt ineinander)
         if(big>sm*1.3 && dd < big*SC*0.46) return false;             // kleines Objekt würde hinter dem großen verschwinden
       } } return true; };
-  const placeD=(key,x,y,size,solid,obR)=>{ if(dist(x,y,BASE.x,BASE.y)<OUTER_R+22||inLake(x,y,26)||onSand(s,x,y)||blocked(s,x,y,16)) return;   // Deko: nicht im Dorf-Ring, nicht auf Wasser/Sand (mid:6258/6260)
+  const RINGR=enemyNoSpawn(s)-30;   // Sammler-Ring ums Dorf
+  const placeD=(key,x,y,size,solid,obR)=>{ const dB=dist(x,y,BASE.x,BASE.y);
+    if(dB<OUTER_R+22||inLake(x,y,26)||onSand(s,x,y)||blocked(s,x,y,16)) return;   // Dorf-Kern + Wasser/Sand frei
+    if(dB<RINGR && Math.random()>0.15) return;   // Sammler-Ring: nur WENIG Deko (Steffen mid:7120/7121), Rest bleibt für die Sammler frei
     if(!decoClear(x,y,size)) return;   // nicht in/hinter andere Deko (mid:7111)
     s.deco.push({key,x,y,size,solid:!!solid}); if(solid) s.obstacles.push({x,y,r:obR||size*0.30});
     const k=dkey(x,y); (dgrid[k]=dgrid[k]||[]).push({x,y,size}); };
@@ -852,7 +860,7 @@ function buildLevel(s){
     s.clouds.push({x:BASE.x+gx+rnd(-1400,1400), y:BASE.y+gy+rnd(-1400,1400), ci:1+Math.floor(rnd(0,8)), spd:rnd(6,15), sz:rnd(1.4,2.5), al:rnd(0.5,0.78)}); }
   // animierte Sträucher/Büsche als Insel-Deko (mid:6503): mehr Leben, nicht auf Sand/Wasser/Dorf
   s.bushes=[]; for(let i=0;i<208;i++){ const a=rnd(0,6.2832), dd=rnd(VILLAGE_R+60, FULLR*0.95), x=BASE.x+Math.cos(a)*dd, y=BASE.y+Math.sin(a)*dd;   // -20% Büsche/Sträucher (mid:6765; war 260 @mid:6600), 4 Sorten
-    if(dist(x,y,BASE.x,BASE.y)<OUTER_R+22||inLake(x,y,26)||onSand(s,x,y)||blocked(s,x,y,14)) continue;
+    { const _dB=dist(x,y,BASE.x,BASE.y); if(_dB<OUTER_R+22||inLake(x,y,26)||onSand(s,x,y)||blocked(s,x,y,14)) continue; if(_dB<enemyNoSpawn(s)-30 && Math.random()>0.15) continue; }   // Sträucher: wenig im Sammler-Ring (mid:7120/7121)
     s.bushes.push({x,y,bi:1+Math.floor(rnd(0,4)),t:rnd(0,3),sz:rnd(95,165)}); }   // größer + breite Variation (mid:6523)
   // (Plateaus-Gen entfernt mid:6531 — kommt als echtes tile-basiertes Höhensystem mit dem Paid-Pack)
 }
