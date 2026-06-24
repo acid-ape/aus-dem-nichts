@@ -63,10 +63,14 @@ const VIEW = DEVICE === 'desktop'
     ALL.forEach(k => game.s.store[k] = 5000);
     ['cap','cap','cap','speed','speed','gather','gather'].forEach(id => game.buy(id)); // bump heroTier
     game.buy('hire'); game.buy('hire'); game.buy('hire'); // workerPool -> 3
-    game.buy('build'); // Holzfäller (era 1)
-    game.buyEra(); ALL.forEach(k => game.s.store[k] = 5000); // -> Dorf
-    game.buyEra(); ALL.forEach(k => game.s.store[k] = 5000); // -> Burg
-    game.buy('build'); // Steinbruch (era 2)
+    // Redesign: Sammler sind Außenposten; erstes Dorf-Gebäude = Schmiede (era3).
+    game.buy('buildpost'); // Holz-Sammler (era 0)
+    game.s.nightToken = true; game.buyEra(); ALL.forEach(k => game.s.store[k] = 5000); // -> Stufe 2
+    game.buy('buildpost'); // Kürbis-Sammler (era 1)
+    game.s.nightToken = true; game.buyEra(); ALL.forEach(k => game.s.store[k] = 5000); // -> Stufe 3
+    game.buy('buildpost'); // Stein-Sammler (era 2)
+    game.s.nightToken = true; game.buyEra(); ALL.forEach(k => game.s.store[k] = 5000); // -> Stufe 4
+    game.buy('build'); // Schmiede (era 3) — erstes Dorf-Gebäude
     game.setTab('dorf');
   });
   await sleep(300); await frames();
@@ -118,13 +122,14 @@ const VIEW = DEVICE === 'desktop'
     game.panelFor = 'castle';
     ALL.forEach(k => game.s.store[k] = 999999);
     for (let i = 0; i < 8; i++) { ['cap','speed','gather'].forEach(id => game.buy(id)); }
-    while (game.s.era < 6) { ALL.forEach(k => game.s.store[k] = 999999); game.s.nightToken = true; game.buyEra(); }   // bis Stufe 7 (era6); Nacht-Gates per Token überbrückt
+    while (game.s.era < 19) { ALL.forEach(k => game.s.store[k] = 999999); game.buyEra();   // gated → zahlt + startet Nacht
+      if (game.s.phase === 'night') { game.s.enemies = game.s.enemies.filter(e => !e.night); game.step(0.05); } }   // Nacht sofort gewinnen → Aufstieg (Redesign §4)
     game.buy('steam'); game.buy('steam');
     for (let i = 0; i < 6; i++) { ALL.forEach(k => game.s.store[k] = 999999); game.buy('hire'); } // workerPool -> 9
     for (let i = 0; i < 6; i++) { ALL.forEach(k => game.s.store[k] = 999999); game.buy('build'); } // alle 6 Hütten (inkl. Schmiede + Juwelier-Ketten)
     for (let i = 0; i < 3; i++) { ALL.forEach(k => game.s.store[k] = 999999); game.buy('expand'); } // erschliesse alle Gebiete
     for (let i = 0; i < 3; i++) { ALL.forEach(k => game.s.store[k] = 999999); game.buy('buildpost'); } // Kürbis/Pilz/Beeren-Sammler (mid:6246/6313)
-    if (game.s.outposts) game.s.outposts.forEach(o => { o.store = Math.round(outpostCap(o) * 0.7); }); // teilweise gefüllt für den Screenshot
+    if (game.s.outposts) game.s.outposts.forEach(o => { o.store = Math.round(outpostCap(o, game.s) * 0.7); }); // teilweise gefüllt für den Screenshot
     // verteile Arbeiter auf die Hütten + rüste sie hoch
     game.s.builds.forEach((b, i) => { game.panelFor = i; game.assign(1); game.assign(1); game.upgBuild('tempo'); game.upgBuild('menge'); });
     game.panelFor = 'castle';
@@ -145,10 +150,10 @@ const VIEW = DEVICE === 'desktop'
 
   // Nacht-Modus Screenshot: Stufe 3, Nacht starten, abgedunkelte Karte + Welle + Dorf-Panel
   await page.evaluate(() => {
-    game.s.era = 4; game.s.nightToken = false; game.s.phase = 'day'; game.s.enemies = []; game.s.areas = 1;
-    game.s.store.pilze = 200; game.s.healBought = 0;
+    game.s.era = 6; game.s.phase = 'day'; game.s.enemies = []; game.s.areas = 1;   // era6: Aufstieg auf Stufe 7 = 1. Nacht (Redesign §4)
+    game.s.store.pilze = 200; game.s.healBought = 0; ALL.forEach(k => game.s.store[k] = 999999); game.s.pendingEra = null; game.s.pendingCost = null;
     game.s.player.x = game.s.player.tx = BASE.x; game.s.player.y = game.s.player.ty = BASE.y + 40;
-    game.startNight(); game.s.baseHP = Math.round((game.s.baseHPmax || 100) * 0.45);   // Dorf angeschlagen
+    game.buyEra(); game.s.baseHP = Math.round((game.s.baseHPmax || 100) * 0.45);   // zahlt + startet Nacht; Dorf angeschlagen
     game.s.cam.x = BASE.x; game.s.cam.y = BASE.y; game.camFollow = false; game.zoom = 0.6;   // Dorf-Mitte → Fackeln sichtbar
   });
   await sleep(400); await frames(20); await shot('12_nacht');
@@ -228,14 +233,25 @@ const VIEW = DEVICE === 'desktop'
     out.push(['production scales with upgrades/workers', boosted > base]);
     out.push(['all 6 hut types built', game.s.builds.length === 6]);
     // 2-stufige Kette: Juwelier verbraucht Gold+Stein, produziert Kristall (mid:6046 Phase B)
+    // Redesign 2026-06-24: Marktplatz (type-key 'juwelier') produziert Edelstein statt Kristall (P1 interim-Konverter)
     const jw = game.s.builds.find(b => b.type === 'juwelier');
     if (jw) {
-      ALL.forEach(k => game.s.store[k] = 0); game.s.store.gold = 100; game.s.store.stein = 100;
-      const kr0 = game.s.store.kristall, gd0 = game.s.store.gold;
+      // §9: 3-Modus-Tausch — Combo (Holz+Stein+Gold) → Edelstein, höherer Modus = besserer Kurs
+      jw.marktMode = 1;
+      ALL.forEach(k => game.s.store[k] = 0); game.s.store.holz = 1000; game.s.store.stein = 1000; game.s.store.gold = 1000;
+      const ed0 = game.s.store.edelstein, gd0 = game.s.store.gold, hz0 = game.s.store.holz;
       for (let i = 0; i < 30; i++) produce(game.s, jw, 0.2);
-      out.push(['Juwelier produziert Kristall', game.s.store.kristall > kr0]);
-      out.push(['Juwelier verbraucht Gold', game.s.store.gold < gd0]);
-    } else out.push(['Juwelier gebaut', false]);
+      out.push(['Marktplatz produziert Edelstein', game.s.store.edelstein > ed0]);
+      out.push(['Marktplatz verbraucht Roh-Combo (Holz+Gold)', game.s.store.gold < gd0 && game.s.store.holz < hz0]);
+      const ratio = (mode) => { jw.marktMode = mode; ALL.forEach(k => game.s.store[k] = 0); game.s.store.holz = 1e5; game.s.store.stein = 1e5; game.s.store.gold = 1e5; for (let i = 0; i < 50; i++) produce(game.s, jw, 0.2); return game.s.store.edelstein / (1e5 - game.s.store.gold); };
+      out.push(['Markt-Modus 3 = besserer Kurs als Modus 1', ratio(3) > ratio(1)]);
+      out.push(['Markt-Modus-Cap (era<13→1, era>=15→3)', marktMaxMode({ era: 12 }) === 1 && marktMaxMode({ era: 19 }) === 3]);
+    } else out.push(['Marktplatz gebaut', false]);
+    // Ökonomie-Redesign Datenlayer (P1)
+    out.push(['20 Stufen definiert', ERAS.length === 20]);
+    out.push(['edelstein in Ressourcen', ALL.includes('edelstein')]);
+    out.push(['kristall + beeren entfernt', !ALL.includes('kristall') && !ALL.includes('beeren')]);
+    out.push(['eraCost für alle 19 Aufstiege definiert', Array.from({length:19}, (_,i)=>i+1).every(e => eraCost(e) && Object.keys(eraCost(e)).length > 0)]);
     out.push(['workers assigned', assignedWorkers(game.s) > 0]);
     out.push(['freeWorkers never negative', freeWorkers(game.s) >= 0]);
     // Inland-Seen + Flüsse wieder eingestreut (mid:6213)
@@ -260,23 +276,21 @@ const VIEW = DEVICE === 'desktop'
       game.s.player.x = game.s.player.tx = BASE.x; game.s.player.y = game.s.player.ty = BASE.y; o.store = 0;
       for (let i = 0; i < 120; i++) game.step(0.1);   // Held an der Basis → kein Abholen, nur Akkumulation
       out.push(['Außenposten sammelt über Zeit', o.store > 0]);
-      out.push(['Außenposten-Store unter Cap gedeckelt', o.store <= outpostCap(o) + 0.01]);
-      o.store = outpostCap(o); const before = game.s.store[res] || 0;
+      out.push(['Außenposten-Store unter Cap gedeckelt', o.store <= outpostCap(o, game.s) + 0.01]);
+      o.store = outpostCap(o, game.s); const before = game.s.store[res] || 0;
       game.s.player.x = game.s.player.tx = o.x; game.s.player.y = game.s.player.ty = o.y; game.step(0.1);   // Held hin → abholen
       out.push(['Abholen füllt das Lager', (game.s.store[res] || 0) > before]);
       out.push(['Außenposten nach Abholen geleert', o.store < 1]);
-      const r0 = outpostRate(o), c0 = outpostCap(o); o.tempoLvl++; o.mengeLvl++;
-      out.push(['Tempo-Upgrade hebt Sammelrate', outpostRate(o) > r0]);
-      out.push(['Menge-Upgrade hebt Cap', outpostCap(o) > c0]);
+      // §5: globale Sammler-Upgrades (alle Sammler zusammen)
+      const r0 = outpostRate(o, game.s), c0 = outpostCap(o, game.s); game.s.sammlerTempoLvl = (game.s.sammlerTempoLvl || 0) + 1; game.s.sammlerCapLvl = (game.s.sammlerCapLvl || 0) + 1;
+      out.push(['Globales Sammler-Tempo hebt Rate', outpostRate(o, game.s) > r0]);
+      out.push(['Globales Sammler-Cap hebt Lager', outpostCap(o, game.s) > c0]);
     }
-    // Dorfgrenze auf die äußere Linie OUTER_R erweitert (mid:6280): Heilung reicht bis OUTER_R, nicht weit darüber
+    // §10: KEINE Auto-Heilung mehr — auch im Dorf regeneriert der Held nicht passiv (Heilung läuft über Food-Crafting)
     game.s.enemies = []; game.s.player.hpmax = 100;
-    game.s.player.hp = 50; game.s.player.x = game.s.player.tx = BASE.x + OUTER_R - 25; game.s.player.y = game.s.player.ty = BASE.y;
+    game.s.player.hp = 50; game.s.player.x = game.s.player.tx = BASE.x; game.s.player.y = game.s.player.ty = BASE.y;
     for (let i = 0; i < 30; i++) updateCombat(game.s, 0.1);
-    out.push(['Heilung reicht bis zur äußeren Dorflinie (OUTER_R)', game.s.player.hp > 50]);
-    game.s.player.hp = 50; game.s.player.x = game.s.player.tx = BASE.x + OUTER_R + 140; game.s.player.y = game.s.player.ty = BASE.y;
-    for (let i = 0; i < 30; i++) updateCombat(game.s, 0.1);
-    out.push(['keine Heilung außerhalb des Dorfs', Math.abs(game.s.player.hp - 50) < 0.01]);
+    out.push(['Keine passive Heilung im Dorf (§10)', Math.abs(game.s.player.hp - 50) < 0.01]);
     // Deko + Ressourcen-Knoten dürfen NICHT auf Sand oder Wasser liegen (mid:6260)
     out.push(['keine Deko auf Sand', game.s.deco.filter(d => onSand(game.s, d.x, d.y)).length === 0]);
     out.push(['keine Knoten auf Sand', game.s.nodes.filter(n => onSand(game.s, n.x, n.y)).length === 0]);
@@ -284,49 +298,70 @@ const VIEW = DEVICE === 'desktop'
     // Türme (mid:6357/6359/6385)
     game.s.era = 6; game.s.towers = []; game.s.enemies = []; ALL.forEach(k => game.s.store[k] = 999999);
     game.panelFor = 'tb3'; game.buildTower('kaempfer');
-    out.push(['Turm gebaut + Einheit gespawnt', game.s.towers.length === 1 && !!game.s.towers[0].unit]);
+    out.push(['Truppe gebaut + Einheit gespawnt', game.s.towers.length === 1 && !!game.s.towers[0].unit]);
     if (game.s.towers.length && game.s.towers[0].unit) {
       const tw = game.s.towers[0], u = tw.unit;
       game.s.enemies = [{ kind: 'grunt', x: u.x + 30, y: u.y, home: { x: u.x + 30, y: u.y }, hp: 40, max: 40, base: 40, face: -1, animT: 0, atkT: 0, hurtT: 0, state: 'idle', moving: false, evo: 0, evoT: 0 }];
       const ehp0 = game.s.enemies[0].hp; for (let i = 0; i < 60; i++) updateTroops(game.s, 0.1);
-      out.push(['Turm-Einheit kämpft (Gegner nimmt Schaden)', game.s.enemies[0].hp < ehp0]);
+      out.push(['Truppe kämpft (Gegner nimmt Schaden)', game.s.enemies[0].hp < ehp0]);
       game.s.player.x = u.x + 9999;
-      out.push(['Gegner zielt auf nächste Turm-Einheit', enemyTarget(game.s, game.s.enemies[0]) === u]);
-      game.panelFor = 'tw3'; const m0 = tw.mode; game.toggleTowerMode(); out.push(['Modus-Toggle (Wache/Folgen)', tw.mode !== m0]);
-      const hp0 = towerHp(tw); game.upgTower(); out.push(['Turm-Upgrade hebt HP', towerHp(tw) > hp0]);
+      out.push(['Gegner zielt auf nächste Truppe', enemyTarget(game.s, game.s.enemies[0]) === u]);
+      // 3-Modus-Cycle §5b: wache → folgen → posten → wache
+      game.panelFor = 'tw3'; const m0 = tw.mode; game.toggleTowerMode();
+      out.push(['3-Modus wache→folgen', m0 === 'wache' && tw.mode === 'folgen']);
+      game.toggleTowerMode(); out.push(['3-Modus folgen→posten', tw.mode === 'posten']);
+      game.toggleTowerMode(); out.push(['3-Modus posten→wache', tw.mode === 'wache']);
+      // §5: globales Truppen-Upgrade (Kaserne) statt per-Truppe
+      const hp0 = towerHp(tw, game.s); ALL.forEach(k => game.s.store[k] = 999999); game.upgTroopGlobal('hp');
+      out.push(['Globales Truppen-HP-Upgrade hebt HP', towerHp(tw, game.s) > hp0 && game.s.troopHpLvl === 1]);
+      const at0 = towerAtk(tw, game.s); game.upgTroopGlobal('atk');
+      out.push(['Globales Truppen-Schaden-Upgrade hebt Schaden', towerAtk(tw, game.s) > at0 && game.s.troopAtkLvl === 1]);
     }
     game.s.towers = []; game.panelFor = 'tb5'; game.buildTower('bogen'); const bt = game.s.towers[0];
     if (bt && bt.unit) { game.s.enemies = [{ kind: 'grunt', x: bt.unit.x + 130, y: bt.unit.y, home: { x: bt.unit.x + 130, y: bt.unit.y }, hp: 60, max: 60, base: 60, face: -1, animT: 0, atkT: 0, hurtT: 0, state: 'idle', moving: false, evo: 0, evoT: 0 }];
       for (let i = 0; i < 40; i++) updateTroops(game.s, 0.1); out.push(['Bogenschütze trifft auf Distanz', game.s.enemies[0].hp < 60]); }
-    // Turm-Anzahl-Cap pro Stufe (mid:6420): Stufe 3 = 2, Stufe 5 = 4, ab Stufe 6 +2/Stufe bis 12
-    out.push(['Allowance-Staffel (2/2/4/6/8)', towerAllowance({era:2})===2 && towerAllowance({era:3})===2 && towerAllowance({era:4})===4 && towerAllowance({era:5})===6 && towerAllowance({era:6})===8]);
-    game.s.era = 2; game.s.towers = []; game.s.enemies = []; ALL.forEach(k => game.s.store[k] = 999999);
+    // Slot-Staffel §5b: Truppen ab Kaserne (era4), S5:2·S7:3·S11:6·S13:8·S19:12
+    out.push(['Truppen erst ab Kaserne (era4)', towerAllowance({era:3})===0 && towersUnlocked({era:4})===true]);
+    out.push(['Slot-Staffel (era4:2,era6:3,era10:6,era12:8,era18:12)', towerAllowance({era:4})===2 && towerAllowance({era:6})===3 && towerAllowance({era:10})===6 && towerAllowance({era:12})===8 && towerAllowance({era:18})===12]);
+    game.s.era = 4; game.s.towers = []; game.s.enemies = []; ALL.forEach(k => game.s.store[k] = 999999);
     game.panelFor = 'tb0'; game.buildTower('kaempfer'); game.panelFor = 'tb2'; game.buildTower('bogen');
-    out.push(['Stufe 3: 2 Türme baubar', game.s.towers.length === 2]);
+    out.push(['Stufe 5: 2 Truppen baubar', game.s.towers.length === 2]);
     game.panelFor = 'tb4'; game.buildTower('kaempfer');
-    out.push(['Stufe 3: 3. Turm blockiert (Limit 2)', game.s.towers.length === 2]);
-    game.s.era = 4; game.panelFor = 'tb4'; game.buildTower('lance');
-    out.push(['Stufe 5: 3. Turm erlaubt (Limit 4)', game.s.towers.length === 3]);
-    // Lanze + Mönch (mid:6385): bauen + Mönch heilt verwundeten Verbündeten
-    game.s.towers = []; game.s.enemies = []; game.panelFor = 'tb1'; game.buildTower('lance'); game.panelFor = 'tb9'; game.buildTower('monk');
-    out.push(['Lanze + Mönch baubar (Stufe 5)', game.s.towers.length === 2 && game.s.towers.every(t => t.unit)]);
+    out.push(['Stufe 5: 3. Truppe blockiert (Limit 2)', game.s.towers.length === 2]);
+    game.s.era = 6; game.panelFor = 'tb4'; game.buildTower('kaempfer');
+    out.push(['Stufe 7: 3. Truppe erlaubt (Limit 3)', game.s.towers.length === 3]);
+    // Mönch (Stufe 7) heilt; Lanze (Stufe 13) baubar
+    game.s.era = 12; game.s.towers = []; game.s.enemies = []; ALL.forEach(k => game.s.store[k] = 999999); game.panelFor = 'tb1'; game.buildTower('lance'); game.panelFor = 'tb9'; game.buildTower('monk');
+    out.push(['Lanze (S13) + Mönch baubar', game.s.towers.length === 2 && game.s.towers.every(t => t.unit)]);
     const mt = game.s.towers.find(t => t.type === 'monk');
     if (mt && mt.unit) { game.s.player.hpmax = 100; game.s.player.hp = 40; game.s.player.x = game.s.player.tx = mt.unit.x + 20; game.s.player.y = game.s.player.ty = mt.unit.y;
       for (let i = 0; i < 60; i++) updateTroops(game.s, 0.1); out.push(['Mönch heilt verwundeten Verbündeten', game.s.player.hp > 40]); }
-    // --- Nacht-Gating (mid:6396): Stufe 4 (era3) braucht eine überstandene Nacht ---
-    game.s.era = 2; game.s.nightToken = false; game.s.phase = 'day'; game.s.enemies = []; game.s.areas = 2; ALL.forEach(k => game.s.store[k] = 999999);
-    game.buyEra(); out.push(['Aufstieg auf Stufe 4 ohne Nacht blockiert', game.s.era === 2]);
-    game.startNight(); out.push(['Nacht startet (phase=night + Welle)', game.s.phase === 'night' && game.s.enemies.some(e => e.night)]);
-    out.push(['Aufstieg während Nacht blockiert', (game.buyEra(), game.s.era === 2)]);
-    game.s.enemies.forEach(e => { if (e.night) e.hp = 0; }); game.step(0.05);   // Welle erledigt → Nacht überstanden
-    out.push(['Nacht überstanden → phase=day + Token', game.s.phase === 'day' && game.s.nightToken === true]);
-    ALL.forEach(k => game.s.store[k] = 999999); game.buyEra(); out.push(['Aufstieg auf Stufe 4 nach Nacht', game.s.era === 3]);
-    out.push(['Stufe 5 NICHT nacht-gated', (game.s.nightToken = false, game.buyEra(), game.s.era === 4)]);
-    // --- Nacht-KI (mid:6426): Welle marschiert aufs Hauptgebäude, zieht Dorf-Leben; Held/Truppe lenkt ab; Überrannt = Rückschlag ---
-    game.s.era = 2; game.s.nightToken = false; game.s.phase = 'day'; game.s.enemies = []; game.s.towers = []; game.s.areas = 2;
+    // Kampf-Panda (Stufe 18 / era17, 5. Truppe)
+    game.s.era = 17; game.s.towers = []; ALL.forEach(k => game.s.store[k] = 999999); game.panelFor = 'tb6'; game.buildTower('panda');
+    out.push(['Kampf-Panda baubar (Stufe 18)', game.s.towers.length === 1 && game.s.towers[0].type === 'panda' && !!game.s.towers[0].unit]);
+    // --- Nacht-Gating (Redesign §4): Aufstieg auf Stufe 7 (era6)+ = überstandene Nacht; Stufe 2-6 nacht-frei ---
+    game.s.era = 5; game.s.phase = 'day'; game.s.enemies = []; game.s.areas = 2; game.s.builds = []; ALL.forEach(k => game.s.store[k] = 999999); game.s.pendingEra = null; game.s.pendingCost = null;
+    out.push(['Stufe 2-6 nicht nacht-gated', !nightGated(1) && !nightGated(5)]);
+    out.push(['Aufstieg auf Stufe 7 nacht-gated', nightGated(6) === true]);
+    const holzA = game.s.store.holz;
+    game.buyEra();   // era5 → next 6 (Stufe 7): gated → zahlt + startet Nacht
+    out.push(['gated Aufstieg zahlt + startet Nacht', game.s.phase === 'night' && game.s.pendingEra === 6 && game.s.store.holz < holzA]);
+    out.push(['Aufstieg während Nacht blockiert', (game.buyEra(), game.s.era === 5)]);
+    game.s.enemies = game.s.enemies.filter(e => !e.night); game.step(0.05);   // Welle besiegt → überstanden
+    out.push(['Nacht überstanden → Aufstieg vollzogen (Stufe 7)', game.s.phase === 'day' && game.s.era === 6]);
+    // Verlust-Strafe (§4): 20% Preis zurück, Stufe bleibt, Dorf heilt (mit Reparatur >=50%)
+    game.s.era = 6; game.s.phase = 'day'; game.s.enemies = []; game.s.areas = 2; game.s.builds = [{ type: 'reparatur', seg: 0, tempo: 0, menge: 0, workers: 0 }]; ALL.forEach(k => game.s.store[k] = 999999); game.s.pendingEra = null; game.s.pendingCost = null;
+    const holzB = game.s.store.holz; game.buyEra();   // zahlt für Stufe 8, startet Nacht
+    const paidHolz = game.s.pendingCost ? game.s.pendingCost.holz : 0;
+    game.s.baseHPmax = 100; game.s.baseHP = 0; game.step(0.05);   // Dorf überrannt → verloren
+    out.push(['Nacht verloren → Stufe bleibt (kein Game-Over)', game.s.era === 6 && game.s.phase === 'day']);
+    out.push(['Nacht verloren → 20% Preis zurück', Math.abs(game.s.store.holz - (holzB - paidHolz * 0.8)) < 1]);
+    out.push(['Nacht verloren → Dorf heilt mit Reparatur >=50%', game.s.baseHP >= 50]);
+    // --- Nacht-KI: Welle marschiert aufs Hauptgebäude, zieht Dorf-Leben; Held lenkt ab; Überrannt ohne Reparatur = 100% reset ---
+    game.s.era = 6; game.s.phase = 'day'; game.s.enemies = []; game.s.towers = []; game.s.builds = []; game.s.areas = 2; ALL.forEach(k => game.s.store[k] = 999999); game.s.pendingEra = null; game.s.pendingCost = null;
     game.s.player.x = game.s.player.tx = BASE.x + 99999; game.s.player.y = game.s.player.ty = BASE.y;   // Held weit weg → keine Aggro
-    game.startNight();   // era2: Aufstieg auf Stufe 4 ist nacht-gated → Welle spawnt
-    game.s.baseHP = game.s.baseHPmax || 100; const bhp0 = game.s.baseHP;   // Schaden persistiert über Nächte (mid:6431) → für den Test explizit voll setzen
+    game.startNight();   // → buyEra → Nacht
+    game.s.baseHP = game.s.baseHPmax || 100; const bhp0 = game.s.baseHP;
     game.s.enemies = game.s.enemies.slice(0, 1);   // 1 Gegner direkt ans Hauptgebäude
     const ne = game.s.enemies[0]; ne.x = BASE.x + 30; ne.y = BASE.y; ne.atkT = 0;
     for (let i = 0; i < 6; i++) game.step(0.1);
@@ -336,7 +371,58 @@ const VIEW = DEVICE === 'desktop'
     game.s.player.x = game.s.player.tx = BASE.x + 99999; game.s.baseHP = 1;   // Held wieder weg, Dorf fast tot
     game.s.enemies.forEach(e => { e.x = BASE.x + 20; e.y = BASE.y; e.atkT = 0; });
     for (let i = 0; i < 16; i++) game.step(0.1);
-    out.push(['Dorf überrannt → Rückschlag (phase=day, kein Token, Leiste reset)', game.s.phase === 'day' && game.s.nightToken === false && game.s.baseHP === (game.s.baseHPmax || 100)]);
+    out.push(['Dorf überrannt ohne Reparatur → 100% reset, Stufe bleibt', game.s.phase === 'day' && game.s.era === 6 && game.s.baseHP === (game.s.baseHPmax || 100)]);
+    // --- cP-gekoppelte Nacht-Wellen (Kampf-Punkte, mid:7039): Welle skaliert mit Spieler-cP ---
+    game.s.era = 10; game.s.troopAtkLvl = 0; game.s.troopHpLvl = 0; game.s.player.hpmax = 100; game.s.atk = 1; game.s.endlessActive = false; game.s.endlessNights = 0;
+    const cp0 = playerCombatCP(game.s); game.s.troopAtkLvl = 5; game.s.troopHpLvl = 5;
+    out.push(['Spieler-cP steigt mit globalen Truppen-Upgrades', playerCombatCP(game.s) > cp0]);
+    // Welle skaliert per Gesamt-cP (nicht Anzahl — zähere Gegner = weniger Stück fürs selbe cP)
+    const waveCP = () => game.s.enemies.filter(e => e.night).reduce((a, e) => a + enemyCP(e.kind, game.s.era), 0);
+    game.s.phase = 'day'; game.s.enemies = []; spawnNightWave(game.s); const w1 = waveCP();
+    game.s.phase = 'day'; game.s.enemies = []; game.s.era = 16; spawnNightWave(game.s); const w2 = waveCP();
+    out.push(['cP-Welle skaliert mit Stufe (era16-cP > era10-cP)', w2 > w1 && w1 > 0]);
+    out.push(['enemyCP/troopCP in cP definiert', enemyCP('grunt', 10) > 0 && troopCP({ type: 'kaempfer' }, game.s) > 0]);
+    // --- Gegner-Vielfalt (Enemy-Pack): späte Wellen mischen Spinne + Totenkopf ---
+    game.s.era = 16; game.s.phase = 'day'; game.s.enemies = []; game.s.endlessActive = false; game.s.endlessNights = 0; spawnNightWave(game.s);
+    const kinds = new Set(game.s.enemies.filter(e => e.night).map(e => e.kind));
+    out.push(['Späte Welle mischt mehrere Gegner-Typen', kinds.size >= 3]);
+    out.push(['Spinne + Totenkopf in der späten Welle', kinds.has('spider') && kinds.has('skull')]);
+    out.push(['enemyCP für neue Typen definiert', enemyCP('spider', 10) > 0 && enemyCP('skull', 10) > 0]);
+    // --- Spezial-Attacken §5: Wirbelschlag (AoE) + Sturmangriff (Dash), cP-basierte Werte ---
+    game.s.era = 14; game.s.skillWirbel = true; game.s.skillSturm = true; game.s.wirbelCd = 0; game.s.sturmCd = 0; game.s.atk = 1; game.s.phase = 'day';
+    game.s.player.x = game.s.player.tx = BASE.x; game.s.player.y = game.s.player.ty = BASE.y; game.s.player.face = 1;
+    const mkE = (dx) => ({ kind: 'grunt', x: BASE.x + dx, y: BASE.y, home: { x: BASE.x + dx, y: BASE.y }, hp: 500, max: 500, base: 500, face: -1, animT: 0, atkT: 0, hurtT: 0, state: 'idle', moving: false, evo: 0, evoT: 0 });
+    game.s.enemies = [mkE(50), mkE(600)];
+    const eNah = game.s.enemies[0].hp; game.useWirbel();
+    out.push(['Wirbelschlag trifft nahen Gegner', game.s.enemies[0].hp < eNah]);
+    out.push(['Wirbelschlag setzt Cooldown', game.s.wirbelCd > 0]);
+    out.push(['Wirbelschlag verschont fernen Gegner (AoE-Radius)', game.s.enemies[1].hp === 500]);
+    game.s.player.x = game.s.player.tx = BASE.x; game.s.enemies = [mkE(600)]; game.s.sturmCd = 0;
+    const farHp = game.s.enemies[0].hp, px0 = game.s.player.x; game.useSturm();
+    out.push(['Sturmangriff dasht den Helden zum Ziel', Math.abs(game.s.player.x - px0) > 100]);
+    out.push(['Sturmangriff trifft Gegner im Pfad', game.s.enemies[0].hp < farHp]);
+    game.s.skillWirbel = false; game.s.wirbelCd = 0; const eLock = game.s.enemies[0].hp; game.useWirbel();
+    out.push(['Spezial-Attacke gesperrt ohne Freischaltung', game.s.enemies[0].hp === eLock]);
+    // --- Food-Heilung §10: kein Auto-Heal, Kürbis-Suppe/Pilz-Sauce heilen den Held ---
+    game.s.era = 9; game.s.player.hpmax = 200; game.s.player.hp = 50; game.s.player.x = game.s.player.tx = BASE.x; game.s.player.y = game.s.player.ty = BASE.y;
+    ALL.forEach(k => game.s.store[k] = 0); game.s.enemies = []; game.s.phase = 'day';
+    for (let i = 0; i < 30; i++) game.step(0.1);   // im Dorf, ohne Food → HP darf NICHT steigen (kein Auto-Heal)
+    out.push(['Kein Auto-Heal mehr (HP steigt nicht ohne Food)', game.s.player.hp <= 50]);
+    game.s.store.korn = 100; const fhp0 = game.s.player.hp; game.buy('suppe');
+    out.push(['Kürbis-Suppe heilt den Helden', game.s.player.hp > fhp0]);
+    out.push(['Kürbis-Suppe kostet Kürbis', game.s.store.korn < 100]);
+    game.s.player.hp = 50; game.s.store.pilze = 100; const fhp1 = game.s.player.hp; game.buy('sauce');
+    out.push(['Pilz-Sauce heilt den Helden (ab S9)', game.s.player.hp > fhp1]);
+    // --- Endgame §12: Stufe 20 → Sieg + Bestenliste + Endless ---
+    game.s.era = 18; game.s.phase = 'day'; game.s.enemies = []; game.s.builds = []; game.s.won = false; game.s.wonShown = false; game.s.endless = false; game.s.endlessNights = 0; game.s.endlessActive = false; game.s.playerName = 'TEST'; ALL.forEach(k => game.s.store[k] = 999999); game.s.pendingEra = null; game.s.pendingCost = null;
+    game.buyEra();   // era18→19 (Stufe 20): gated → Nacht
+    game.s.enemies = game.s.enemies.filter(e => !e.night); game.step(0.05);   // überstanden → applyAscend(19) = Sieg
+    out.push(['Stufe 20 erreicht → Sieg-Flag + Endless frei', game.s.era === 19 && game.s.won === true && game.s.endless === true]);
+    out.push(['Sieg → Bestenliste-Eintrag', lbLoad().some(e => e.n === 'TEST' && e.s === 20)]);
+    game.s.phase = 'day'; game.s.enemies = []; game.endlessNight();
+    out.push(['Endlos-Nacht startet (Welle)', game.s.phase === 'night' && game.s.endlessActive === true && game.s.enemies.some(e => e.night)]);
+    game.s.enemies = game.s.enemies.filter(e => !e.night); game.step(0.05);
+    out.push(['Endlos-Nacht überstanden → Score +1', game.s.endlessNights === 1 && game.s.phase === 'day']);
     // --- Dorf-Heilung gegen Pilze, steigender Preis (mid:6431) ---
     game.s.era = 4; game.s.baseHP = 30; game.s.baseHPmax = 100; game.s.healBought = 0; game.s.store.pilze = 999;
     const hc0 = healCost(game.s); game.healVillage();
@@ -363,8 +449,18 @@ const VIEW = DEVICE === 'desktop'
     game.s.firstDeposit = true; game.checkTut(); out.push(['Schritt rückt nach „abladen"', game.s.tutStep === 3]);
     game.s.tutMenu = true; game.checkTut(); out.push(['Basis-Tutorial abgeschlossen', game.s.tutStep >= TUT_STEPS.length]);
     // --- Kontext-Tooltips (mid:6438): erst NACH dem Basis-Tutorial, einmalig ---
-    game.s.tutShown = {}; game.tutQueue = []; game.tutOpen = false; game.s.era = 2; game.s.nightToken = true; game.checkTut();
-    out.push(['Context-Tooltip feuert nach Basis-Tutorial (Türme)', game.s.tutShown.towers === true]);
+    game.s.tutShown = {}; game.tutQueue = []; game.tutOpen = false; game.s.era = 4; game.checkTut();   // Truppen-Tooltip ab Kaserne (era4, Redesign §5b)
+    out.push(['Context-Tooltip feuert nach Basis-Tutorial (Truppen)', game.s.tutShown.towers === true]);
+    // Onboarding-Tooltips für die neuen Systeme (Steffen mid:7095) — je beim Erst-Kontakt
+    game.s.charChosen = true; game.s.tutStep = 99;
+    game.s.tutShown = {}; game.s.player.hp = 50; game.s.player.hpmax = 100; game.checkTut();
+    out.push(['Onboarding: Food-Heilung bei erster Verletzung', game.s.tutShown.food === true]);
+    game.s.tutShown = {}; game.s.player.hp = 100; game.s.towers = [{ seg: 0, type: 'kaempfer' }]; game.checkTut();
+    out.push(['Onboarding: Truppen-Modus bei erster Truppe', game.s.tutShown.troopmode === true]);
+    game.s.tutShown = {}; game.s.towers = []; game.s.builds = [{ type: 'juwelier', seg: 0 }]; game.checkTut();
+    out.push(['Onboarding: Marktplatz beim Bauen', game.s.tutShown.markt === true]);
+    game.s.tutShown = {}; game.s.builds = []; game.s.skillWirbel = true; game.checkTut();
+    out.push(['Onboarding: Spezial-Attacke beim Freischalten', game.s.tutShown.skills === true]);
     out.push(['Tutorial-Stand wird gespeichert', (saveGame(game.s), JSON.parse(localStorage.getItem(SAVE_KEY)).d.tutShown.towers === true)]);
     // save round-trip
     saveGame(game.s);
