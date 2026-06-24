@@ -1977,12 +1977,15 @@ cv.addEventListener('pointercancel',e=>{ upPointer(e); },{passive:false});
 // Regel-Policy: heuert an, baut Hütten/Sammler, weist Pawns zu, kauft Upgrades, baut Truppen,
 // steigt nachts auf, heilt, sammelt + kämpft mit dem Helden. Kein Lernen — deterministische Heuristik.
 const Bot={
-  on:false, speed:1, acc:0, upi:0, hero:'…', note:'Start', hud:null,
+  on:false, speed:1, acc:0, upi:0, hero:'…', note:'Start', hud:null, runTime:0, offlinePlay:false,
   start(){ const s=game.s;
     if(!s.charChosen){ ['introOverlay','nameOverlay','charSelect','tutOverlay'].forEach(id=>{ const el=document.getElementById(id); if(el)el.classList.remove('open'); });
       game.pendingChar='krieger'; game.nameBuf='BOT'; game.confirmName();
       s.tutStep=99; if(typeof TUT==='object') Object.keys(TUT).forEach(k=>(s.tutShown||(s.tutShown={}))[k]=true); game.tutQueue=[]; game.tutOpen=false; game.renderTutStep&&game.renderTutStep(); }
-    s.paused=false; this.on=true; this.buildHud(); say('🤖 Auto-Play läuft — lehn dich zurück.'); },
+    s.paused=false; this.on=true; this.runTime=0; this.buildHud();
+    if(!this._visHook){ this._visHook=true; document.addEventListener('visibilitychange',()=>{   // Tab verlassen/schließen → Bot pausiert (mid:7215), außer Offline-Play ist an
+      if(document.hidden && this.on && !this.offlinePlay && !game.s.paused){ game.toggle(); this.updateHud(); } }); }
+    say('🤖 Auto-Play läuft — lehn dich zurück.'); },
   // pro Frame: Held steuern (kämpfen / abliefern / Sammler holen / ernten)
   steer(){ const s=game.s, P=s.player; if(!P) return;
     const foes=(s.enemies||[]).filter(e=>!e.dead && e.state!=='return');
@@ -2000,8 +2003,9 @@ const Bot={
     if(n){ P.tx=n.x; P.ty=n.y; this.hero='⛏ '+(n.type&&NAME[n.type]?NAME[n.type]:'sammelt'); return; }
     P.tx=BASE.x+rnd(-30,30); P.ty=BASE.y+rnd(-30,30); this.hero='… wartet'; },
   // ~alle 0.8s: eine Wirtschafts-/Kampf-Entscheidung
-  think(dt){ if(!this.on) return; const s=game.s; if(!s||!s.charChosen) return; this.steer();
+  think(dt){ if(!this.on) return; const s=game.s; if(!s||!s.charChosen) return; this.runTime=(this.runTime||0)+dt; this.steer();   // runTime = aufsummierte Spielzeit (dt×Speed pro Frame, mid:7215)
     this.acc+=dt; if(this.acc<0.8) return; this.acc=0; this.decide(s); this.updateHud(); },
+  fmtTime(t){ t=Math.floor(t||0); const hh=Math.floor(t/3600), mm=Math.floor((t%3600)/60), ss=t%60, p=n=>String(n).padStart(2,'0'); return (hh>0?hh+':':'')+p(mm)+':'+p(ss); },
   aff(s,id){ const u=ALLUP.find(x=>x.id===id); return u && (!u.show||u.show(s)) && (!u.lvl||u.lvl(s)<heroMaxLvl(s)) && canAfford(s,u.cost(s)); },
   schmiedeIdx(s){ return (s.builds||[]).findIndex(b=>b.type==='schmiede'); },
   peek(t,tab){ if(tab) game.tab=tab; game.openPanelFor(t); },   // Panel sichtbar öffnen, damit der Zuschauer den Dialog sieht (mid:7189)
@@ -2061,7 +2065,7 @@ const Bot={
     cv.style.pointerEvents='none'; ['panel','minimap'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.pointerEvents='none'; });
     this.updateHud(); },
   updateHud(){ if(!this.hud) return; const s=game.s, l=document.getElementById('botHudLine'); if(!l) return;
-    l.innerHTML='🤖 <b>'+(s.paused?'⏸ Pause':'Auto-Play')+'</b> · '+this.speed+'×<br>Stufe '+((s.era||0)+1)+' · Tag '+(s.day||1)+'<br><span style="color:#b9a7ff">'+this.hero+'</span> · <span style="color:#8fe0a0">'+this.note+'</span>'; },
+    l.innerHTML='🤖 <b>'+(s.paused?'⏸ Pause':'Auto-Play')+'</b> · '+this.speed+'× · ⏱ '+this.fmtTime(this.runTime)+(this.offlinePlay?' · 💤':'')+'<br>Stufe '+((s.era||0)+1)+' · Tag '+(s.day||1)+'<br><span style="color:#b9a7ff">'+this.hero+'</span> · <span style="color:#8fe0a0">'+this.note+'</span>'; },
 };
 window.Bot=Bot;   // für Debugging + Tests erreichbar
 if(new URLSearchParams(location.search).has('autoplay')||new URLSearchParams(location.search).has('bot')) setTimeout(()=>Bot.start(), 400);
