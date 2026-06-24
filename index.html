@@ -1463,7 +1463,7 @@ const game={
     const vw=this.vw/this.zoom, vh=this.vh/this.zoom, tl=w2m(s.cam.x-vw/2,s.cam.y-vh/2);   // Sicht-Rechteck
     g.strokeStyle='rgba(255,255,255,.4)';g.lineWidth=1;g.strokeRect(tl.x,tl.y,vw*sc,vh*sc); },
   loop(ts){ if(!this.running)return; if(!this.last)this.last=ts; let dt=(ts-this.last)/1000; this.last=ts; if(dt>0.1)dt=0.1;
-    if(!this.s.paused) this.step(dt); this.draw(); updateMusic(dt);
+    if(!this.s.paused){ const reps=(Bot&&Bot.on)?Bot.speed:1; for(let i=0;i<reps;i++){ this.step(dt); if(Bot&&Bot.on) Bot.think(dt); } } this.draw(); updateMusic(dt);
     this._mmAcc=(this._mmAcc||0)+1; if(this._mmAcc%4===0) this.drawMinimap();   // Minimap throttled (~15fps)
     this.uiAcc+=dt; if(this.uiAcc>0.2){ this.uiAcc=0; checkQuests(this.s); checkAchievements(this.s); this.checkTut(); this.renderRes(); this.updateShop(); this.renderQuest(); }
     this.saveAcc=(this.saveAcc||0)+dt; if(this.saveAcc>5){ this.saveAcc=0; saveGame(this.s); }  // Auto-Save alle 5s
@@ -1963,6 +1963,83 @@ function upPointer(e){ pointers.delete(e.pointerId);
   if(pointers.size===0){ if(!pinched) endPointer(); else { pDown=null; game.dragging=false; } pinched=false; pinchPrev=0; } }   // Tap/Schwenk nur wenn in dieser Geste nicht gepincht wurde
 cv.addEventListener('pointerup',e=>{ e.preventDefault(); upPointer(e); },{passive:false});
 cv.addEventListener('pointercancel',e=>{ upPointer(e); },{passive:false});
+
+// ===== AUTO-PLAY-BOT (Zuschau-Modus ?autoplay) — spielt "einigermaßen normal" (mid:7137) =====
+// Regel-Policy: heuert an, baut Hütten/Sammler, weist Pawns zu, kauft Upgrades, baut Truppen,
+// steigt nachts auf, heilt, sammelt + kämpft mit dem Helden. Kein Lernen — deterministische Heuristik.
+const Bot={
+  on:false, speed:1, acc:0, upi:0, hero:'…', note:'Start', hud:null,
+  start(){ const s=game.s;
+    if(!s.charChosen){ ['introOverlay','nameOverlay','charSelect','tutOverlay'].forEach(id=>{ const el=document.getElementById(id); if(el)el.classList.remove('open'); });
+      game.pendingChar='krieger'; game.nameBuf='BOT'; game.confirmName();
+      s.tutStep=99; if(typeof TUT==='object') Object.keys(TUT).forEach(k=>(s.tutShown||(s.tutShown={}))[k]=true); game.tutQueue=[]; game.tutOpen=false; game.renderTutStep&&game.renderTutStep(); }
+    s.paused=false; this.on=true; this.buildHud(); say('🤖 Auto-Play läuft — lehn dich zurück.'); },
+  // pro Frame: Held steuern (kämpfen / abliefern / Sammler holen / ernten)
+  steer(){ const s=game.s, P=s.player; if(!P) return;
+    const foes=(s.enemies||[]).filter(e=>!e.dead && e.state!=='return');
+    if(foes.length){ let b=null,bd=1e9; for(const e of foes){ const d=dist(e.x,e.y,P.x,P.y); if(d<bd){bd=d;b=e;} } if(b){ P.tx=b.x; P.ty=b.y; this.hero='⚔ kämpft'; return; } }
+    if(dist(P.x,P.y,P.tx,P.ty)>14) return;   // noch unterwegs → Ziel halten
+    if(carryTotal(P.carry)>=s.cap*0.9){ P.tx=BASE.x; P.ty=BASE.y; this.hero='🏠 liefert ab'; return; }
+    let bo=null,bs=12; if(s.outposts) for(const o of s.outposts){ if((o.store||0)>bs){ bs=o.store; bo=o; } }
+    if(bo){ P.tx=bo.x; P.ty=bo.y; this.hero='📦 holt Sammler'; return; }
+    // gezielt den Engpass-Rohstoff für den nächsten Aufstieg sammeln (sonst verhungert z.B. Korn)
+    let want=null; const ec=(s.era+1<ERAS.length)?eraCost(s.era+1):null;
+    if(ec){ let wr=1e9; for(const k of Object.keys(ec)){ const r=(s.store[k]||0)/ec[k]; if(r<wr){ wr=r; want=k; } } }
+    let n=want?nearestNode(P.x,P.y,(s.nodes||[]).filter(nd=>nd.type===want)):null;
+    if(!n) n=nearestNode(P.x,P.y,s.nodes||[]);
+    if(n){ P.tx=n.x; P.ty=n.y; this.hero='⛏ '+(n.type&&NAME[n.type]?NAME[n.type]:'sammelt'); return; }
+    P.tx=BASE.x+rnd(-30,30); P.ty=BASE.y+rnd(-30,30); this.hero='… wartet'; },
+  // ~alle 0.8s: eine Wirtschafts-/Kampf-Entscheidung
+  think(dt){ if(!this.on) return; const s=game.s; if(!s||!s.charChosen) return; this.steer();
+    this.acc+=dt; if(this.acc<0.8) return; this.acc=0; this.decide(s); this.updateHud(); },
+  aff(s,id){ const u=ALLUP.find(x=>x.id===id); return u && (!u.show||u.show(s)) && (!u.lvl||u.lvl(s)<heroMaxLvl(s)) && canAfford(s,u.cost(s)); },
+  decide(s){
+    // 1) heilen wenn angeschlagen
+    if(s.player.hp < s.player.hpmax*0.42){ for(const h of ['heiltrank','sauce','suppe']){ if(this.aff(s,h)){ game.buy(h); this.note='💚 heilt'; return; } } }
+    // 2) freie Pawns zuweisen (Hütten zuerst, dann Sammler) — immer sinnvoll
+    if(freeWorkers(s)>0){ const b=(s.builds||[]).find(b=>b.workers<buildMaxWorkers(s)); if(b){ b.workers++; SFX.buy(); this.note='👷 Pawn→Hütte'; return; }
+      const o=(s.outposts||[]).find(o=>(o.workers||0)<4); if(o){ o.workers=(o.workers||0)+1; SFX.buy(); this.note='👷 Pawn→Sammler'; return; } }
+    // Aufstiegs-Lage bestimmen (Prep → Save → Go)
+    const next=s.era+1, ec=(next<ERAS.length)?eraCost(next):null;
+    const frac=ec?Math.min(...Object.keys(ec).map(k=>(s.store[k]||0)/ec[k])):1;   // schwächste Komponente
+    const canAsc=ec && !nightActive(s) && s.pendingEra==null && canAfford(s,ec);
+    const willFight=ec?nightGated(next):false;   // erst Aufstieg auf Stufe 7+ (era6+) startet eine Nacht-Welle
+    const haveTroops=(s.towers||[]).length>=Math.min(2,towerAllowance(s));
+    const ready=!willFight || (haveTroops && s.player.hp>s.player.hpmax*0.6);   // ohne Nacht: immer bereit
+    // 3) aufsteigen sobald leistbar + bereit
+    if(canAsc && ready){ game.buyEra(); this.note='🌙 Aufstieg auf Stufe '+(next+1)+'!'; return; }
+    // Spar-Modus NUR wenn schon aufstiegs-bereit (Truppen stehen) aber Rohstoffe noch fehlen — sonst erst Prep bauen
+    const saving=ready && ec && frac>0.6 && !canAsc;
+    // 4) Kern-Wirtschaft: Sammler bauen (Passiv-Einkommen) — im Spar-Modus nur bis 2 Stück
+    if(nextOutpostType(s) && this.aff(s,'buildpost') && (!saving || (s.outposts||[]).length<2)){ game.buy('buildpost'); this.note='⛺ baut Sammler'; return; }
+    // 5) Dorf-Hütte (Schmiede/Kaserne ab Stufe 4 etc.) — Passiv-Produktion
+    if(nextBuildType(s) && this.aff(s,'build') && !saving){ game.buy('build'); this.note='🏚 baut Hütte'; return; }
+    // 6) Truppe bauen bis zum Stufen-Limit — Prep für nacht-gated Aufstieg (baut auch im Spar-Fall solange noch nötig)
+    if((s.towers||[]).length < towerAllowance(s) && (!saving || (willFight && !haveTroops))){ if(this.buildTroop(s)){ this.note='🛡 baut Truppe'; return; } }
+    // 7) Helfer anheuern — nur wenn Hütten/Sammler sie aufnehmen können + nicht im Spar-Modus
+    const cap=(s.outposts||[]).reduce((a,o)=>a+(4-(o.workers||0)),0)+(s.builds||[]).reduce((a,b)=>a+(buildMaxWorkers(s)-b.workers),0);
+    const wTarget=Math.min(2+s.era*2, 14); if(!saving && cap>0 && s.workerPool<wTarget && this.aff(s,'hire')){ game.buy('hire'); this.note='🧑 heuert an'; return; }
+    // 8) ein leistbares Upgrade (rotierend, leicht ineffizient = menschlich) — nur wenn flüssig
+    if(!saving){ const ups=['gather','cap','vita','angriff','ruestung','speed','steam','expand','wirbel','sturm'];
+      for(let i=0;i<ups.length;i++){ const id=ups[(this.upi+i)%ups.length]; if(this.aff(s,id)){ game.buy(id); this.upi=(this.upi+i+1)%ups.length; this.note='⬆ '+id; return; } } }
+    this.note=saving?('💰 spart für Aufstieg ('+Math.min(99,Math.round(frac*100))+'%)'):'⛏ sammelt…'; },
+  buildTroop(s){ if(!s.towerSlots) return false; let seg=-1; for(let i=0;i<s.towerSlots.length;i++){ if(!towerAt(s,i)){ seg=i; break; } } if(seg<0) return false;
+    const avail=TOWER_ORDER.filter(t=> s.era>=TOWER_TYPES[t].era && canAfford(s,TOWER_TYPES[t].cost)); if(!avail.length) return false;
+    const type=avail[avail.length-1]; const keep=game.panelFor; game.panelFor='tb'+seg; game.buildTower(type); game.panelFor=keep;
+    const pn=document.getElementById('panel'); if(pn) pn.classList.remove('open'); return true; },
+  setSpeed(n){ this.speed=n; this.updateHud(); },
+  toggle(){ this.on=!this.on; if(this.on) say('🤖 Bot übernimmt wieder.'); else say('⏸ Bot pausiert — du hast die Kontrolle.'); this.updateHud(); },
+  buildHud(){ if(this.hud) return; const h=document.createElement('div'); h.id='botHud';
+    h.style.cssText='position:fixed;left:8px;bottom:10px;z-index:60;background:rgba(20,16,30,.82);border:1px solid #5a3fb0;border-radius:10px;padding:7px 9px;font:600 12px/1.35 system-ui,sans-serif;color:#e8e0ff;box-shadow:0 4px 14px rgba(0,0,0,.4);min-width:150px;backdrop-filter:blur(3px)';
+    const mkb=(t,fn,w)=>{ const b=document.createElement('button'); b.textContent=t; b.style.cssText='margin:0 3px 0 0;padding:3px 8px;border:1px solid #6b4fd0;border-radius:6px;background:#2a2042;color:#e8e0ff;font:600 11px system-ui;cursor:pointer'; b.onclick=fn; return b; };
+    const line=document.createElement('div'); line.id='botHudLine'; line.style.marginBottom='5px';
+    const row=document.createElement('div'); row.style.display='flex'; row.style.flexWrap='wrap'; row.style.gap='2px';
+    [['1×',()=>this.setSpeed(1)],['2×',()=>this.setSpeed(2)],['4×',()=>this.setSpeed(4)],['⏸',()=>this.toggle()]].forEach(([t,fn])=>row.appendChild(mkb(t,fn)));
+    h.appendChild(line); h.appendChild(row); document.body.appendChild(h); this.hud=h; this.updateHud(); },
+  updateHud(){ if(!this.hud) return; const s=game.s, l=document.getElementById('botHudLine'); if(!l) return;
+    l.innerHTML='🤖 <b>'+(this.on?'Auto-Play':'pausiert')+'</b> · '+this.speed+'×<br>Stufe '+((s.era||0)+1)+' · Tag '+(s.day||1)+'<br><span style="color:#b9a7ff">'+this.hero+'</span> · <span style="color:#8fe0a0">'+this.note+'</span>'; },
+};
+if(new URLSearchParams(location.search).has('autoplay')||new URLSearchParams(location.search).has('bot')) setTimeout(()=>Bot.start(), 400);
 
 game.init();
 </script>
