@@ -62,25 +62,26 @@ const VIEW = DEVICE === 'desktop'
   await page.evaluate(() => {
     ALL.forEach(k => game.s.store[k] = 5000);
     ['cap','cap','cap','speed','speed','gather','gather'].forEach(id => game.buy(id)); // bump heroTier
-    game.buy('hire'); game.buy('hire'); game.buy('hire'); // workerPool -> 3
+    game.s.workerPool = 3; // direkt setzen (Worker-Cap = 1/Stufe, mid:7246 — Setup umgeht die Pacing-Sperre)
     // Redesign: Sammler sind Außenposten; erstes Dorf-Gebäude = Schmiede (era3).
+    // Setup-Aufstiege via applyAscend (umgeht die neue Nacht→Tag-Cinematic, die buyEra verzögert; mid:7251)
     game.buy('buildpost'); // Holz-Sammler (era 0)
-    game.s.nightToken = true; game.buyEra(); ALL.forEach(k => game.s.store[k] = 5000); // -> Stufe 2
+    applyAscend(game.s, 1); ALL.forEach(k => game.s.store[k] = 5000); // -> Stufe 2
     game.buy('buildpost'); // Kürbis-Sammler (era 1)
-    game.s.nightToken = true; game.buyEra(); ALL.forEach(k => game.s.store[k] = 5000); // -> Stufe 3
+    applyAscend(game.s, 2); ALL.forEach(k => game.s.store[k] = 5000); // -> Stufe 3
     game.buy('buildpost'); // Stein-Sammler (era 2)
-    game.s.nightToken = true; game.buyEra(); ALL.forEach(k => game.s.store[k] = 5000); // -> Stufe 4
+    applyAscend(game.s, 3); ALL.forEach(k => game.s.store[k] = 5000); // -> Stufe 4
     game.buy('build'); // Schmiede (era 3) — erstes Dorf-Gebäude
     game.setTab('dorf');
   });
   await sleep(300); await frames();
   await shot('04_shop_dorf_upgraded');
-  // open the first hut's management panel, upgrade it + assign a worker
+  // open the first hut's management panel, upgrade it (M3: Hütten haben keine Arbeiter mehr)
   await page.evaluate(() => {
     game.s.player.x = game.s.player.tx = game.s.segSlots[game.s.builds[0].seg].x;
     game.s.player.y = game.s.player.ty = game.s.segSlots[game.s.builds[0].seg].y;
     game.openPanelFor(0);
-    game.upgBuild('tempo'); game.upgBuild('menge'); game.assign(1);
+    game.upgBuild('tempo'); game.upgBuild('menge');
   });
   await sleep(300); await frames();
   await shot('04b_hut_panel');
@@ -130,8 +131,9 @@ const VIEW = DEVICE === 'desktop'
     for (let i = 0; i < 3; i++) { ALL.forEach(k => game.s.store[k] = 999999); game.buy('expand'); } // erschliesse alle Gebiete
     for (let i = 0; i < 3; i++) { ALL.forEach(k => game.s.store[k] = 999999); game.buy('buildpost'); } // Kürbis/Pilz/Beeren-Sammler (mid:6246/6313)
     if (game.s.outposts) game.s.outposts.forEach(o => { o.store = Math.round(outpostCap(o, game.s) * 0.7); }); // teilweise gefüllt für den Screenshot
-    // verteile Arbeiter auf die Hütten + rüste sie hoch
-    game.s.builds.forEach((b, i) => { game.panelFor = i; game.assign(1); game.assign(1); game.upgBuild('tempo'); game.upgBuild('menge'); });
+    // rüste die Hütten hoch (M3: keine Hütten-Arbeiter mehr); Pawns in die Sammler
+    game.s.builds.forEach((b, i) => { game.panelFor = i; game.upgBuild('tempo'); game.upgBuild('menge'); });
+    (game.s.outposts || []).forEach((o, i) => { game.panelFor = 'op' + i; game.assignOutpost(1); game.assignOutpost(1); });
     game.panelFor = 'castle';
   });
   await sleep(300); await frames(16); await shot('08_endgame_world');
@@ -181,8 +183,12 @@ const VIEW = DEVICE === 'desktop'
     for (let i = 0; i < 25; i++) { ALL.forEach(k => game.s.store[k] = 999999); game.upgBuild('tempo'); game.upgBuild('menge'); }
     out.push(['tempo capped at era+1', b0.tempo <= game.s.era + 1]);
     out.push(['menge capped at era+1', b0.menge <= game.s.era + 1]);
-    for (let i = 0; i < 25; i++) { ALL.forEach(k => game.s.store[k] = 999999); game.buy('hire'); game.assign(1); }
-    out.push(['workers capped per era', b0.workers <= Math.min(4, game.s.era + 1)]);
+    for (let i = 0; i < 25; i++) { ALL.forEach(k => game.s.store[k] = 999999); game.buy('hire'); }
+    out.push(['huts carry no workers (M3)', game.s.builds.every(b => !b.workers)]);
+    if (!game.s.outposts || !game.s.outposts.length) game.s.outposts = [{ type: 'korn', x: BASE.x + 200, y: BASE.y, store: 0, tempoLvl: 0, mengeLvl: 0, workers: 0 }];
+    game.panelFor = 'op0'; for (let i = 0; i < 10; i++) game.assignOutpost(1);
+    out.push(['Sammler-Arbeiter gedeckelt (max 4)', game.s.outposts[0].workers <= 4]);
+    game.panelFor = 0;
     out.push(['achievements unlocked in endgame', game.s.achieved.length >= 4]);
     // Produktionskette: Schmiede verbraucht Holz+Stein, produziert Gold (mid:6037 Phase B)
     const sm = game.s.builds.find(b => b.type === 'schmiede');
@@ -203,6 +209,10 @@ const VIEW = DEVICE === 'desktop'
     game.s.era = 1; game.s.capLvl = 0;
     for (let i = 0; i < 30; i++) { ALL.forEach(k => game.s.store[k] = 999999); game.buy('cap'); }
     out.push(['hero upgrade capped per era', game.s.capLvl <= heroMaxLvl(game.s)]);
+    // Schmiede-Kampf-Upgrades: Cap zählt AB Freischaltung (era4) → kein Nachhol-Dump (mid:7557)
+    game.s.era = 4; game.s.atkLvl = 0;
+    for (let i = 0; i < 30; i++) { ALL.forEach(k => game.s.store[k] = 999999); game.buy('angriff'); }
+    out.push(['Kampf-Upgrade nicht auf einmal nachholbar (Cap ab Schmiede)', game.s.atkLvl === combatMaxLvl(game.s) && game.s.atkLvl < heroMaxLvl(game.s)]);
     // Kamera: moveTo aktiviert Follow wieder; freier Schwenk bleibt stehen (mid:6040)
     moveTo({ x: game.s.player.x + 200, y: game.s.player.y });
     out.push(['moveTo re-enables camFollow', game.camFollow === true]);
@@ -210,10 +220,12 @@ const VIEW = DEVICE === 'desktop'
     for (let i = 0; i < 25; i++) game.step(0.1); // Held läuft, Kamera darf NICHT zu ihm snappen
     out.push(['free-look camera stays put', Math.abs(game.s.cam.x - 600) < 70 && game.camFollow === false]);
     // freie Arbeiter: Schwarm == freier Pool, Zuweisen verkleinert ihn, Abliefern füllt das Lager (mid:6048)
-    game.s.builds.forEach(b => b.workers = 0); game.s.workerPool = 4; game.step(0.1);
+    game.s.builds.forEach(b => b.workers = 0);
+    if (!game.s.outposts || !game.s.outposts.length) game.s.outposts = [{ type: 'korn', x: BASE.x + 200, y: BASE.y, store: 0, tempoLvl: 0, mengeLvl: 0, workers: 0 }];
+    game.s.outposts.forEach(o => o.workers = 0); game.s.workerPool = 4; game.step(0.1);   // alle Sammler leeren → freier Pool == Schwarm
     out.push(['free walkers match free pool', game.s.freeWalkers.length === 4]);
-    game.panelFor = 0; game.assign(1); game.assign(1); game.step(0.1);
-    out.push(['assigning shrinks the walker swarm', game.s.freeWalkers.length === freeWorkers(game.s)]);
+    game.panelFor = 'op0'; game.assignOutpost(1); game.assignOutpost(1); game.step(0.1);
+    out.push(['assigning to Sammler shrinks the walker swarm', game.s.freeWalkers.length === freeWorkers(game.s)]);
     game.s.freeWalkers = [{ x: BASE.x, y: BASE.y, tx: BASE.x, ty: BASE.y, carry: 3, type: 'holz', state: 'return', target: null }];
     game.s.workerPool = assignedWorkers(game.s) + 1; const wh0 = game.s.store.holz; updateFreeWalkers(game.s, 0.1);
     out.push(['walker delivers carry to store', game.s.store.holz >= wh0 + 3 - 0.01]);
@@ -230,7 +242,7 @@ const VIEW = DEVICE === 'desktop'
     const b = game.s.builds[0];
     const base = buildRate(game.s, { type: b.type, tempo: 0, menge: 0, workers: 0 });
     const boosted = buildRate(game.s, b);
-    out.push(['production scales with upgrades/workers', boosted > base]);
+    out.push(['production scales with upgrades (Tempo/Menge)', boosted > base]);
     out.push(['all 6 hut types built', game.s.builds.length === 6]);
     // 2-stufige Kette: Juwelier verbraucht Gold+Stein, produziert Kristall (mid:6046 Phase B)
     // Redesign 2026-06-24: Marktplatz (type-key 'juwelier') produziert Edelstein statt Kristall (P1 interim-Konverter)
@@ -252,7 +264,7 @@ const VIEW = DEVICE === 'desktop'
     out.push(['edelstein in Ressourcen', ALL.includes('edelstein')]);
     out.push(['kristall + beeren entfernt', !ALL.includes('kristall') && !ALL.includes('beeren')]);
     out.push(['eraCost für alle 19 Aufstiege definiert', Array.from({length:19}, (_,i)=>i+1).every(e => eraCost(e) && Object.keys(eraCost(e)).length > 0)]);
-    out.push(['workers assigned', assignedWorkers(game.s) > 0]);
+    out.push(['Pawns im Sammler zählen als assigned (M3)', assignedWorkers(game.s) > 0]);
     out.push(['freeWorkers never negative', freeWorkers(game.s) >= 0]);
     // Inland-Seen + Flüsse wieder eingestreut (mid:6213)
     out.push(['Inland-Seen wieder vorhanden', Array.isArray(game.s.lakes) && game.s.lakes.length >= 3]);
@@ -281,10 +293,19 @@ const VIEW = DEVICE === 'desktop'
       game.s.player.x = game.s.player.tx = o.x; game.s.player.y = game.s.player.ty = o.y; game.step(0.1);   // Held hin → abholen
       out.push(['Abholen füllt das Lager', (game.s.store[res] || 0) > before]);
       out.push(['Außenposten nach Abholen geleert', o.store < 1]);
-      // §5: globale Sammler-Upgrades (alle Sammler zusammen)
-      const r0 = outpostRate(o, game.s), c0 = outpostCap(o, game.s); game.s.sammlerTempoLvl = (game.s.sammlerTempoLvl || 0) + 1; game.s.sammlerCapLvl = (game.s.sammlerCapLvl || 0) + 1;
-      out.push(['Globales Sammler-Tempo hebt Rate', outpostRate(o, game.s) > r0]);
-      out.push(['Globales Sammler-Cap hebt Lager', outpostCap(o, game.s) > c0]);
+      // per-Sammler Upgrades (mid:7518: jeder levelt für sich)
+      const r0 = outpostRate(o, game.s), c0 = outpostCap(o, game.s); o.tempoLvl = (o.tempoLvl || 0) + 1; o.mengeLvl = (o.mengeLvl || 0) + 1;
+      out.push(['Sammler-Tempo (per-Outpost) hebt Rate', outpostRate(o, game.s) > r0]);
+      out.push(['Sammler-Cap (per-Outpost) hebt Lager', outpostCap(o, game.s) > c0]);
+      const rw0 = outpostRate(o, game.s); o.workers = 2;   // Pawns ändern die Rate NICHT mehr (mid:7249)
+      out.push(['Pawn ändert die Sammelrate nicht', Math.abs(outpostRate(o, game.s) - rw0) < 1e-9]);
+      const savedBuilds = game.s.builds; game.s.builds = [];   // Konsum-Gebäude (Schmiede etc.) raus → saubere Messung der Heim-Lieferung
+      o.store = 0; o._home = 0; game.s.player.x = game.s.player.tx = BASE.x; game.s.player.y = game.s.player.ty = BASE.y;   // Held weg vom Sammler
+      const homeBefore = game.s.store[res] || 0;
+      for (let i = 0; i < 80; i++) game.step(0.1);   // 8s: Pawn soll automatisch einen Teil heimbringen
+      out.push(['Pawn liefert automatisch heim (ohne Held)', (game.s.store[res] || 0) > homeBefore]);
+      out.push(['Sammler füllt sich trotz Pawn weiter', o.store > 0]);
+      game.s.builds = savedBuilds; o.workers = 0; o._home = 0;
     }
     // §10: KEINE Auto-Heilung mehr — auch im Dorf regeneriert der Held nicht passiv (Heilung läuft über Food-Crafting)
     game.s.enemies = []; game.s.player.hpmax = 100;
@@ -403,16 +424,23 @@ const VIEW = DEVICE === 'desktop'
     out.push(['Sturmangriff trifft Gegner im Pfad', game.s.enemies[0].hp < farHp]);
     game.s.skillWirbel = false; game.s.wirbelCd = 0; const eLock = game.s.enemies[0].hp; game.useWirbel();
     out.push(['Spezial-Attacke gesperrt ohne Freischaltung', game.s.enemies[0].hp === eLock]);
-    // --- Food-Heilung §10: kein Auto-Heal, Kürbis-Suppe/Pilz-Sauce heilen den Held ---
+    // --- Kürbis-Suppe (mid:7506): kochen in der Burg → tragen → blauer Heil-Button verbraucht 1 ---
     game.s.era = 9; game.s.player.hpmax = 200; game.s.player.hp = 50; game.s.player.x = game.s.player.tx = BASE.x; game.s.player.y = game.s.player.ty = BASE.y;
-    ALL.forEach(k => game.s.store[k] = 0); game.s.enemies = []; game.s.phase = 'day';
-    for (let i = 0; i < 30; i++) game.step(0.1);   // im Dorf, ohne Food → HP darf NICHT steigen (kein Auto-Heal)
-    out.push(['Kein Auto-Heal mehr (HP steigt nicht ohne Food)', game.s.player.hp <= 50]);
-    game.s.store.korn = 100; const fhp0 = game.s.player.hp; game.buy('suppe');
-    out.push(['Kürbis-Suppe heilt den Helden', game.s.player.hp > fhp0]);
-    out.push(['Kürbis-Suppe kostet Kürbis', game.s.store.korn < 100]);
-    game.s.player.hp = 50; game.s.store.pilze = 100; const fhp1 = game.s.player.hp; game.buy('sauce');
-    out.push(['Pilz-Sauce heilt den Helden (ab S9)', game.s.player.hp > fhp1]);
+    ALL.forEach(k => game.s.store[k] = 0); game.s.enemies = []; game.s.phase = 'day'; game.s.soup = 0; game.s.soupCapLvl = 0;
+    for (let i = 0; i < 30; i++) game.step(0.1);   // im Dorf, ohne Suppe → HP darf NICHT steigen (kein Auto-Heal)
+    out.push(['Kein Auto-Heal mehr (HP steigt nicht ohne Suppe)', game.s.player.hp <= 50]);
+    game.s.store.korn = 100; game.cookSoup();
+    out.push(['Suppe kochen hebt den Vorrat', game.s.soup === 1]);
+    out.push(['Suppe kochen kostet Kürbis', game.s.store.korn < 100]);
+    const fhp0 = game.s.player.hp; game.soupHeal();
+    out.push(['Blauer Heil-Button heilt den Helden', game.s.player.hp > fhp0]);
+    out.push(['Heilen verbraucht eine Suppe', game.s.soup === 0]);
+    game.s.player.hp = game.s.player.hpmax; game.s.soup = 1; game.soupHeal();
+    out.push(['Heilen bei voller HP verbraucht nichts', game.s.soup === 1]);
+    game.s.store.korn = 9999; for (let i = 0; i < 99; i++) game.cookSoup();
+    out.push(['Suppen-Vorrat ist gedeckelt (Default 3)', game.s.soup === 3]);
+    game.s.store.korn = 9999; game.s.store.pilze = 9999; game.upgSoupCap();
+    out.push(['Heiler-Upgrade hebt den Vorrats-Cap', game.s.soupCapLvl === 1]);
     // --- Endgame §12: Stufe 20 → Sieg + Bestenliste + Endless ---
     game.s.era = 18; game.s.phase = 'day'; game.s.enemies = []; game.s.builds = []; game.s.won = false; game.s.wonShown = false; game.s.endless = false; game.s.endlessNights = 0; game.s.endlessActive = false; game.s.playerName = 'TEST'; ALL.forEach(k => game.s.store[k] = 999999); game.s.pendingEra = null; game.s.pendingCost = null;
     game.buyEra();   // era18→19 (Stufe 20): gated → Nacht
@@ -447,7 +475,9 @@ const VIEW = DEVICE === 'desktop'
     game.s.tutMoved = true; game.checkTut(); out.push(['Schritt rückt nach „laufen"', game.s.tutStep === 1]);
     game.s.tutHarvested = true; game.checkTut(); out.push(['Schritt rückt nach „sammeln"', game.s.tutStep === 2]);
     game.s.firstDeposit = true; game.checkTut(); out.push(['Schritt rückt nach „abladen"', game.s.tutStep === 3]);
-    game.s.tutMenu = true; game.checkTut(); out.push(['Basis-Tutorial abgeschlossen', game.s.tutStep >= TUT_STEPS.length]);
+    game.s.tutMenu = true; game.checkTut(); out.push(['Schritt rückt nach „Burg öffnen"', game.s.tutStep === 4]);
+    game.s.capLvl = 1; game.checkTut(); out.push(['Schritt rückt nach „Upgrade kaufen"', game.s.tutStep === 5]);
+    game.s.tutBag = true; game.checkTut(); out.push(['Basis-Tutorial abgeschlossen', game.s.tutStep >= TUT_STEPS.length]);
     // --- Kontext-Tooltips (mid:6438): erst NACH dem Basis-Tutorial, einmalig ---
     game.s.tutShown = {}; game.tutQueue = []; game.tutOpen = false; game.s.era = 4; game.checkTut();   // Truppen-Tooltip ab Kaserne (era4, Redesign §5b)
     out.push(['Context-Tooltip feuert nach Basis-Tutorial (Truppen)', game.s.tutShown.towers === true]);

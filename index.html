@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Aus dem Nichts</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=MedievalSharp&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&display=swap" rel="stylesheet">
 <style>
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
   html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#10241a}
@@ -16,7 +16,7 @@
   #resbar{position:absolute;top:calc(env(safe-area-inset-top) + 10px);left:calc(env(safe-area-inset-left) + 8px);
     display:flex;flex-direction:column;gap:5px;align-items:flex-start}
   #resbar .charhdr{display:flex;flex-direction:column;align-items:flex-start;gap:3px;margin-bottom:6px}   /* Charakter-Ecke: Kürzel über Portrait (mid:6468) */
-  #resbar .cname{font-family:'MedievalSharp',Georgia,serif;font-size:15px;font-weight:700;letter-spacing:1px;color:#ffe9a8;
+  #resbar .cname{font-family:'Cinzel',Georgia,serif;font-size:15px;font-weight:700;letter-spacing:1px;color:#ffe9a8;
     padding:1px 9px;border-radius:8px;background:rgba(12,9,22,.6);border:1px solid rgba(255,224,138,.45);text-shadow:0 1px 2px #000}
   #resbar .cportrait{width:50px;height:50px;image-rendering:pixelated;object-fit:contain;
     background:rgba(12,9,22,.6);border:1px solid rgba(160,91,255,.5);border-radius:12px;padding:2px}
@@ -71,6 +71,13 @@
   #herohud .bagbtn{width:54px;height:58px;border:0;background:none;border-image:url(ts/ui/frame_blue.png) 16 fill / 13px / 0 stretch;image-rendering:pixelated;filter:brightness(.9);display:flex;align-items:center;justify-content:center;cursor:pointer;pointer-events:auto;padding:0}
   #herohud .bagbtn img{width:34px;height:34px;image-rendering:pixelated;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
   #herohud .bagbtn.on{filter:brightness(1.06)}
+  /* Heil-Button gestapelt ÜBER dem Beutel (mid:7542); Spalte wächst nach oben für mehr Essen */
+  #herohud .bagcol{display:flex;flex-direction:column;align-items:center;gap:6px;align-self:flex-end}
+  #herohud .hudbtn{position:relative;width:54px;height:52px;border:0;background:none;border-image:url(ts/ui/frame_blue.png) 16 fill / 13px / 0 stretch;image-rendering:pixelated;display:flex;align-items:center;justify-content:center;cursor:pointer;pointer-events:auto;padding:0}
+  #herohud .hudbtn img{width:30px;height:30px;image-rendering:pixelated;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+  #herohud .hudbtn.heal:not(:disabled){box-shadow:0 0 0 2px #4aa6ff,0 0 10px rgba(74,166,255,.55)}   /* der blaue Heil-Button */
+  #herohud .hudbtn:disabled{opacity:.45;filter:saturate(.5) brightness(.7);cursor:default}   /* Suppe da, aber HP voll → ausgegraut */
+  #herohud .hudbtn .hudn{position:absolute;right:3px;bottom:1px;font-size:11px;font-weight:800;color:#bfe4ff;text-shadow:0 1px 1px #000,0 0 2px #000;font-family:'Cinzel',serif}
   #herohud .bagwrap .invpanel.pinv{position:absolute;left:0;bottom:0;z-index:3;padding-right:21px}   /* liegt über dem Beutel + schiebt nach rechts auf */
   #herohud .invx{position:absolute;right:3px;top:50%;transform:translateY(-50%);width:16px;height:34px;border:0;background:none;padding:0;color:#ffe9c0;opacity:.78;cursor:pointer;pointer-events:auto;display:flex;align-items:center;justify-content:center}   /* minimalistischer Schließpfeil INS Feld (mid:7418) */
   #herohud .invx:active{opacity:1}
@@ -94,24 +101,30 @@
   #bubble.heroanchor{transform:translate(0,-100%) scale(.9);transform-origin:bottom left}   /* Held-Bubble linksbündig überm Portrait (sonst läuft sie links aus dem Bild) */
   #bubble.heroanchor.on{transform:translate(0,-100%) scale(1)}
   #bubble.heroanchor .btail{left:30px}
-  #bubble .bgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}   /* Held: mehr Upgrades → Grid statt Reihe */
-  #bubble .blvl{position:absolute;top:1px;right:3px;background:rgba(0,0,0,.72);color:#fff;font-size:9px;font-weight:800;border-radius:6px;padding:0 4px;line-height:14px}
+  #bubble .bgrid{display:flex;flex-wrap:wrap;justify-content:center;gap:9px;max-width:330px}   /* flex, keine leeren Zellen (mid:7458); großzügiger (mid:7506) */
+  #bubble .blvl{position:absolute;top:3px;right:4px;background:rgba(0,0,0,.72);color:#fff;font-size:9px;font-weight:800;border-radius:6px;padding:0 4px;line-height:14px}
   #bubble .brow.wide{margin-top:6px;flex-wrap:wrap}
   #bubble .bup.wide{width:auto;flex-direction:row;gap:6px;padding:7px 11px}
   #bubble .bup.wide .bk{font-size:11px;flex-wrap:wrap;justify-content:center}
   #bubble .bup.night{filter:brightness(.92) saturate(1.1) sepia(.3) hue-rotate(190deg)}
-  #bubble .bh{display:flex;align-items:center;justify-content:center;gap:6px;font-weight:800;color:#fff;text-shadow:0 1px 2px #000;font-size:12.5px;margin-bottom:5px}
-  #bubble .bh img{width:24px;height:24px;image-rendering:pixelated}
-  #bubble .bstat{display:flex;gap:7px;justify-content:center;background:rgba(0,0,0,.3);border-radius:7px;padding:3px 7px;margin-bottom:7px}
-  #bubble .bstat .si{display:flex;align-items:center;gap:3px;color:#fff;font-weight:800;font-size:12px;text-shadow:0 1px 2px #000}
-  #bubble .bstat .si img{width:17px;height:17px;image-rendering:pixelated}
+  #bubble .bh{display:flex;align-items:center;justify-content:center;gap:7px;font-weight:800;color:#fff;text-shadow:0 1px 2px #000;font-size:14px;margin-bottom:7px}
+  #bubble .bh img{width:27px;height:27px;image-rendering:pixelated}
+  #bubble .bstat{display:flex;gap:9px;justify-content:center;background:rgba(0,0,0,.3);border-radius:8px;padding:4px 9px;margin-bottom:9px}
+  #bubble .bstat .si{display:flex;align-items:center;gap:3px;color:#fff;font-weight:800;font-size:13px;text-shadow:0 1px 2px #000}
+  #bubble .bstat .si img{width:19px;height:19px;image-rendering:pixelated}
   #bubble .brow{display:flex;gap:6px;justify-content:center}
-  #bubble .bup{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;width:56px;padding:6px 3px 5px;border:0;cursor:pointer;background:none;
-    border-image:url(ts/ui/frame_blue.png) 16 fill / 10px / 0 stretch;image-rendering:pixelated;filter:brightness(.84)}
-  #bubble .bup:not(:disabled):active{filter:brightness(1)}
-  #bubble .bup img{width:25px;height:25px;image-rendering:pixelated;filter:drop-shadow(0 1px 1px rgba(0,0,0,.5))}
-  #bubble .bup .bk{font-size:11px;font-weight:800;color:#ffe08a;text-shadow:0 1px 1px #000,0 0 2px #000;line-height:1;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:1px 3px}
-  #bubble .bup .bk img{width:16px;height:16px;image-rendering:pixelated;filter:drop-shadow(0 1px 1px rgba(0,0,0,.6))}
+  #bubble .bup{position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;width:74px;padding:12px 6px 11px;border:0;cursor:pointer;background:none;
+    border-image:url(ts/ui/frame_blue.png) 16 fill / 14px / 0 stretch;image-rendering:pixelated;filter:brightness(1.04) saturate(1.05)}   /* größer + mehr Luft (mid:7506); volle Helligkeit (mid:7499) */
+  #bubble .bup:not(:disabled):active{filter:brightness(1.18)}
+  #bubble .bup img{width:31px;height:31px;image-rendering:pixelated;filter:drop-shadow(0 1px 1px rgba(0,0,0,.5))}
+  #bubble .bup .bn{font-size:11.5px;font-weight:800;color:#fff;text-shadow:0 1px 1px #000,0 0 2px #000;line-height:1;white-space:nowrap;max-width:70px;overflow:hidden;text-overflow:ellipsis}   /* kurzer Upgrade-Name (mid:7442) */
+  #bubble .bup.armed{filter:brightness(1.12);box-shadow:0 0 0 2px #5fd06a,0 0 9px rgba(95,208,106,.7)}   /* 1. Klick: scharf gestellt, 2. Klick kauft */
+  #bubble .bup.bheal:not(:disabled){box-shadow:0 0 0 2px #4aa6ff,0 0 11px rgba(74,166,255,.6)}   /* der blaue Heil-Button (mid:7506) */
+  #bubble .bup.bheal .bk{color:#bfe4ff}
+  #bubble .bstat .si.pv{color:#5fd06a}   /* grüne Vorschau des neuen Werts */
+  #bubble .bstat .si.pv img{filter:drop-shadow(0 0 3px rgba(95,208,106,.85))}
+  #bubble .bup .bk{font-size:12px;font-weight:800;color:#ffe08a;text-shadow:0 1px 1px #000,0 0 2px #000;line-height:1;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:2px 4px}
+  #bubble .bup .bk img{width:18px;height:18px;image-rendering:pixelated;filter:drop-shadow(0 1px 1px rgba(0,0,0,.6))}
   #bubble .bup:disabled{opacity:.42;filter:saturate(.5) brightness(.66);cursor:default}
   #bubble .btail{position:absolute;left:50%;bottom:-7px;transform:translateX(-50%);width:0;height:0;border:7px solid transparent;border-top-color:#c8a44a}
   #questBtn{position:absolute;top:calc(env(safe-area-inset-top) + 16px);right:calc(env(safe-area-inset-right) + 112px);
@@ -122,17 +135,20 @@
   @keyframes qblink{0%,100%{filter:brightness(.92) saturate(1.05)}50%{filter:brightness(1.55) saturate(1.2) drop-shadow(0 0 6px #ffb43a)}}
   #topbtns{position:absolute;top:calc(env(safe-area-inset-top) + 112px);right:calc(env(safe-area-inset-right) + 9px);   /* unter die Minimap (mid:7361) */
     display:flex;flex-direction:column;gap:8px;pointer-events:auto;align-items:flex-end}
-  #topbtns button{width:46px;height:46px;border-radius:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;
-    background:rgba(22,14,43,.72);backdrop-filter:blur(6px);border:1px solid rgba(160,91,255,.4);color:#ece7ff}
-  #topbtns button svg{width:23px;height:23px}
+  #topbtns>button, #menuItems>button{width:46px;height:46px;border-radius:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    background:rgba(22,14,43,.72);backdrop-filter:blur(6px);border:1px solid rgba(160,91,255,.4);color:#ece7ff}   /* nur direkte Buttons — verschont die .devbtn-Cheats in #devCheats (mid:7479) */
+  #topbtns>button svg, #menuItems>button svg{width:23px;height:23px}
   /* Burger = runder Tile-Pack-Rahmen wie die Minimap, nur kleiner (mid:7361) */
   #topbtns #menuBtn{width:46px;height:49px;border:0!important;border-radius:50%;background:url(ts/ui/frame_round.png) center/100% 100% no-repeat;
     backdrop-filter:none;image-rendering:pixelated;filter:brightness(.78) saturate(1.1);color:#fff}   /* höhere Spezifität als #topbtns button (mid:7364); auf Quest-Button-Größe gematcht (mid:7386/7395) */
   #topbtns #menuBtn svg{width:19px;height:19px}
-  /* Menü-Items teilen den runden Tile-Pack-Rahmen mit dem Burger (mid:7399) */
-  #menuItems button{width:44px;height:47px;border:0!important;border-radius:50%;background:url(ts/ui/frame_round.png) center/100% 100% no-repeat!important;
+  /* Menü-Items teilen den runden Tile-Pack-Rahmen mit dem Burger (mid:7399); nur DIREKTE Buttons (Cheats in #devCheats verschont, mid:7479) */
+  #menuItems>button{width:44px;height:47px;border:0!important;border-radius:50%;background:url(ts/ui/frame_round.png) center/100% 100% no-repeat!important;
     backdrop-filter:none!important;image-rendering:pixelated;filter:brightness(.78) saturate(1.1);color:#fff;font-size:19px}
-  #menuItems button svg{width:18px;height:18px}
+  #menuItems>button svg{width:18px;height:18px}
+  .micon{width:27px;height:28px;image-rendering:pixelated;filter:drop-shadow(0 1px 1px rgba(0,0,0,.45))}   /* Tile-Pack-Pixel-Icons in den Menü-Buttons (mid:7440) */
+  #topbtns #menuBtn .micon{width:30px;height:31px}
+  .micon.off{opacity:.32;filter:grayscale(.85)}   /* stummgeschaltet */
   #topbtns button:active{transform:scale(.93)}
   #menuBtn{border-color:rgba(160,91,255,.7)!important}
   /* Minimap: runder Tile-Pack-Rahmen (dunkler wie Burg), Karte rund ausgeschnitten drauf (mid:7361) */
@@ -220,7 +236,7 @@
   #winCard{width:100%;max-width:440px;max-height:84vh;display:flex;flex-direction:column;text-align:center;
     background:linear-gradient(180deg,rgba(28,20,52,.98),rgba(14,10,26,.99));border:1px solid rgba(255,216,107,.5);
     border-radius:20px;box-shadow:0 14px 44px rgba(0,0,0,.6);padding:20px 18px}
-  #winTitle{font-family:'MedievalSharp',Georgia,serif;font-size:28px;line-height:1.1;margin-bottom:6px;
+  #winTitle{font-family:'Cinzel',Georgia,serif;font-size:28px;line-height:1.1;margin-bottom:6px;
     background:linear-gradient(180deg,#fff4cf,#f6cf6a 55%,#d99a2c);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 2px 5px rgba(180,120,20,.4))}
   #winSub{font-size:14px;color:#e3d9fb;margin-bottom:14px;line-height:1.4}
   #winBoardHd{font-size:12px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:#cbb8ff;margin-bottom:8px}
@@ -249,11 +265,10 @@
   .ch-title{font-weight:800;font-size:22px;color:#fff;margin-bottom:4px}
   .ch-sub{font-size:13px;color:#cbb8ff;margin-bottom:16px}
   #charRow{display:flex;flex-direction:column;gap:12px}
-  .ch-card{display:flex;align-items:center;gap:14px;text-align:left;cursor:pointer;padding:12px;border-radius:16px;
-    background:linear-gradient(180deg,rgba(40,28,70,.92),rgba(26,18,46,.94));border:2px solid #3a2a63}
-  .ch-card:active{transform:scale(.98)} .ch-card:hover{border-color:#a05bff}
-  .ch-portrait{width:84px;height:84px;flex:0 0 auto;image-rendering:pixelated;border-radius:12px;object-fit:contain;
-    background-color:rgba(0,0,0,.3);box-shadow:inset 0 0 0 1px rgba(160,91,255,.35);padding:6px}
+  .ch-card{display:flex;align-items:center;gap:14px;text-align:left;cursor:pointer;padding:14px 18px;border:0;background:none;
+    border-image:url(ts/ui/frame_blue.png) 16 fill / 17px / 0 stretch;image-rendering:pixelated;filter:brightness(.97)}   /* Tile-Pack-Rahmen statt lila Box (mid:7520) */
+  .ch-card:active{transform:scale(.98)} .ch-card:hover{filter:brightness(1.06)}
+  .ch-portrait{width:86px;height:86px;flex:0 0 auto;image-rendering:pixelated;object-fit:contain;background:none;box-shadow:none;padding:0;filter:drop-shadow(0 2px 3px rgba(0,0,0,.5))}   /* Avatar hat eigenen Rand */
   .ch-name{font-weight:800;font-size:18px;color:#fff}
   .ch-abil{font-size:13px;color:#c2b6e6;margin-top:3px;line-height:1.3}
   #tutOverlay{position:absolute;inset:0;background:rgba(6,4,14,.5);backdrop-filter:blur(2px);
@@ -280,20 +295,21 @@
   #introOverlay,#nameOverlay{position:absolute;inset:0;background:rgba(6,4,14,.9);backdrop-filter:blur(6px);
     display:none;align-items:center;justify-content:center;pointer-events:auto;z-index:31;padding:18px}
   #introOverlay.open,#nameOverlay.open{display:flex}
-  #introCard,#nameCard{width:100%;max-width:460px;text-align:center;
-    background:linear-gradient(180deg,rgba(20,14,40,.98),rgba(12,9,22,.99));border:1px solid rgba(160,91,255,.4);
-    border-radius:20px;box-shadow:0 12px 40px rgba(0,0,0,.55);padding:22px 20px}
-  #introTitle{font-family:'MedievalSharp',Georgia,serif;font-weight:400;font-size:34px;margin-bottom:14px;letter-spacing:1px;line-height:1.05;
-    background:linear-gradient(180deg,#fff4cf 0%,#f6cf6a 42%,#d99a2c 70%,#a86a16 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
-    filter:drop-shadow(0 1px 0 rgba(90,55,5,.6)) drop-shadow(0 3px 7px rgba(180,120,20,.4))}
-  #introPortrait{width:120px;height:120px;image-rendering:pixelated;object-fit:contain;margin:0 auto 10px;display:block;
-    background:rgba(0,0,0,.28);border-radius:16px;box-shadow:inset 0 0 0 1px rgba(160,91,255,.35);padding:6px}
-  #introText{font-size:15px;color:#e3d9fb;line-height:1.5;min-height:92px;display:flex;align-items:center;justify-content:center}
-  #introBtn,#nameBtn{margin-top:16px;width:100%;padding:11px;border-radius:13px;cursor:pointer;font-weight:800;font-size:15px;
-    color:#fff;background:linear-gradient(180deg,#7a3df0,#5a23c0);border:1px solid #a05bff}
+  /* Pergament-Schriftrolle als 9-Slice-Rahmen — der Älteste erzählt von der Rolle (mid:7487/7488/7489) */
+  #introCard,#nameCard{width:100%;max-width:392px;text-align:center;color:#4a3622;
+    background:none;border:0;border-radius:0;box-shadow:none;
+    border-image:url(ts/ui/scroll9.png) 68 84 111 100 fill / 34px 42px 52px 48px stretch;image-rendering:pixelated;
+    padding:24px 30px 44px;filter:drop-shadow(0 10px 28px rgba(0,0,0,.5))}   /* zusammengebaute Pergament-Schriftrolle (mid:7489) */
+  #introTitle{font-family:'Cinzel',Georgia,serif;font-weight:700;font-size:29px;margin-bottom:12px;letter-spacing:.5px;line-height:1.12;
+    color:#5a3416;text-shadow:0 1px 0 rgba(255,246,214,.6)}   /* Cinzel + solides Braun statt Gold-Gradient → weg vom asiatischen Look (mid:7493) */
+  #introPortrait{width:120px;height:120px;image-rendering:pixelated;object-fit:contain;margin:2px auto 10px;display:block;
+    background:none;border:0;box-shadow:none;padding:0;filter:drop-shadow(0 2px 3px rgba(60,40,15,.45))}   /* Panda-Avatar hat eigenen Rand, sitzt direkt auf dem Pergament (mid:7490) */
+  #introText{font-size:15px;color:#46341f;font-weight:600;line-height:1.5;min-height:88px;display:flex;align-items:center;justify-content:center}   /* dunkel auf Pergament */
+  #introBtn,#nameBtn{margin-top:14px;width:100%;padding:11px;border-radius:11px;cursor:pointer;font-weight:800;font-size:15px;
+    color:#fff5dc;background:linear-gradient(180deg,#9a6228,#6b4015);border:1px solid #3e2710;box-shadow:0 2px 0 rgba(40,24,8,.5),inset 0 1px 0 rgba(255,230,180,.25)}   /* Holz-Button passend zum Pergament (mid:7487) */
   #introBtn:active,#nameBtn:active{transform:scale(.99)} #nameBtn:disabled{opacity:.45;cursor:default}
-  #nameTitle{font-weight:800;font-size:20px;color:#fff;margin-bottom:3px}
-  #nameSub{font-size:12.5px;color:#cbb8ff;margin-bottom:14px}
+  #nameTitle{font-weight:800;font-size:20px;color:#4a3320;margin-bottom:3px}
+  #nameSub{font-size:12.5px;color:#6a5436;margin-bottom:14px}
   #nameSlots{display:flex;gap:10px;justify-content:center;margin-bottom:14px}
   .nslot{width:46px;height:54px;border-radius:12px;display:flex;align-items:center;justify-content:center;
     font-weight:800;font-size:26px;color:#fff;background:rgba(40,28,70,.8);border:2px solid #3a2a63}
@@ -303,10 +319,18 @@
     background:rgba(40,28,70,.7);border:1px solid #2f2152}
   .nkey:active{transform:scale(.95)} .nkey.wide{grid-column:span 3;font-size:13px}
   #nameWarn{font-size:12.5px;color:#ff8a8a;min-height:16px;margin-top:9px}
-  #say{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom) + 14px);transform:translateX(-50%);
-    max-width:88vw;text-align:center;color:#ffb0ec;font-size:13.5px;background:rgba(10,8,18,.62);
-    backdrop-filter:blur(6px);border-radius:12px;padding:7px 13px;border:1px solid rgba(160,91,255,.25);
-    transition:opacity .3s;opacity:0}
+  /* Der Älteste spricht: Pergament-Rolle, rollt oben rechts unterm Zahnrad rechts→links raus (mid:7513) */
+  #say{position:absolute;top:calc(env(safe-area-inset-top) + 158px);right:calc(env(safe-area-inset-right) + 9px);
+    max-width:min(82vw,338px);display:flex;align-items:center;gap:9px;text-align:left;
+    color:#46341f;font-family:'Cinzel',serif;font-size:12.5px;
+    border-image:url(ts/ui/scroll9.png) 68 84 111 100 fill / 22px 28px 36px 32px stretch;
+    padding:13px 15px 19px;opacity:0;pointer-events:none;
+    clip-path:inset(0 0 0 100%);transition:clip-path .5s ease,opacity .2s}
+  #say.show{opacity:1;clip-path:inset(0 0 0 0)}
+  #say .saytxt{flex:1;line-height:1.34;min-width:0}
+  #say .sayport{flex:0 0 auto;width:60px;text-align:center}
+  #say .sayport img{width:52px;height:52px;image-rendering:pixelated;object-fit:contain;display:block;margin:0 auto 1px}
+  #say .sayport b{font-size:10px;font-weight:700;color:#5a3416;display:block;letter-spacing:.2px}
   #hint{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom) + 56px);transform:translateX(-50%);
     color:#cfc6e6;font-size:12px;opacity:.85;text-shadow:0 1px 3px #000;text-align:center}
 </style>
@@ -366,7 +390,7 @@
   <div id="tutStepCard"><div id="tsTitle"></div><div id="tsBody"></div><div id="tsHint"></div></div>
   <div id="introOverlay"><div id="introCard">
     <div id="introTitle">Aus dem Nichts</div>
-    <img id="introPortrait" src="ts/u/portrait_aeltester.png">
+    <img id="introPortrait" src="ts/u/portrait_aeltester_panda.png">
     <div id="introText"></div>
     <button id="introBtn">Weiter</button>
     <button id="devSkipBtn" style="display:none;margin-top:8px;opacity:.7;font-size:13px">⏭ DEV: Intro skippen + Name TEST</button>
@@ -393,6 +417,8 @@ const PR=13, WR=11;
    (v.a. offline). Auto-Producer schwächer+teurer+erst ab Dorf-Era. */
 const BAL={
   heroGatherBase:5.0, gatherPerLvl:2,   // Held aktiv: Basis-Rate + pro Werkzeug-Level
+  speedStep:14,                         // Laufen: LINEAR +14 (~+7.4% von Basis 190) pro Level statt ×1.15 compounding (mid:7464) — Stellknopf
+  atkStep:0.18,                         // Angriff: LINEAR +0.18 pro Level statt ×1.18 compounding (mid:7464) — Stellknopf
   workerEff:0.4,                          // Helfer sammeln mit 40% der Held-Rate (war 0.5)
   sawmillRate:0.3, quarryRate:0.2,        // pro Gebäude-Level/Sekunde (war 0.5 / 0.35)
   autoFromEra:1,                          // Sägewerk/Steinbruch erst ab Zeitalter 1 (Dorf)
@@ -440,13 +466,17 @@ const OUTPOST_TYPES={
   stein:  {name:'Stein-Sammler',  res:'stein',  sprite:'quarry',   biome:'gebirge', era:2, cost:{holz:120},              rate:0.40, cap:28},   // Stufe 3
   pilze:  {name:'Pilz-Sammler',   res:'pilze',  sprite:'b_pilze',  biome:'wald',    era:8, cost:{holz:160,korn:70},      rate:0.45, cap:32},   // Stufe 9
 };
+// Render-Scale je Sammler-Typ: b_holz/quarry haben viel "Drumherum" im Bild → größer ziehen, damit sie zu Korn/Pilz passen (mid:7470)
+const OUTPOST_DRAW={holz:1.32, stein:1.30, pilze:1.12};
+// b_holz/quarry sind Multi-Tile-Szenen (Gebäude + Bäume/Felsen) → Silhouetten-Schatten wirft die ganze Szene falsch; stattdessen flache Boden-Ellipse (mid:7471)
+const OUTPOST_FLATSHADOW={holz:1, stein:1};
 const OUTPOST_ORDER=['holz','korn','stein','pilze'];
 function nextOutpostType(s){ return OUTPOST_ORDER.find(t=>OUTPOST_TYPES[t].era<=s.era && !(s.outposts||[]).some(o=>o.type===t)); }
 // Redesign §5: Sammler-Upgrades sind GLOBAL (alle Sammler zusammen). s = State (globale Level sammlerTempoLvl/sammlerCapLvl).
 const WIRT_HAERTE=0.55;   // EIN Drehknopf fürs Sammel-Einkommen (mid:7254-7257): <1 = härter/langsamer. Skaliert Sammler-Raten + Held-Sammeln. Tunebar.
-function outpostRate(o,s){ return OUTPOST_TYPES[o.type].rate*(1+0.5*((s&&s.sammlerTempoLvl)||0))*WIRT_HAERTE; }   // Produktion ins eigene Lager — IMMER gleich, unabhängig von Pawns (mid:7249); Pawns liefern nur einen Teil automatisch heim (s. step)
-function outpostCap(o,s){ return Math.round(OUTPOST_TYPES[o.type].cap*(1+0.6*((s&&s.sammlerCapLvl)||0))); }   // globales Cap-Level erhöht Lager
-function sammlerGlobalMax(s){ return (s.era||0)+1; }   // pro Stufe ein globaler Rang je Stat
+function outpostRate(o,s){ return OUTPOST_TYPES[o.type].rate*(1+0.5*((o&&o.tempoLvl)||0))*WIRT_HAERTE; }   // PER SAMMLER (mid:7518): jeder levelt für sich; Pawns liefern nur einen Teil automatisch heim (s. step)
+function outpostCap(o,s){ return Math.round(OUTPOST_TYPES[o.type].cap*(1+0.6*((o&&o.mengeLvl)||0))); }   // per-Sammler Lager-Level (mid:7518)
+function sammlerGlobalMax(s){ return (s.era||0)+1; }   // max Rang je Stat (pro Sammler)
 function sammlerGlobalCost(kind,lvl){ return kind==='tempo'? {holz:scaled(60,1.5,lvl)} : {holz:scaled(40,1.5,lvl),stein:scaled(50,1.5,lvl)}; }   // Handwerk-Schiene (Holz→Stein §6)
 // platziert einen Außenposten im passenden Biom im Ring knapp außerhalb des Dorfs (innerhalb des Gegner-Frei-Rings), frei von Hindernissen/Wasser
 function placeOutpost(s,type){ const T=OUTPOST_TYPES[type], r0=OUTER_R+70, r1=Math.max(r0+140, enemyNoSpawn(s)-40);
@@ -464,9 +494,9 @@ function placeOutpost(s,type){ const T=OUTPOST_TYPES[type], r0=OUTER_R+70, r1=Ma
 // Redesign §5b: Truppen-Typen mit neuer Stufen-Staffel. era = ab welcher internen Era baubar (Stufe = era+1).
 // Panda = 5. Truppe (Late-Game), interim warrior_black-Sprite (P8 → echtes Panda aus Tileset).
 const TOWER_TYPES={   // role: melee | ranged | heal. atkR = Wirk-/Heil-Reichweite.
-  kaempfer:{name:'Kämpfer',      unit:'warrior_red',  role:'melee',  era:4,  range:240, atkR:44,  atk:7,  hp:100, speed:74, cd:0.7,  cost:{holz:160,stein:100}},                    // Stufe 5
-  bogen:   {name:'Bogenschütze', unit:'archer_purple',role:'ranged', era:4,  range:340, atkR:340, atk:5,  hp:60,  speed:64, cd:1.0,  cost:{holz:150,stein:80}},                     // Stufe 5
-  monk:    {name:'Mönch',        unit:'monk_blue',    role:'heal',   era:6,  range:300, atkR:300, heal:9, hp:75,  speed:66, cd:1.3,  cost:{holz:200,stein:120,gold:40}},             // Stufe 7 — Heiler-Einheit, direkt nach 1. Nacht
+  kaempfer:{name:'Kämpfer',      unit:'warrior_dblue',role:'melee',  era:4,  range:240, atkR:44,  atk:7,  hp:100, speed:74, cd:0.7,  cost:{holz:160,stein:100}},                    // Stufe 5 — dunkelblau (Nahkampf-Team, mid:7548)
+  bogen:   {name:'Bogenschütze', unit:'archer_lblue', role:'ranged', era:4,  range:340, atkR:340, atk:5,  hp:60,  speed:64, cd:1.0,  cost:{holz:150,stein:80}},                     // Stufe 5 — hellblau (Fernkampf-Team)
+  monk:    {name:'Mönch',        unit:'monk_lblue',   role:'heal',   era:6,  range:300, atkR:300, heal:9, hp:75,  speed:66, cd:1.3,  cost:{holz:200,stein:120,gold:40}},             // Stufe 7 — hellblau (Heiler/Support-Team)
   lance:   {name:'Lanze',        unit:'lance_blue',   role:'melee',  era:12, range:260, atkR:80,  atk:11, hp:110, speed:70, cd:0.95, cost:{holz:260,stein:170,gold:80}},            // Stufe 13 — Reichweiten-Nahkampf
   panda:   {name:'Kampf-Panda',  unit:'panda',        role:'melee',  era:17, range:280, atkR:90,  atk:16, hp:150, speed:72, cd:0.9,  cost:{holz:400,stein:280,gold:160,edelstein:30}}, // Stufe 18 — echtes Panda-Sprite (Enemy-Pack)
 };
@@ -706,6 +736,7 @@ const ICO={
   soundOff:'<path d="M4 9v6h4l5 4V5L8 9z"/><line x1="16" y1="9.5" x2="21" y2="14.5"/><line x1="21" y1="9.5" x2="16" y2="14.5"/>',
 };
 const svg=n=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+ICO[n]+'</svg>';
+const micon=(n,off)=>'<img class="micon'+(off?' off':'')+'" src="ts/icons/'+n+'.png">';   // Tile-Pack-Pixel-Icon für Menü-Buttons (mid:7440)
 
 /* ---------- Sprites (Tiny Swords by Pixel Frog — frei nutzbar, Credit in ts/CREDITS.txt) ---------- */
 const A={};  // alle fertigen Sprites
@@ -720,7 +751,7 @@ A.edelstein=A.kristall;   // Edelstein nutzt vorerst das Kristall-Sprite (lila E
 // Animierte Held-Sheets (Tiny Swords Warrior, 192px-Frames, 6 Spalten × 8 Reihen). Pro Startcharakter eine Farbe.
 // Animierte Einheiten (Tiny Swords v2 Free Pack): pro (Unit,Farbe) je Anim-Strip (idle/run/atk), 192px-Frames horizontal.
 const U={}, UFRAME=192;
-['warrior_red','warrior_black','pawn_blue','pawn_black','archer_purple','lance_blue','monk_blue','goblin','speargob','troll','panda','spider','skull'].forEach(p=>{
+['warrior_red','warrior_dblue','warrior_black','pawn_blue','pawn_black','archer_purple','archer_lblue','lance_blue','lance_yellow','monk_lblue','goblin','speargob','troll','panda','spider','skull'].forEach(p=>{
   ['idle','run','atk'].forEach(a=>{ const k=p+'_'+a, i=new Image(); i.src='ts/u/'+k+'.png'; U[k]=i; }); });
 // One-shot-Effekte (Tiny Swords Particle FX): quadratische Frame-Strips (dust=Todes-Puff, heal=Heil-Funke)
 const FX={}; ['dust','heal'].forEach(k=>{ const i=new Image(); i.src='ts/u/fx_'+k+'.png'; FX[k]=i; });
@@ -731,7 +762,7 @@ function drawFx(s){ for(const e of s.fx){ const im=FX[e.kind]; if(!im.complete||
   const fh=im.naturalHeight, fr=Math.max(1,Math.round(im.naturalWidth/fh)), col=Math.min(fr-1,Math.floor(e.age/e.max*fr)), sc=e.size/fh;
   ctx.drawImage(im, col*fh,0,fh,fh, e.x-fh*sc/2, e.y-fh*sc/2, fh*sc, fh*sc); } }
 // Per-Unit Größen-/Anker-Korrektur (mid:6611): Lance ist schmal+steht höher (Fuß 119), Mönch kürzer → angleichen, damit alle gleich groß/geerdet wirken
-const USCALE={lance_blue:1.5, monk_blue:1.2}, UFOOT={lance_blue:119, monk_blue:134, archer_purple:136}, UCX={lance_blue:89, monk_blue:96, archer_purple:93};
+const USCALE={lance_blue:1.5, lance_yellow:1.5, monk_blue:1.2, monk_lblue:1.2}, UFOOT={lance_blue:119, lance_yellow:119, monk_blue:134, monk_lblue:134, archer_purple:136, archer_lblue:136}, UCX={lance_blue:89, lance_yellow:89, monk_blue:96, monk_lblue:96, archer_purple:93, archer_lblue:93};
 function drawUnit(unit,anim,t,x,y,dispH,flip){ const im=U[unit+'_'+anim]||U[unit+'_idle']; if(!im||!im.complete||!im.naturalWidth) return;
   dispH*=SC; const frames=Math.max(1,Math.round(im.naturalWidth/UFRAME)), col=Math.floor(t*8)%frames, sc=dispH/90*(USCALE[unit]||1), fw=UFRAME*sc;
   const cx=UCX[unit]||98, fy=UFOOT[unit]||137;
@@ -745,7 +776,7 @@ const CHARS={
             apply:s=>{ s.def=(s.def||0)+2; s.player.hpmax=185; s.player.hp=185; }},
   archer:  {name:'Bogenschütze',  unit:'archer_purple', desc:'Distanz-Angriff: trifft Gegner aus deutlich größerer Reichweite', icon:'edelstein',
             apply:s=>{ s.heroRangeMul=1.75; s.atk=(s.atk||1)*1.15; }},
-  lanzer:  {name:'Lanzenträger',  unit:'lance_blue',    desc:'Angriffs-Buff: +60% Schaden im Nahkampf', icon:'holz',
+  lanzer:  {name:'Lanzenträger',  unit:'lance_yellow',  desc:'Angriffs-Buff: +60% Schaden im Nahkampf', icon:'holz',
             apply:s=>{ s.atk=(s.atk||1)*1.6; }},
 };
 // In-Game-Erzähler/Mentor (Steffen mid:6100 — nicht „Lucy")
@@ -973,9 +1004,10 @@ function freshState(){ const store={},carry={}; ALL.forEach(k=>{store[k]=0;carry
     era:0, nodes:[], pops:[], particles:[], loot:[], respawns:[], cam:{x:BASE.x,y:BASE.y}, paused:false, firstDeposit:false,
     phase:'day', day:1, baseHP:100, baseHPmax:100, towers:[],  // Naht fuer spaetere Tag/Nacht-TD-Phase
     outposts:[],   // Außenposten-Sammler (mid:6246) — werden vom Spieler gebaut
-    questIdx:0, achieved:[], lifetime:0, playSec:0, tutShown:{}, heroRangeMul:1, playerName:'', tutStep:-1, tutMoved:false, tutHarvested:false, tutMenu:false,
+    questIdx:0, achieved:[], lifetime:0, playSec:0, tutShown:{}, heroRangeMul:1, playerName:'', tutStep:-1, tutMoved:false, tutHarvested:false, tutMenu:false, tutBag:false,
     pendingEra:null, pendingCost:null, won:false, wonShown:false, endless:false, endlessNights:0, cheated:false,   // §12 Endgame: Sieg-Flag + Endless-Modus; cheated=Dev-Cheat benutzt → nicht in Bestenliste (mid:7153)
     troopAtkLvl:0, troopHpLvl:0, sammlerTempoLvl:0, sammlerCapLvl:0,   // §5: globale Truppen- (Kaserne) + Sammler-Upgrades
+    soup:0, soupCapLvl:0,   // Kürbis-Suppe: getragener Vorrat + Heiler-Kapazitäts-Upgrade (mid:7506)
     skillWirbel:false, skillSturm:false, wirbelCd:0, sturmCd:0,   // §5: aktive Spezial-Attacken + Cooldowns
     stageStartLifetime:0 };   // Wander-Licht-Baseline (mid:7071)
   buildLevel(s);
@@ -1047,9 +1079,9 @@ const SAVE_KEY='ausdemnichts_save', SAVE_VERSION=3, OFFLINE_CAP=8*3600; // v3: �
 function serialize(s){ return { // nur Fortschritt (Welt/Knoten/Deko werden neu erzeugt)
   store:s.store, cap:s.cap, speed:s.speed, gather:s.gather, wboost:s.wboost,
   capLvl:s.capLvl, speedLvl:s.speedLvl, gatherLvl:s.gatherLvl, steamLvl:s.steamLvl,
-  workerPool:s.workerPool, builds:s.builds, char:s.char, charChosen:s.charChosen, tutShown:s.tutShown||{}, tutStep:(s.tutStep===undefined?-1:s.tutStep), tutMoved:!!s.tutMoved, tutHarvested:!!s.tutHarvested, tutMenu:!!s.tutMenu, playerName:s.playerName||'', heroRangeMul:s.heroRangeMul||1, atk:s.atk, def:s.def, hpmax:s.player.hpmax,
+  workerPool:s.workerPool, builds:s.builds, char:s.char, charChosen:s.charChosen, tutShown:s.tutShown||{}, tutStep:(s.tutStep===undefined?-1:s.tutStep), tutMoved:!!s.tutMoved, tutHarvested:!!s.tutHarvested, tutMenu:!!s.tutMenu, tutBag:!!s.tutBag, playerName:s.playerName||'', heroRangeMul:s.heroRangeMul||1, atk:s.atk, def:s.def, hpmax:s.player.hpmax,
   atkLvl:s.atkLvl, defLvl:s.defLvl, hpLvl:s.hpLvl,
-  areas:s.areas, areaLvl:s.areaLvl, era:s.era, firstDeposit:s.firstDeposit,
+  areas:s.areas, areaLvl:s.areaLvl, era:s.era, firstDeposit:s.firstDeposit, soup:s.soup||0, soupCapLvl:s.soupCapLvl||0,
   phase:s.phase, nightToken:!!s.nightToken, pendingEra:(s.pendingEra==null?null:s.pendingEra), pendingCost:s.pendingCost||null, won:!!s.won, wonShown:!!s.wonShown, endless:!!s.endless, cheated:!!s.cheated, endlessNights:s.endlessNights||0, troopAtkLvl:s.troopAtkLvl||0, troopHpLvl:s.troopHpLvl||0, sammlerTempoLvl:s.sammlerTempoLvl||0, sammlerCapLvl:s.sammlerCapLvl||0, skillWirbel:!!s.skillWirbel, skillSturm:!!s.skillSturm, healBought:s.healBought||0, day:s.day, baseHP:s.baseHP, baseHPmax:s.baseHPmax, towers:(s.towers||[]).map(t=>({seg:t.seg,type:t.type,lvl:t.lvl||0,mode:t.mode||'wache'})), questIdx:s.questIdx, outposts:s.outposts,
   achieved:s.achieved, lifetime:s.lifetime, stageStartLifetime:s.stageStartLifetime||0, playSec:s.playSec }; }
 let saveFailN=0;
@@ -1076,7 +1108,7 @@ function stateFromSave(d){ const s=freshState();  // frische Welt, dann Fortschr
   if(!d||typeof d!=='object') return s;   // voellig kaputter Save → frischer Zustand (Audit M3)
   const ds=(d.store&&typeof d.store==='object')?d.store:{};   // fehlendes/kaputtes store-Objekt abfangen statt Crash (Audit M3)
   ALL.forEach(k=>{ if(typeof ds[k]==='number') s.store[k]=ds[k]; });
-  ['cap','speed','gather','wboost','capLvl','speedLvl','gatherLvl','steamLvl','workerPool','areas','areaLvl','era','firstDeposit','day','baseHP','baseHPmax','questIdx','nightToken','healBought','tutStep','tutMoved','tutHarvested','tutMenu','won','wonShown','endless','endlessNights','cheated','troopAtkLvl','troopHpLvl','sammlerTempoLvl','sammlerCapLvl','skillWirbel','skillSturm'].forEach(k=>{ if(d[k]!==undefined && typeof d[k]===typeof s[k]) s[k]=d[k]; });   // nur typ-gleiche Werte uebernehmen → Muell-Typen (z.B. era:'x') fallen auf Default zurueck statt NaN (Audit M3)
+  ['cap','speed','gather','wboost','capLvl','speedLvl','gatherLvl','steamLvl','workerPool','areas','areaLvl','era','firstDeposit','day','baseHP','baseHPmax','questIdx','nightToken','healBought','tutStep','tutMoved','tutHarvested','tutMenu','tutBag','won','wonShown','endless','endlessNights','cheated','troopAtkLvl','troopHpLvl','sammlerTempoLvl','sammlerCapLvl','soup','soupCapLvl','skillWirbel','skillSturm'].forEach(k=>{ if(d[k]!==undefined && typeof d[k]===typeof s[k]) s[k]=d[k]; });   // nur typ-gleiche Werte uebernehmen → Muell-Typen (z.B. era:'x') fallen auf Default zurueck statt NaN (Audit M3)
   if(d.tutStep===undefined && d.charChosen) s.tutStep=TUT_STEPS.length;   // Altsave: interaktives Tutorial nicht nachträglich zeigen (mid:6450)
   s.phase='day';   // laufende Nacht beim Laden abbrechen (Nacht-Gegner werden nicht persistiert)
   if(d.pendingCost){ Object.keys(d.pendingCost).forEach(k=>{ s.store[k]=(s.store[k]||0)+(d.pendingCost[k]||0); }); }   // Aufstiegs-Nacht durch Reload unterbrochen → vollen Preis erstatten (fair, §4)
@@ -1118,26 +1150,26 @@ function applyOffline(s, elapsedSec){ return null;   // (mid:7309) Offline-Ertra
 function humanDur(mins){ if(mins<60) return mins+' Min'; const h=Math.floor(mins/60), m=mins%60; return h+(h===1?' Stunde':' Stunden')+(m?' '+m+' Min':''); }   // Restminuten nicht mehr verwerfen (Audit-Idee)
 
 const scaled=(b,f,l)=>Math.round(b*Math.pow(f,l));
+// Kürbis-Suppe als getragenes Consumable (mid:7506): in der Burg kochen → Vorrat tragen → blauer Heil-Button verbraucht 1 → Held heilt.
+function soupMax(s){ return 3 + 2*(s.soupCapLvl||0); }    // tragbarer Vorrat (Default 3 ≈ eine volle Lebensleiste, mid:7534), via Heiler erweiterbar
+function soupCost(s){ return {korn:25}; }                 // 1 Suppe kochen (flat, tunebar)
+function soupCapCost(s){ const l=s.soupCapLvl||0; return {korn:scaled(40,1.5,l), pilze:scaled(8,1.5,l)}; }   // Heiler: Vorrat +2 pro Stufe
 // Helden-Upgrades sind pro Zeitalter gedeckelt (mid:6042) — kein 7×-Sofort-Maxen, Power ans Zeitalter gekoppelt
 function heroMaxLvl(s){ return 2*(s.era+1); }  // 2 Upgrades pro Stufe (mid:6381): Stufe1=2, Stufe2=4 … Stufe7=14 (war 3+era*2)
+function combatMaxLvl(s){ return Math.max(0, 2*(s.era-3)); }   // Schmiede-Kampf-Upgrades: Cap zählt AB Freischaltung (era4=Stufe5) → 2/Stufe, kein Nachhol-Dump beim Kauf (mid:7557)
+function upMax(up,s){ return up.maxlvl ? up.maxlvl(s) : heroMaxLvl(s); }   // pro-Upgrade-Cap (combat eigener, Rest heroMaxLvl)
 // ---- Two upgrade trees ----  (UP_HELD-Einträge tragen lvl:=aktuelles Level für den Era-Cap)
 // Kosten eskalieren mit dem Zeitalter (mid:6051/6052): jede Stufe nimmt eine höhere Ressource dazu, statt alles in Holz zu zahlen.
 const UP_HELD=[
-  // §10: Food-Crafting-Heilung (Treppe). Wiederholbar (lvl=0 → nie gecapped), nur sichtbar wenn der Held verletzt ist. cP-nah.
-  {id:'suppe', icon:'korn', name:()=>'Kürbis-Suppe kochen', desc:s=>`Heilt den Helden um ~${Math.round(s.player.hpmax*0.3)} HP`, show:s=>s.player.hp<s.player.hpmax, lvl:s=>0,
-   cost:s=>({korn:30}), apply:s=>{ s.player.hp=Math.min(s.player.hpmax,s.player.hp+Math.round(s.player.hpmax*0.3)); addFx(s,'heal',s.player.x,s.player.y-18,46); }},
-  {id:'sauce', icon:'pilze', name:()=>'Pilz-Sauce kochen', desc:s=>`Heilt den Helden um ~${Math.round(s.player.hpmax*0.6)} HP`, show:s=>s.era>=8 && s.player.hp<s.player.hpmax, lvl:s=>0,
-   cost:s=>({pilze:25}), apply:s=>{ s.player.hp=Math.min(s.player.hpmax,s.player.hp+Math.round(s.player.hpmax*0.6)); addFx(s,'heal',s.player.x,s.player.y-18,46); }},
-  {id:'heiltrank', icon:'edelstein', name:()=>'Heiltrank (Heiler)', desc:()=>'Voll-Heilung für Held + alle Truppen', show:s=>s.builds.some(b=>b.type==='heiler') && (s.player.hp<s.player.hpmax || (s.towers||[]).some(t=>t.unit&&t.unit.hp<t.unit.hpmax)), lvl:s=>0,
-   cost:s=>({pilze:40,edelstein:5}), apply:s=>{ s.player.hp=s.player.hpmax; addFx(s,'heal',s.player.x,s.player.y-18,52); if(s.towers)for(const t of s.towers)if(t.unit)t.unit.hp=t.unit.hpmax; }},
+  // Heilung läuft jetzt über die getragene Kürbis-Suppe (mid:7506): kochen in der Burg, blauer Heil-Button im Helden-Fenster.
+  // Die alten Direkt-Heil-Einträge (suppe/sauce/heiltrank) sind dadurch ersetzt.
   {id:'cap',icon:'up_bag',name:()=>'Größerer Beutel',desc:s=>`Tragen +4 (jetzt ${s.cap})`,lvl:s=>s.capLvl,
    cost:s=>{ const l=s.capLvl,c={holz:scaled(12,1.45,l)}; if(s.era>=2)c.stein=scaled(8,1.45,l); return c; },apply:s=>{s.cap+=4;s.capLvl++;}},
-  {id:'speed',icon:'up_boots',name:()=>'Schnellere Beine',desc:s=>`Tempo +15% (jetzt +${Math.round((Math.pow(1.15,s.speedLvl||0)-1)*100)}%)`,lvl:s=>s.speedLvl,
-   cost:s=>{ const l=s.speedLvl,c={korn:scaled(10,1.45,l)}; if(s.era>=5)c.pilze=scaled(6,1.45,l); return c; },apply:s=>{s.speed*=1.15;s.speedLvl++;}},
+  {id:'speed',icon:'ic_boots',name:()=>'Schnellere Beine',desc:s=>`Lauftempo schneller (jetzt +${Math.round((s.speed/190-1)*100)}%)`,lvl:s=>s.speedLvl,
+   cost:s=>{ const l=s.speedLvl,c={korn:scaled(10,1.45,l)}; if(s.era>=5)c.pilze=scaled(6,1.45,l); return c; },apply:s=>{s.speed+=BAL.speedStep;s.speedLvl++;}},   // LINEAR (mid:7464)
   {id:'gather',icon:'up_tools',name:()=>'Bessere Werkzeuge',desc:s=>`Sammeln schneller (jetzt ${(s.gather||0).toFixed(1)}/s)`,lvl:s=>s.gatherLvl,
    cost:s=>{ const l=s.gatherLvl,c={stein:scaled(10,1.45,l)}; if(s.era>=3)c.gold=scaled(6,1.45,l); return c; },apply:s=>{s.gather+=BAL.gatherPerLvl;s.gatherLvl++;}},
-  {id:'steam',icon:'up_gear',name:()=>'Dampfmaschine',desc:s=>`Sammeln +3 & Helfer +10% (jetzt ${(s.gather||0).toFixed(1)}/s · Helfer ×${(s.wboost||1).toFixed(2)})`,show:s=>s.era>=4,lvl:s=>s.steamLvl,
-   cost:s=>({edelstein:scaled(8,1.55,s.steamLvl),gold:scaled(45,1.4,s.steamLvl)}),apply:s=>{s.gather+=3;s.wboost+=0.1;s.steamLvl++;}},
+  // Dampfmaschine (steam) entfernt (mid:7450): überlappte mit "Ernten", "Helfer +10%" war seit M3 irreführend (keine Hütten-Pawns mehr)
 ];
 const EXPAND_REQ={1:1, 2:3, 3:5};   // Gebiet-Erschliessen-Gate je aktueller Gebietszahl → era (Stufe-1): Gebiet2 ab Stufe2, Gebiet3 ab Stufe4, Gebiet4 ab Stufe6 (mid:6618)
 const UP_DORF=[
@@ -1175,11 +1207,11 @@ function buildMaxLvl(s){ return s.era+1; }                  // max Tempo-/Menge-
 function buildMaxWorkers(s){ return Math.min(4, s.era+1); } // max zugewiesene Arbeiter je Hütte
 // Kampf-Upgrades (mid:6129): Held skaliert auf der Kampf-Seite mit, parallel zu den era-skalierenden Gegnern. Pro Zeitalter gedeckelt.
 const UP_KAMPF=[
-  {id:'angriff', icon:'up_attack', name:()=>'Angriff schärfen', desc:s=>`Mehr Schaden gegen Gegner (Angriff ×${(s.atk||1).toFixed(2)})`, lvl:s=>s.atkLvl||0,
-   cost:s=>{ const l=s.atkLvl||0,c={stein:scaled(22,1.5,l)}; if(s.era>=3)c.gold=scaled(14,1.45,l); return c; }, apply:s=>{ s.atk=(s.atk||1)*1.18; s.atkLvl=(s.atkLvl||0)+1; }},
-  {id:'ruestung', icon:'up_armor', name:()=>'Rüstung verstärken', desc:s=>`Weniger Schaden pro Treffer (Rüstung ${s.def||0})`, lvl:s=>s.defLvl||0,
+  {id:'angriff', icon:'up_attack', name:()=>'Angriff schärfen', desc:s=>`Mehr Schaden gegen Gegner (Angriff ×${(s.atk||1).toFixed(2)})`, lvl:s=>s.atkLvl||0, maxlvl:combatMaxLvl,
+   cost:s=>{ const l=s.atkLvl||0,c={stein:scaled(22,1.5,l)}; if(s.era>=3)c.gold=scaled(14,1.45,l); return c; }, apply:s=>{ s.atk=(s.atk||1)+BAL.atkStep; s.atkLvl=(s.atkLvl||0)+1; }},   // LINEAR statt ×1.18 (mid:7464); Cap ab Schmiede-Freischaltung (mid:7557)
+  {id:'ruestung', icon:'up_armor', name:()=>'Rüstung verstärken', desc:s=>`Weniger Schaden pro Treffer (Rüstung ${s.def||0})`, lvl:s=>s.defLvl||0, maxlvl:combatMaxLvl,
    cost:s=>{ const l=s.defLvl||0,c={stein:scaled(20,1.5,l)}; if(s.era>=3)c.gold=scaled(16,1.45,l); return c; }, apply:s=>{ s.def=(s.def||0)+2; s.defLvl=(s.defLvl||0)+1; }},
-  {id:'vita', icon:'up_vita', name:()=>'Lebenskraft', desc:s=>`Max-HP +25 (jetzt ${s.player.hpmax})`, lvl:s=>s.hpLvl||0,
+  {id:'vita', icon:'up_vita', name:()=>'Lebenskraft', desc:s=>`Max-HP +25 (jetzt ${s.player.hpmax})`, lvl:s=>s.hpLvl||0, maxlvl:combatMaxLvl,
    cost:s=>{ const l=s.hpLvl||0,c={korn:scaled(16,1.5,l)}; if(s.era>=5)c.pilze=scaled(10,1.45,l); return c; }, apply:s=>{ s.player.hpmax+=25; s.player.hp+=25; s.hpLvl=(s.hpLvl||0)+1; }},
   // §5: 2 aktive Spezial-Attacken (einmalige Freischaltung). Werte in cP-Nähe, tunebar.
   {id:'wirbel', icon:'up_attack', name:()=>'Wirbelschlag', desc:()=>'Aktiv: AoE-Hieb trifft ALLE Gegner um dich (Knopf unten)', show:s=>s.era>=8 && !s.skillWirbel, lvl:s=>s.skillWirbel?1:0,
@@ -1188,6 +1220,13 @@ const UP_KAMPF=[
    cost:s=>({gold:220,edelstein:25}), apply:s=>{ s.skillSturm=true; }},
 ];
 const ALLUP=[...UP_HELD,...UP_DORF,...UP_KAMPF];
+// Kurze klare Namen über den Upgrade-Symbolen in den Sprechblasen (mid:7442)
+const UP_SHORT={cap:'Beutel',speed:'Laufen',gather:'Ernten',suppe:'Suppe',sauce:'Sauce',heiltrank:'Trank',
+  angriff:'Angriff',ruestung:'Rüstung',vita:'Leben',wirbel:'Wirbel',sturm:'Sturm',
+  hire:'Helfer',build:'Bauen',buildpost:'Sammler',expand:'Gebiet',
+  tempo:'Tempo',menge:'Menge',optempo:'Tempo',opcap:'Lager',opadd:'Pawn rein',oprem:'Pawn raus',era:'Aufstieg',heal:'Heilen',tg_atk:'Angriff',tg_hp:'Leben',marktmode:'Kurs'};
+// Wert-Upgrades mit Grün-Vorschau-dann-Bestätigen (mid:7442); Aktionen/One-Shots fehlen bewusst → sofort
+const BUBBLE_PREVIEWABLE=new Set(['cap','speed','gather','angriff','ruestung','vita','tempo','menge','optempo','opcap','opadd','oprem','tg_atk','tg_hp','hire','expand','soupcap','era']);   // era: 1.Klick = scharf/bestätigen, kein versehentliches Level-up (mid:7480)
 // Aufstiegskosten je Ziel-Stufe (Index = Ziel-era). Nutzt nur Ressourcen, die in der ZAHLENDEN Stufe schon verfügbar sind (mid:6315/6319).
 // Aufstiegskosten je Ziel-era (Index = era, Stufe=era+1). Aus oekonomie_plan_20.csv „Ressourcen (gestaffelt)".
 // Nutzt nur Ressourcen, die in der ZAHLENDEN Stufe verfügbar sind: edelstein erst ab Reach-Stufe 14 (Markt wird Stufe 13 gebaut);
@@ -1317,19 +1356,17 @@ const game={
     document.getElementById('confirmYes').onclick=()=>this.doReset();
     document.getElementById('confirmNo').onclick=()=>document.getElementById('confirmOv').classList.remove('open');
     document.getElementById('confirmOv').onclick=e=>{ if(e.target.id==='confirmOv') document.getElementById('confirmOv').classList.remove('open'); };
-    document.getElementById('pauseBtn').innerHTML=svg('pause');
-    document.getElementById('resetBtn').innerHTML=svg('reset');
+    document.getElementById('pauseBtn').innerHTML=micon('ic_pause');
+    document.getElementById('resetBtn').innerHTML=micon('ic_restart');
     loadAudioPrefs();   // Musik/SFX-Schalter aus localStorage (mid:6471)
     const mus=document.getElementById('musicBtn'), sfxb=document.getElementById('sfxBtn');
-    const lbl=(on,em)=>`<span style="font-size:21px;line-height:1;${on?'':'opacity:.4'}">${em}</span>`;
-    const paintAudio=()=>{ mus.innerHTML=lbl(!musicMuted,'🎵'); sfxb.innerHTML=lbl(!sfxMuted,'🔊'); };
+    const paintAudio=()=>{ mus.innerHTML=micon('ic_music',musicMuted); sfxb.innerHTML=micon('ic_sound',sfxMuted); };   // Tile-Pack-Icons, stumm = ausgegraut (mid:7440)
     paintAudio();
     mus.onclick=()=>{ musicMuted=!musicMuted; saveAudioPrefs(); audioInit(); updateMusic(); paintAudio(); };
     sfxb.onclick=()=>{ sfxMuted=!sfxMuted; saveAudioPrefs(); audioInit(); paintAudio(); if(!sfxMuted) SFX.buy(); };
     const mb=document.getElementById('menuBtn'), mi=document.getElementById('menuItems');
-    const burger='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>';
-    mb.innerHTML=burger; mb.onclick=()=>{ const open=mi.classList.toggle('open'); mb.innerHTML=open?svg('close'):burger; };
-    const ab=document.getElementById('achBtn'); ab.innerHTML='<span style="font-size:22px;line-height:1">🏆</span>';
+    mb.innerHTML=micon('ic_gear'); mb.onclick=()=>{ mi.classList.toggle('open'); };   // Burger → Zahnrad (mid:7440)
+    const ab=document.getElementById('achBtn'); ab.innerHTML=micon('ic_trophy');
     ab.onclick=()=>this.toggleAch();
     document.getElementById('achClose').innerHTML=svg('close');
     document.getElementById('achClose').onclick=()=>this.toggleAch(false);
@@ -1369,7 +1406,7 @@ const game={
     cv.style.width=this.vw+'px'; cv.style.height=this.vh+'px'; cv.width=Math.round(this.vw*this.dpr); cv.height=Math.round(this.vh*this.dpr); },
   reset(){ document.getElementById('confirmMsg').textContent='Wirklich neu anfangen? Aller Fortschritt geht verloren.'; document.getElementById('confirmOv').classList.add('open'); },   // eigene Ja/Nein-Abfrage (mid:6748: natives confirm war auf iOS unzuverlässig)
   doReset(){ document.getElementById('confirmOv').classList.remove('open'); document.getElementById('menuItems').classList.remove('open'); document.getElementById('panel').classList.remove('open'); clearSave(); this.s=freshState(); this.s.paused=false; this.buildShop(); this.showIntro(); },
-  toggle(){ this.s.paused=!this.s.paused; document.getElementById('pauseBtn').innerHTML=svg(this.s.paused?'play':'pause'); },
+  toggle(){ this.s.paused=!this.s.paused; document.getElementById('pauseBtn').innerHTML=micon(this.s.paused?'ic_play':'ic_pause'); },
   setTab(t){ this.tab=t; if(t==='dorf') this.s.tutMenu=true;   // Tutorial-Schritt 4 (mid:6450)
     for(const b of document.querySelectorAll('#tabs button')) b.classList.toggle('on',b.dataset.tab===t); this.buildShop(); },
   toggleAch(force){ this.achOpen=(force===undefined)?!this.achOpen:force;
@@ -1387,7 +1424,7 @@ const game={
       list.appendChild(el); } },
   showCharSelect(){ const row=document.getElementById('charRow'); row.innerHTML='';
     for(const key of Object.keys(CHARS)){ const c=CHARS[key]; const card=document.createElement('div'); card.className='ch-card';
-      card.innerHTML='<img class="ch-portrait" src="ts/u/portrait_'+key+'.png">'
+      card.innerHTML='<img class="ch-portrait" src="ts/u/portrait_'+key+'.png?v=av2">'
         +'<div><div class="ch-name">'+c.name+'</div><div class="ch-abil">'+c.desc+'</div></div>';
       card.onclick=()=>this.pickChar(key); row.appendChild(card); }
     document.getElementById('charSelect').classList.add('open'); },
@@ -1451,7 +1488,7 @@ const game={
     if(s.skillWirbel || s.skillSturm) this.queueTut('skills'); },
   buy(id){ const s=this.s,up=ALLUP.find(u=>u.id===id); if(!up)return;
     if(up.locked && up.locked(s)){ say('Das ist erst in einer höheren Stufe verfügbar.'); return; }   // mid:6618
-    if(up.lvl && up.lvl(s)>=heroMaxLvl(s)){ say('Max für diese Stufe erreicht — erst aufsteigen.'); return; }
+    if(up.lvl && up.lvl(s)>=upMax(up,s)){ say('Max für diese Stufe erreicht — erst aufsteigen.'); return; }
     const c=up.cost(s);
     if(!canAfford(s,c)){ say('Dafür fehlen noch Ressourcen.'); return; } pay(s,c); up.apply(s); ((up.id==='build'||up.id==='buildpost')?SFX.build:up.id==='expand'?SFX.expand:SFX.buy)(); burst(s,BASE.x,BASE.y-20,'#cbb8ff',10);
     // (mid:7234) kein Kommentar mehr bei jedem Kauf — SFX + sichtbare Stat-Änderung reichen; build/buildpost/expand sagen eh ihr eigenes
@@ -1495,8 +1532,8 @@ const game={
     SFX.buy(); burst(s,BASE.x,BASE.y-20,'#5fd06a',22); addPop(s,BASE.x,BASE.y-52,'#5fd06a','Dorf geheilt!'); say('🌿 Dorf geheilt — Lebensleiste wieder voll.'); this.updateShop(); saveGame(s); },
 
   step(dt){ const s=this.s; s.playSec+=dt;
-    if(this.ascFx>0){ this.ascFx+=dt/1.6;   // §4 Aufstiegs-Blende: Nacht→Tag über ~1.6s
-      if(!this.ascDone && this.ascFx>=0.5){ this.ascDone=true; applyAscend(s,this.ascPending); saveGame(s); }   // Tagesanbruch → Aufstieg + Belohnung
+    if(this.ascFx>0){ this.ascFx+=dt/3.4;   // §4 Aufstiegs-Blende: Nacht→Tag über ~3.4s, damit man die kurze Nacht spürt (mid:7513)
+      if(!this.ascDone && this.ascFx>=0.52){ this.ascDone=true; applyAscend(s,this.ascPending); saveGame(s); }   // Tagesanbruch → Aufstieg + Belohnung
       if(this.ascFx>=1) this.ascFx=0; }
     if(s.won && !s.wonShown){ s.wonShown=true; this.showVictory(); saveGame(s); }   // §12: Stufe 20 erreicht → Sieg-Screen einmalig
     if(s.wirbelCd>0)s.wirbelCd-=dt; if(s.sturmCd>0)s.sturmCd-=dt; this.updateSkillbar();   // §5: Spezial-Attacken-Cooldowns + Button-Update
@@ -1596,6 +1633,8 @@ const game={
     if(this.s.playSec>3){ this._ft=(this._ft||16.7)*0.9+(dt*1000)*0.1;   // adaptive Perf-Degradierung, STUFENWEISE (mid:7271/7287)
       if(this._ft>30 && PERF>0 && this.s.playSec>(this._lastDrop||0)+1.6){ PERF--; this._lastDrop=this.s.playSec; this._ft=16.7; try{ say(PERF<=0?'⚙️ Schatten aus für mehr Tempo.':'⚙️ Sparmodus: einfachere Schatten für flüssigeres Spiel.'); }catch(_){} } }
     this._mmAcc=(this._mmAcc||0)+1; if(this._mmAcc%4===0) this.drawMinimap();   // Minimap throttled (~15fps)
+    if(this._pendingOp!=null){ const o=this.s.outposts&&this.s.outposts[this._pendingOp];   // mid:7463: bei Ankunft am Sammler das Menü öffnen
+      if(!o) this._pendingOp=null; else if(dist(this.s.player.x,this.s.player.y,o.x,o.y)<HARVEST_R+34){ this.openBubble('op'+this._pendingOp); this._pendingOp=null; } }
     if(this.bubbleFor!=null) this.positionBubble();   // B1: Sprechblase am Gebäude halten (Kamera folgt)
     this.uiAcc+=dt; if(this.uiAcc>0.2){ this.uiAcc=0; checkQuests(this.s); checkAchievements(this.s); this.checkTut(); this.renderRes(); this.updateShop(); this.renderQuest(); }
     this.saveAcc=(this.saveAcc||0)+dt; if(this.saveAcc>5){ this.saveAcc=0; saveGame(this.s); }  // Auto-Save alle 5s
@@ -1694,12 +1733,19 @@ const game={
       const im=FIRE[1+(pi%3)]; if(im&&im.complete&&im.naturalWidth){ const fh=im.naturalHeight, fr=Math.max(1,Math.round(im.naturalWidth/fh)), col=Math.floor(this.animT*10+pi*3)%fr, sz=52*VS; ctx.drawImage(im, col*fh,0,fh,fh, poi.x-sz/2, poi.y-sz, sz, sz); } }
     // Außenposten-Sammler (mid:6246): Gebäude + Ressourcen-Marker + Füllbalken; glüht wenn was zum Abholen bereitliegt
     if(s.outposts) for(const o of s.outposts){ if(!vis(o.x,o.y))continue; const T=OUTPOST_TYPES[o.type], cap=outpostCap(o,s), frac=Math.min(1,(o.store||0)/cap), ready=(o.store||0)>=1;
-      if(ready){ ctx.fillStyle='rgba(255,238,150,.18)'; ctx.beginPath(); ctx.ellipse(o.x,o.y+2*VS,40*VS,18*VS,0,0,7); ctx.fill();
-        ctx.strokeStyle='rgba(255,238,150,.7)'; ctx.lineWidth=2.5*VS; ctx.beginPath(); ctx.ellipse(o.x,o.y+2*VS,40*VS,18*VS,0,0,7); ctx.stroke(); }
-      { const _oi=A[T.sprite], _oa=(_oi&&_oi.naturalWidth)?_oi.naturalWidth/_oi.naturalHeight:1, _odh=(_oa>1?192*SC/_oa:192*SC), _odw=(_oa>1?192*SC:192*SC*_oa); spriteShadow(T.sprite,o.x,o.y,_odw,_odh); }   // Sammler-Silhouetten-Schatten (mid:7083)
-      worldSprite(T.sprite,o.x,o.y,192,true); worldSprite(T.res,o.x+52*VS,o.y-108*VS,52,true);   // doppelt so groß (mid:6704)
-      const bw=56*VS, bx=o.x-bw/2, by=o.y-128*VS; ctx.fillStyle='rgba(0,0,0,.5)'; rr(bx,by,bw,7*VS,3.5*VS); ctx.fill(); ctx.fillStyle=COL[T.res]; rr(bx,by,bw*frac,7*VS,3.5*VS); ctx.fill();
-      label(T.name,o.x,o.y-150*VS); }
+      if(ready){ ctx.fillStyle='rgba(255,238,150,.16)'; ctx.beginPath(); ctx.ellipse(o.x,o.y+2*VS,40*VS,18*VS,0,0,7); ctx.fill();   // dezenter Boden-Glow (Indikator ist die Füllleiste, mid:7468)
+        ctx.strokeStyle='rgba(255,238,150,.55)'; ctx.lineWidth=2*VS; ctx.beginPath(); ctx.ellipse(o.x,o.y+2*VS,40*VS,18*VS,0,0,7); ctx.stroke(); }
+      const SCL=OUTPOST_DRAW[o.type]||1, _oi=A[T.sprite], _oa=(_oi&&_oi.naturalWidth)?_oi.naturalWidth/_oi.naturalHeight:1, _szpx=192*SC*SCL, _odw=(_oa>1?_szpx:_szpx*_oa), _odh=(_oa>1?_szpx/_oa:_szpx);   // gerenderte Sprite-Größe (Per-Typ-Scale, mid:7470)
+      if(OUTPOST_FLATSHADOW[o.type]) groundShadow(o.x,o.y-2*VS,_odw*0.46,_odh*0.2);   // Multi-Tile-Szene → flache Ellipse statt Szenen-Silhouette (mid:7471)
+      else spriteShadow(T.sprite,o.x,o.y,_odw,_odh);   // Sammler-Silhouetten-Schatten (mid:7083)
+      worldSprite(T.sprite,o.x,o.y,192*SCL,true); worldSprite(T.res,o.x+52*VS*SCL,o.y-108*VS*SCL,52*Math.min(SCL,1.15),true);
+      // Füllleiste ÜBER dem Gebäude (scale-robust): GRÖSSER + Farbverlauf grün(leer)→gelb→orange→rot(voll) (mid:7468/7470)
+      const bw=86*VS, bh=15*VS, bx=o.x-bw/2, by=o.y-_odh-bh-3*VS, br=7*VS, fcol=`hsl(${Math.round(120*(1-frac))},78%,47%)`;
+      ctx.fillStyle='rgba(0,0,0,.6)'; rr(bx-2.5*VS,by-2.5*VS,bw+5*VS,bh+5*VS,br+1.5*VS); ctx.fill();   // dunkler Rahmen
+      ctx.fillStyle='rgba(0,0,0,.45)'; rr(bx,by,bw,bh,br); ctx.fill();   // Track
+      ctx.fillStyle=fcol; rr(bx,by,Math.max(bh,bw*frac),bh,br); ctx.fill();   // Füllung (min. rund), Farbe = Füllstand
+      if(frac>=0.999){ ctx.strokeStyle='rgba(255,255,255,.85)'; ctx.lineWidth=2*VS; rr(bx-2.5*VS,by-2.5*VS,bw+5*VS,bh+5*VS,br+1.5*VS); ctx.stroke(); }   // voll = weißer Rahmen extra
+      label(T.name,o.x,by-4*VS); }
     // Türme/Bauplätze im äußeren Ring (mid:6357): gebauter Turm = Standarte am Posten; freier Slot = "+" wenn Waffenkammer steht
     if(s.towerSlots) for(let si=0;si<s.towerSlots.length;si++){ const ts=s.towerSlots[si]; if(!vis(ts.x,ts.y))continue; const tw=towerAt(s,si);
       if(tw){ const col={kaempfer:'#c0392b',bogen:'#7a4fd0',lance:'#3a78d0',monk:'#3aa84a'}[tw.type]||'#888';
@@ -1789,14 +1835,14 @@ const game={
     if(this.ascFx>0){ const a=Math.sin(Math.min(1,this.ascFx)*Math.PI)*0.62; ctx.fillStyle='rgba(14,18,48,'+a.toFixed(3)+')'; ctx.fillRect(0,0,VW,VH); }  // §4 Aufstiegs-Blende: kurz auf Nacht, dann zurück zum Tag (mid:7251)
   },
   // A1 Portrait-Hub (mid:7285/7292/7299): zwei Portraits (Spieler + Dorf) mit je HP; Klick klappt das jeweilige Inventar aus (Tasche / Dorf-Lager). Ersetzt die alte Seitenleiste.
-  toggleInv(which){ if(which==='player') this.invP=!this.invP; else this.invV=!this.invV; this.renderRes(); },   // beide unabhängig auf/zu — können gleichzeitig offen sein (mid:7348)
+  toggleInv(which){ if(which==='player'){ this.invP=!this.invP; this.s.tutBag=true; } else this.invV=!this.invV; this.renderRes(); },   // beide unabhängig auf/zu (mid:7348); Beutel-Tap erfüllt Tutorial-Schritt
   openHeroUpgrades(){ if(this.bubbleFor==='hero') this.closeBubble(); else this.openBubble('hero'); },   // Helden-Portrait → Helden-Sprechblase (mid:7426), Toggle
   renderRes(){ const s=this.s; const el=document.getElementById('resbar'), hh=document.getElementById('herohud'); if(!s.charChosen){ el.innerHTML=''; if(hh)hh.innerHTML=''; return; }
     const hpBar=(hp,max)=>{ const f=Math.max(0,Math.min(1,(hp||0)/(max||1))), c=f>0.5?'#5fd06a':f>0.25?'#e0a93a':'#e0573a'; return `<div class="chp"><div class="chpfill" style="width:${(f*100).toFixed(0)}%;background:${c}"></div><span class="chpv">${Math.ceil(hp||0)}/${Math.round(max||0)}</span></div>`; };
     if(this.invP===undefined){ this.invP=false; this.invV=true; }   // Default: Dorf-Lager offen, Tasche zu — beide unabhängig (mid:7348)
     const oP=this.invP, oV=this.invV, item=(k,v)=>`<span class="ri"><img src="ts/icons/${k}.png"><b>${v}</b></span>`;   // Symbol+Wert auf EINEM Panel (mid:7327)
     const justP=(oP&&!this._lastP), justV=(oV&&!this._lastV); this._lastP=oP; this._lastV=oV;   // Slide-Animation nur beim echten Aufklappen
-    const pPort=`<button class="portrait player" onclick="game.openHeroUpgrades()" title="Helden-Upgrades"><img class="cportrait" src="ts/u/portrait_${CHARS[s.char]?s.char:'krieger'}.png">${hpBar(s.player.hp,s.player.hpmax)}</button>`;
+    const pPort=`<button class="portrait player" onclick="game.openHeroUpgrades()" title="Helden-Upgrades"><img class="cportrait" src="ts/u/portrait_${CHARS[s.char]?s.char:'krieger'}.png?v=av2">${hpBar(s.player.hp,s.player.hpmax)}</button>`;
     const bagBtn=`<button class="bagbtn${oP?' on':''}" onclick="game.toggleInv('player')" title="Tasche"><img src="ts/icons/up_bag.png"></button>`;   // Beutel öffnet das Inventar (mid:7411)
     const vPort=`<button class="portrait village${oV?' on':''}" onclick="game.toggleInv('village')"><img class="cportrait" src="ts/era${Math.min(6,s.era||0)}.png">${hpBar(s.baseHP,s.baseHPmax)}</button>`;   // ts/ root (era0..6 vorhanden; ts/icons/ hat nur 0..4 → 404)
     let pInv='', vInv='';   // BEIDE können gleichzeitig offen sein (mid:7348). Spieler-Tasche = 3×2 rechts; Dorf-Lager = Spalte unter dem Portrait
@@ -1804,7 +1850,9 @@ const game={
       pInv=`<div class="invpanel pgrid pinv${justP?' anim':''}">${keys.map(k=>item(k,Math.floor(c[k]||0))).join('')}<span class="ri bagtot${tf?' full':''}"><span class="bagi">👝</span><b>${Math.floor(carryTotal(c))}/${s.cap}</b></span><button class="invx" onclick="game.toggleInv('player')" title="Tasche schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg></button></div>`; }   // Mini-Pfeil INS Feld schiebt zurück (mid:7418)
     if(oV){ vInv=`<div class="invpanel vcol${justV?' anim':''}">${activeKeys(s.era).map(k=>item(k,Math.floor(s.store[k]))).join('')+item('pawn',`${freeWorkers(s)}/${s.workerPool}`)}</div>`; }
     el.innerHTML=`<div class="hub"><div class="leftcol">${vPort}${vInv}</div></div>`;   // OBEN-LINKS: Burg + Inventar nach unten (mid:7354)
-    if(hh) hh.innerHTML=`<div class="herorow">${pPort}<div class="bagwrap">${bagBtn}${pInv}</div></div>`; },   // UNTEN-LINKS: Held + Beutel; Inventar schiebt sich ÜBER den Beutel (mid:7418); Zauber später drüber
+    const showHeal=(s.soup||0)>0;   // Heil-Button: weg wenn keine Suppe, ausgegraut wenn HP voll (mid:7538)
+    const healBtn=showHeal?`<button class="hudbtn heal" ${s.player.hp>=s.player.hpmax?'disabled':''} onclick="game.soupHeal()" title="Suppe trinken — heilt den Helden"><img src="ts/icons/soup.png"><span class="hudn">${s.soup}</span></button>`:'';
+    if(hh) hh.innerHTML=`<div class="herorow">${pPort}<div class="bagcol">${healBtn}<div class="bagwrap">${bagBtn}${pInv}</div></div></div>`; },   // UNTEN-LINKS: Held | Spalte[ Heil-Button ÜBER Beutel (mid:7542) ]; Inventar schiebt sich ÜBER den Beutel
   toggleQuest(){ const el=document.getElementById('quest'), b=document.getElementById('questBtn');
     const open=el.classList.toggle('qopen'); if(open&&b)b.classList.remove('qnew'); },
   renderQuest(){ const s=this.s, el=document.getElementById('quest'), b=document.getElementById('questBtn');
@@ -1815,90 +1863,139 @@ const game={
   openPanelFor(target){ this.closeBubble(); this.panelFor=target; this.buildShop(); document.getElementById('panel').classList.add('open'); },
   // ---- B1/B3: Gebäude-Sprechblase (Symbol-Upgrades + Live-Stats, "Zustand statt Prosa") ----
   openBubble(idx){ const pn=document.getElementById('panel'); if(pn)pn.classList.remove('open');   // Bubble + Bottom-Panel nie gleichzeitig
-    this.bubbleFor=idx; this.renderBubble(); this.positionBubble(); document.getElementById('bubble').classList.add('on'); },
-  closeBubble(){ this.bubbleFor=null; const el=document.getElementById('bubble'); if(el)el.classList.remove('on'); },
+    if(idx!=='hero'){ this.camFollow=false; this.camGoal.x=this.s.cam.x; this.camGoal.y=this.s.cam.y; }   // Kamera einfrieren, damit die Welt-Bubble nicht unterm Finger wegslidet (mid:7525)
+    this.bubbleFor=idx; this.bubblePreview=null; this.renderBubble(); this.positionBubble(); document.getElementById('bubble').classList.add('on');
+    this._bubbleLock=true; setTimeout(()=>{ this._bubbleLock=false; },120); },   // Öffnungs-Tap nicht direkt einen Button auslösen (mid:7497), kurz genug für schnelle Taps (mid:7525)
+  closeBubble(){ this.bubbleFor=null; this.bubblePreview=null; const el=document.getElementById('bubble'); if(el)el.classList.remove('on'); },
   renderBubble(){ const s=this.s, idx=this.bubbleFor; if(idx==null)return; const el=document.getElementById('bubble'); if(!el)return;
     const ico=k=>(k.charAt(0)==='@'?'ts/'+k.slice(1):'ts/icons/'+k)+'.png';
     const cm=c=>Object.keys(c).map(k=>`<img src="${ico(k)}">${Math.round(c[k])}`).join(' ');   // Kosten als Symbol+Zahl
-    const upGrid=list=>list.filter(up=>!up.show||up.show(s)).map(up=>{ const c=up.cost(s), maxed=up.lvl&&up.lvl(s)>=heroMaxLvl(s), dis=maxed||(up.locked&&up.locked(s))||!canAfford(s,c);   // generischer Symbol-Upgrade-Grid (UP_HELD/UP_KAMPF)
-      const lvl=(up.lvl&&up.lvl(s)>0)?`<span class="blvl">${up.lvl(s)}</span>`:''; return `<button class="bup" ${dis?'disabled':''} onclick="game.bubbleBuy('${up.id}')"><img src="${ico(up.icon)}">${lvl}<span class="bk">${maxed?'MAX':cm(c)}</span></button>`; }).join('');
-    const up=(kind,icon,dis,lbl)=>`<button class="bup" ${dis?'disabled':''} onclick="game.bubbleBuy('${kind}')"><img src="${ico(icon)}"><span class="bk">${lbl}</span></button>`;
+    const pv=this.bubblePreview;   // mid:7442: scharf gestelltes Wert-Upgrade (Grün-Vorschau)
+    const nm=k=>UP_SHORT[k]?`<span class="bn">${UP_SHORT[k]}</span>`:'';
+    // Stat-Streifen mit Grün-Vorschau: cells=[{k,icon,cur}], proj={upgradeId:{k,v}} (welche Zelle wird worauf)
+    const stat=(cells,proj)=>`<div class="bstat">${cells.map(c=>{ const p=pv&&proj&&proj[pv]; const g=p&&p.k===c.k; return `<span class="si${g?' pv':''}"><img src="${ico(c.icon)}">${g?p.v:c.cur}</span>`; }).join('')}</div>`;
+    const upGrid=(list,dynIcon)=>list.filter(up=>!up.show||up.show(s)).map(up=>{ const c=up.cost(s), maxed=up.lvl&&up.lvl(s)>=upMax(up,s), dis=maxed||(up.locked&&up.locked(s))||!canAfford(s,c);
+      const lvl=(up.lvl&&up.lvl(s)>0)?`<span class="blvl">${up.lvl(s)}</span>`:''; const icn=(dynIcon&&dynIcon(up))||up.icon;
+      return `<button class="bup${pv===up.id?' armed':''}" ${dis?'disabled':''} onclick="game.bubbleBuy('${up.id}')"><img src="${ico(icn)}">${lvl}${nm(up.id)}<span class="bk">${maxed?'MAX':cm(c)}</span></button>`; }).join('');
+    const up=(kind,icon,dis,lbl)=>`<button class="bup${pv===kind?' armed':''}" ${dis?'disabled':''} onclick="game.bubbleBuy('${kind}')"><img src="${ico(icon)}">${nm(kind)}<span class="bk">${lbl}</span></button>`;
+    const spd=v=>'+'+Math.round((v/190-1)*100)+'%';   // Lauftempo % aus dem Wert (LINEAR, mid:7464)
     if(idx==='hero'){                                  // ----- Helden-Sprechblase (UP_HELD, mid:7426) -----
-      const ch=CHARS[s.char]?s.char:'krieger';
+      const ch=CHARS[s.char]?s.char:'krieger', g0=s.gather||0;
+      const proj={cap:{k:'cap',v:s.cap+4},gather:{k:'gat',v:(g0+2).toFixed(1)},speed:{k:'spd',v:spd(s.speed+BAL.speedStep)}};
       let h=`<div class="bh"><img src="ts/u/portrait_${ch}.png">Held</div>`;
-      h+=`<div class="bstat"><span class="si"><img src="${ico('up_bag')}">${s.cap}</span><span class="si"><img src="${ico('up_tools')}">${(s.gather||0).toFixed(1)}</span><span class="si"><img src="${ico('up_boots')}">+${Math.round((Math.pow(1.15,s.speedLvl||0)-1)*100)}%</span></div>`;   // HP raus: wird in der Schmiede gelevelt (mid:7433)
-      h+=`<div class="bgrid">${upGrid(UP_HELD)}</div><div class="btail"></div>`; el.innerHTML=h; return;
+      h+=stat([{k:'cap',icon:'up_bag',cur:s.cap},{k:'gat',icon:'up_tools',cur:g0.toFixed(1)},{k:'spd',icon:'ic_boots',cur:spd(s.speed)},{k:'soup',icon:'soup',cur:(s.soup||0)+'/'+soupMax(s)}], proj);
+      h+=`<div class="bgrid">${upGrid(UP_HELD)}</div><div class="btail"></div>`; el.innerHTML=h; return;   // Heil-Button lebt jetzt im HUD (Consumebar, mid:7538)
     }
     if(idx==='castle'){                                   // ----- Burg/Dorf-Sprechblase (mid:7426) -----
       this.s.tutMenu=true; const next=s.era+1;
+      const proj={hire:{k:'pool',v:(freeWorkers(s)+1)+'/'+(s.workerPool+1)},expand:{k:'area',v:'Gebiet '+(s.areas+1)+'/4'}};
       let h=`<div class="bh"><img src="ts/era${Math.min(6,s.era)}.png">Burg · Stufe ${s.era+1}</div>`;
-      h+=`<div class="bstat"><span class="si"><img src="${ico('pawn')}">${freeWorkers(s)}/${s.workerPool}</span><span class="si"><img src="${ico('up_expand')}">Gebiet ${s.areas}/4</span></div>`;
-      const dorfCell=up=>{ if(up.show&&!up.show(s))return ''; const c=up.cost(s), lk=up.locked&&up.locked(s), dis=lk||!canAfford(s,c);
-        let icon=up.icon; if(up.id==='build'){ const t=nextBuildType(s); if(t)icon='@'+BUILD_TYPES[t].sprite; } else if(up.id==='buildpost'){ const t=nextOutpostType(s); if(t)icon='@'+OUTPOST_TYPES[t].sprite; }
-        return `<button class="bup" ${dis?'disabled':''} onclick="game.bubbleBuy('${up.id}')"><img src="${ico(icon)}"><span class="bk">${lk?'🔒':cm(c)}</span></button>`; };
-      h+=`<div class="bgrid">${UP_DORF.map(dorfCell).join('')}</div>`;
-      let row='';
-      if(next<ERAS.length){ const ec=eraCost(next), gate=nightGated(next), dis=!canAfford(s,ec)||nightActive(s);
-        row+=`<button class="bup wide${gate?' night':''}" ${dis?'disabled':''} onclick="game.bubbleBuy('era')"><img src="${ico('@era'+Math.min(6,next))}"><span class="bk">${gate?'🌙 ':''}Stufe ${next+1} · ${cm(ec)}</span></button>`; }
-      else if(s.endless) row+=`<button class="bup wide night" ${nightActive(s)?'disabled':''} onclick="game.bubbleBuy('era')"><img src="${ico('@era6')}"><span class="bk">🌟 Endlos-Nacht</span></button>`;
-      if(s.era>=3){ const hc=healCost(s), need=(s.baseHP||0)<(s.baseHPmax||100); row+=`<button class="bup" ${(!need||(s.store.pilze||0)<hc)?'disabled':''} onclick="game.bubbleBuy('heal')"><img src="${ico('pilze')}"><span class="bk">Heilen ${hc}</span></button>`; }
-      if(row) h+=`<div class="brow wide">${row}</div>`;
-      h+=`<div class="btail"></div>`; el.innerHTML=h; return;
+      h+=stat([{k:'pool',icon:'pawn',cur:freeWorkers(s)+'/'+s.workerPool},{k:'area',icon:'up_expand',cur:'Gebiet '+s.areas+'/4'}], proj);
+      // alle Aktionen als VIERECKIGE Grid-Buttons (mid:7517: kein querer Aufstieg-Button, kein Burg-Bild drauf)
+      let cells=upGrid(UP_DORF, up=>up.id==='build'?(nextBuildType(s)&&'@'+BUILD_TYPES[nextBuildType(s)].sprite):up.id==='buildpost'?(nextOutpostType(s)&&'@'+OUTPOST_TYPES[nextOutpostType(s)].sprite):null);
+      { const sc=soupMax(s), full=(s.soup||0)>=sc, sCost=soupCost(s); cells+=`<button class="bup" ${full||!canAfford(s,sCost)?'disabled':''} onclick="game.bubbleBuy('cooksoup')"><img src="${ico('soup')}"><span class="bn">Suppe ${s.soup||0}/${sc}</span><span class="bk">${full?'VOLL':cm(sCost)}</span></button>`; }   // Kürbis-Suppe kochen ab Stufe 1 (mid:7506)
+      if(s.era>=3){ const hc=healCost(s), need=(s.baseHP||0)<(s.baseHPmax||100); cells+=`<button class="bup" ${(!need||(s.store.pilze||0)<hc)?'disabled':''} onclick="game.bubbleBuy('heal')"><img src="${ico('pilze')}"><span class="bn">Dorf heilen</span><span class="bk"><img src="${ico('pilze')}">${hc}</span></button>`; }
+      if(next<ERAS.length){ const ec=eraCost(next), gate=nightGated(next), dis=!canAfford(s,ec)||nightActive(s), armed=pv==='era';
+        cells+=`<button class="bup${gate?' night':''}${armed?' armed':''}" ${dis?'disabled':''} onclick="game.bubbleBuy('era')"><img src="${ico('ic_ascend')}"><span class="bn">${armed?'Bestätigen?':(gate?'🌙 Aufstieg':'Aufstieg')}</span><span class="bk">${armed?'✓ nochmal':cm(ec)}</span></button>`; }   // 2-Klick (mid:7480), Icon statt Burg-Bild (mid:7517)
+      else if(s.endless){ cells+=`<button class="bup night" ${nightActive(s)?'disabled':''} onclick="game.bubbleBuy('era')"><img src="${ico('ic_ascend')}"><span class="bn">🌟 Endlos</span></button>`; }
+      h+=`<div class="bgrid">${cells}</div><div class="btail"></div>`; el.innerHTML=h; return;
     }
     if(typeof idx==='string' && idx.slice(0,2)==='op'){   // ----- Sammler-Sprechblase (Tempo/Lager global + Pawns) -----
       const o=s.outposts&&s.outposts[+idx.slice(2)]; if(!o){ this.closeBubble(); return; }
-      const T=OUTPOST_TYPES[o.type], tL=s.sammlerTempoLvl||0, cL=s.sammlerCapLvl||0, mxL=sammlerGlobalMax(s);
+      const T=OUTPOST_TYPES[o.type], tL=o.tempoLvl||0, cL=o.mengeLvl||0, mxL=sammlerGlobalMax(s);   // PER SAMMLER (mid:7518)
       const ct=sammlerGlobalCost('tempo',tL), cc=sammlerGlobalCost('cap',cL), tMax=tL>=mxL, cMax=cL>=mxL;
       const ow=o.workers||0, free=freeWorkers(s);
+      const pr2=t=>(OUTPOST_TYPES[o.type].rate*(1+0.5*t)*WIRT_HAERTE).toFixed(2), pc2=c=>Math.round(OUTPOST_TYPES[o.type].cap*(1+0.6*c));
+      const proj={optempo:{k:'r',v:pr2(tL+1)+'/s'},opcap:{k:'st',v:Math.floor(o.store||0)+'/'+pc2(cL+1)},opadd:{k:'pw',v:(ow+1)+'/4'},oprem:{k:'pw',v:(ow-1)+'/4'}};
       let h=`<div class="bh"><img src="ts/${T.sprite}.png">${T.name}</div>`;
-      h+=`<div class="bstat"><span class="si"><img src="${ico(T.res)}">${Math.floor(o.store||0)}/${outpostCap(o,s)}</span><span class="si"><img src="${ico('up_gear')}">${outpostRate(o,s).toFixed(2)}/s</span><span class="si"><img src="${ico('pawn')}">${ow}/4</span></div>`;
-      h+=`<div class="brow">`+up('optempo','up_gear', tMax||!canAfford(s,ct), tMax?'MAX':cm(ct))+up('opcap',T.res, cMax||!canAfford(s,cc), cMax?'MAX':cm(cc))+up('opadd','pawn', ow>=4||free<=0, ow>=4?'VOLL':'+1')+`</div><div class="btail"></div>`;
+      h+=stat([{k:'st',icon:T.res,cur:Math.floor(o.store||0)+'/'+outpostCap(o,s)},{k:'r',icon:'up_gear',cur:outpostRate(o,s).toFixed(2)+'/s'},{k:'pw',icon:'pawn',cur:ow+'/4'}], proj);
+      h+=`<div class="bgrid">`+up('optempo','up_gear', tMax||!canAfford(s,ct), tMax?'MAX':cm(ct))+up('opcap',T.res, cMax||!canAfford(s,cc), cMax?'MAX':cm(cc))
+        +up('opadd','pawn', ow>=4||free<=0, ow>=4?'VOLL':'+1')+up('oprem','pawn', ow<=0, '−1')+`</div><div class="btail"></div>`;   // Pawn rausnehmen (mid:7518)
+      el.innerHTML=h; return;
+    }
+    if(typeof idx==='string' && idx.slice(0,2)==='tb'){   // ----- TRUPPE-BAUEN-Sprechblase (mid:7514) -----
+      const full=(s.towers||[]).length>=towerAllowance(s);
+      let cells='';
+      for(const tt of TOWER_ORDER){ const T=TOWER_TYPES[tt], locked=s.era<T.era, c=T.cost, dis=locked||full||!canAfford(s,c);
+        const lbl=locked?('Stufe '+(T.era+1)):(full?'VOLL':cm(c));
+        cells+=`<button class="bup" ${dis?'disabled':''} onclick="game.bubbleBuy('tb_${tt}')"><img src="${ico('tr_'+tt)}"><span class="bn">${T.name}</span><span class="bk">${lbl}</span></button>`; }
+      let h=`<div class="bh"><img src="${ico('up_attack')}">Truppe bauen</div><div class="bgrid" style="width:232px">${cells}</div><div class="btail"></div>`; el.innerHTML=h; return;   // feste Breite → 3 Spalten (ohne stat-Streifen würde das Grid sonst auf 1 Spalte kollabieren)
+    }
+    if(typeof idx==='string' && idx.slice(0,2)==='tw'){   // ----- TRUPPE-Panel-Sprechblase (mid:7514) -----
+      const tw=towerAt(s,+idx.slice(2)); if(!tw){ this.closeBubble(); return; }
+      const T=TOWER_TYPES[tw.type], m=tw.mode||'wache', ml={wache:'Wache',folgen:'Folgen',posten:'Posten'};
+      let h=`<div class="bh"><img src="${ico('tr_'+tw.type)}">${T.name}</div>`;
+      h+=stat([{k:'hp',icon:'up_vita',cur:towerHp(tw,s)},{k:'dmg',icon:'up_attack',cur:towerAtk(tw,s).toFixed(0)}], null);
+      h+=`<div class="bgrid"><button class="bup" onclick="game.bubbleBuy('tw_mode')"><img src="${ico('worker')}"><span class="bn">${ml[m]}</span><span class="bk">Modus →</span></button></div>`;
+      h+=`<div class="bstat"><span class="si">Aufrüsten: global in der Kaserne</span></div><div class="btail"></div>`;
       el.innerHTML=h; return;
     }
     const b=s.builds&&s.builds[idx]; if(!b){ this.closeBubble(); return; }
     const T=BUILD_TYPES[b.type];
     let html=`<div class="bh"><img src="ts/${T.sprite}.png">${T.name}</div>`;
     if(b.type==='schmiede'){                           // Schmiede = Helden-Angriffs-Upgrades (mid:7405)
-      html+=`<div class="bstat"><span class="si"><img src="${ico('up_attack')}">×${(s.atk||1).toFixed(2)}</span><span class="si"><img src="${ico('up_armor')}">${s.def||0}</span><span class="si"><img src="${ico('up_vita')}">${s.player.hpmax}</span></div>`;
+      const proj={angriff:{k:'atk',v:'×'+((s.atk||1)+BAL.atkStep).toFixed(2)},ruestung:{k:'def',v:(s.def||0)+2},vita:{k:'hp',v:s.player.hpmax+25}};
+      html+=stat([{k:'atk',icon:'up_attack',cur:'×'+(s.atk||1).toFixed(2)},{k:'def',icon:'up_armor',cur:s.def||0},{k:'hp',icon:'up_vita',cur:s.player.hpmax}], proj);
       html+=`<div class="bgrid">${upGrid(UP_KAMPF)}</div>`;
     } else if(b.type==='waffenkammer'){                // Kaserne = globale Truppen-Upgrades
       const mx=troopGlobalMax(s), aL=s.troopAtkLvl||0, hL=s.troopHpLvl||0;
-      html+=`<div class="bstat"><span class="si"><img src="${ico('up_attack')}">${aL}/${mx}</span><span class="si"><img src="${ico('up_vita')}">${hL}/${mx}</span></div>`;
-      const tg=(key,stat,lvl)=>{ const atMx=lvl>=mx, c=troopGlobalCost(stat,lvl); return up(key, stat==='atk'?'up_attack':'up_vita', atMx||!canAfford(s,c), atMx?'MAX':cm(c)); };
+      const proj={tg_atk:{k:'a',v:(aL+1)+'/'+mx},tg_hp:{k:'h',v:(hL+1)+'/'+mx}};
+      html+=stat([{k:'a',icon:'up_attack',cur:aL+'/'+mx},{k:'h',icon:'up_vita',cur:hL+'/'+mx}], proj);
+      const tg=(key,st,lvl)=>{ const atMx=lvl>=mx, c=troopGlobalCost(st,lvl); return up(key, st==='atk'?'up_attack':'up_vita', atMx||!canAfford(s,c), atMx?'MAX':cm(c)); };
       html+=`<div class="brow">${tg('tg_atk','atk',aL)}${tg('tg_hp','hp',hL)}</div>`;
-    } else if(b.type==='reparatur'||b.type==='heiler'){ // produziert nichts → Info
-      html+=`<div class="bstat"><span class="si">${b.type==='reparatur'?'Repariert das Dorf nach Nächten':'Braut Heil-Tränke'}</span></div>`;
+    } else if(b.type==='heiler'){                      // Heiler: erweitert den Kürbis-Suppen-Vorrat (mid:7506)
+      html+=`<div class="bstat"><span class="si"><img src="${ico('soup')}">Vorrat ${soupMax(s)}</span><span class="si"><img src="${ico('soup')}">dabei ${s.soup||0}</span></div>`;
+      const sc=soupCapCost(s);
+      html+=`<div class="bgrid"><button class="bup${pv==='soupcap'?' armed':''}" ${!canAfford(s,sc)?'disabled':''} onclick="game.bubbleBuy('soupcap')"><img src="${ico('soup')}"><span class="bn">Vorrat +2</span><span class="bk">${cm(sc)}</span></button></div>`;
+    } else if(b.type==='reparatur'){ // produziert nichts → Info
+      html+=`<div class="bstat"><span class="si">Repariert das Dorf nach Nächten</span></div>`;
     } else if(T.res){                                  // Produzent (Goldmine / Marktplatz) — Tempo/Menge (M3: keine Pawns)
       const mxL=buildMaxLvl(s), ct=buildUpCost(b,'tempo',s), cg=buildUpCost(b,'menge',s);
       const tMax=b.tempo>=mxL, gMax=b.menge>=mxL, rate=buildRate(s,b).toFixed(2);
-      html+=`<div class="bstat"><span class="si"><img src="${ico('up_gear')}">${b.tempo}/${mxL}</span><span class="si"><img src="${ico(T.res)}">${rate}/s</span></div>`;
+      const pr=(t,m)=>buildRate(s,{...b,tempo:t,menge:m}).toFixed(2);
+      const proj={tempo:{k:'r',v:pr(b.tempo+1,b.menge)+'/s'},menge:{k:'r',v:pr(b.tempo,b.menge+1)+'/s'}};
+      html+=stat([{k:'tl',icon:'up_gear',cur:b.tempo+'/'+mxL},{k:'r',icon:T.res,cur:rate+'/s'}], proj);
       let row='';
-      if(b.type==='juwelier'){ const mm=b.marktMode||1, mmx=marktMaxMode(s); row+=`<button class="bup" onclick="game.bubbleBuy('marktmode')"><img src="${ico('edelstein')}"><span class="bk">Kurs ${mm}/${mmx}</span></button>`; }
+      if(b.type==='juwelier'){ const mm=b.marktMode||1, mmx=marktMaxMode(s); row+=`<button class="bup" onclick="game.bubbleBuy('marktmode')"><img src="${ico('edelstein')}"><span class="bn">Kurs</span><span class="bk">${mm}/${mmx}</span></button>`; }
       row+=up('tempo','up_gear', tMax||!canAfford(s,ct), tMax?'MAX':cm(ct))+up('menge',T.res, gMax||!canAfford(s,cg), gMax?'MAX':cm(cg));
       html+=`<div class="brow">${row}</div>`;
     } else { html+=`<div class="bstat"><span class="si">${T.name}</span></div>`; }
     html+=`<div class="btail"></div>`; el.innerHTML=html; },
   positionBubble(){ const s=this.s, idx=this.bubbleFor; if(idx==null)return; const el=document.getElementById('bubble'); if(!el)return;
-    if(idx==='hero'){ el.classList.add('heroanchor'); const port=document.querySelector('#herohud .portrait.player'); if(!port)return; const r=port.getBoundingClientRect();
-      el.style.left=r.left.toFixed(1)+'px'; el.style.top=(r.top-6).toFixed(1)+'px'; return; }
-    el.classList.remove('heroanchor');
-    let wx, wy;
-    if(idx==='castle'){ wx=BASE.x; wy=BASE.y-BASE_SOLID-10; }   // Burg: über der Basis
-    else if(typeof idx==='string' && idx.slice(0,2)==='op'){ const o=s.outposts&&s.outposts[+idx.slice(2)]; if(!o)return; wx=o.x; wy=o.y-31; }   // Sammler: Gebäude-Mitte
-    else { const b=s.builds&&s.builds[idx]; if(!b)return; const p=buildPos(b); wx=p.x; wy=p.y; }
-    const sx=(wx-s.cam.x)*this.zoom+this.vw/2, sy=(wy-s.cam.y)*this.zoom+this.vh/2-62*this.zoom;
-    el.style.left=sx.toFixed(1)+'px'; el.style.top=sy.toFixed(1)+'px'; },
-  bubbleBuy(key){ if(this.bubbleFor==null)return;
-    if(this.bubbleFor==='hero'){ this.buy(key); this.renderBubble(); return; }   // Held-Upgrades
+    if(idx==='hero'){ el.classList.add('heroanchor'); const port=document.querySelector('#herohud .portrait.player'); if(port){ const r=port.getBoundingClientRect(); el.style.left=r.left.toFixed(1)+'px'; el.style.top=(r.top-6).toFixed(1)+'px'; } }
+    else { el.classList.remove('heroanchor');
+      let wx, wy;
+      if(idx==='castle'){ wx=BASE.x; wy=BASE.y-BASE_SOLID-10; }   // Burg: über der Basis
+      else if(typeof idx==='string' && idx.slice(0,2)==='op'){ const o=s.outposts&&s.outposts[+idx.slice(2)]; if(!o)return; wx=o.x; wy=o.y-31; }   // Sammler: Gebäude-Mitte
+      else if(typeof idx==='string' && (idx.slice(0,2)==='tb'||idx.slice(0,2)==='tw')){ const ts=s.towerSlots&&s.towerSlots[+idx.slice(2)]; if(!ts)return; wx=ts.x; wy=ts.y-31; }   // Truppen-Slot (mid:7514)
+      else { const b=s.builds&&s.builds[idx]; if(!b)return; const p=buildPos(b); wx=p.x; wy=p.y; }
+      const sx=(wx-s.cam.x)*this.zoom+this.vw/2, sy=(wy-s.cam.y)*this.zoom+this.vh/2-62*this.zoom;
+      el.style.left=sx.toFixed(1)+'px'; el.style.top=sy.toFixed(1)+'px';
+    }
+    // Clamp: Blase darf die fixe Top-UI (Portraits/Minimap/Burger) + Seitenränder nicht überlappen (mid:7449)
+    const r=el.getBoundingClientRect(), padX=6, topSafe=116; let dx=0,dy=0;
+    if(r.left<padX) dx=padX-r.left; else if(r.right>this.vw-padX) dx=(this.vw-padX)-r.right;
+    if(r.top<topSafe) dy=topSafe-r.top;
+    if(dx||dy){ el.style.left=(parseFloat(el.style.left)+dx).toFixed(1)+'px'; el.style.top=(parseFloat(el.style.top)+dy).toFixed(1)+'px'; } },
+  bubbleBuy(key){ if(this.bubbleFor==null || this._bubbleLock)return;   // mid:7497: Klick aus dem Öffnungs-Tap ignorieren
+    // mid:7442: Wert-Upgrades = 1. Klick Vorschau (grün), 2. Klick kauft. Aktionen (Bau/Aufstieg/Heilen/Skill/Food/Markt) sofort.
+    if(BUBBLE_PREVIEWABLE.has(key) && this.bubblePreview!==key){ this.bubblePreview=key; this.renderBubble(); return; }
+    this.bubblePreview=null;
+    if(this.bubbleFor==='hero'){ if(key==='soupheal') this.soupHeal(); else this.buy(key); this.renderBubble(); return; }   // Held-Upgrades + blauer Suppen-Heil-Button (mid:7506)
     const save=this.panelFor; this.panelFor=this.bubbleFor;   // upgBuild/upgTroopGlobal/toggleMarktMode lesen panelFor
     if(key==='tempo'||key==='menge') this.upgBuild(key);
     else if(key==='tg_atk') this.upgTroopGlobal('atk');
     else if(key==='tg_hp') this.upgTroopGlobal('hp');
     else if(key==='marktmode') this.toggleMarktMode();
-    else if(key==='optempo') this.upgSammlerGlobal('tempo');
-    else if(key==='opcap') this.upgSammlerGlobal('cap');
+    else if(key==='optempo') this.upgSammler('tempo');
+    else if(key==='opcap') this.upgSammler('cap');
     else if(key==='opadd') this.assignOutpost(1);
-    else if(key==='era') this.buyEra();
+    else if(key==='oprem') this.assignOutpost(-1);
+    else if(key.slice(0,3)==='tb_'){ this.buildTower(key.slice(3)); this.panelFor=save; return; }   // baut → buildTower öffnet danach die tw-Bubble (mid:7514)
+    else if(key==='tw_mode') this.toggleTowerMode();
+    else if(key==='cooksoup') this.cookSoup();        // Kürbis-Suppe kochen (Burg, mid:7506)
+    else if(key==='soupcap') this.upgSoupCap();       // Suppen-Vorrat erweitern (Heiler)
+    else if(key==='era'){ this.buyEra(); this.panelFor=save; this.closeBubble(); return; }   // Burg-Fenster schließt beim Aufstieg (mid:7513)
     else if(key==='heal') this.healVillage();
     else this.buy(key);   // UP_KAMPF / UP_DORF-IDs (angriff/ruestung/vita/hire/build/buildpost/expand)
     this.panelFor=save; this.renderBubble(); },
@@ -1926,8 +2023,8 @@ const game={
       const o=this.s.outposts&&this.s.outposts[+this.panelFor.slice(2)]; if(!o){ this.panelFor='castle'; return this.buildShop(); }
       tabsEl.style.display='none'; setHead('@'+OUTPOST_TYPES[o.type].sprite, OUTPOST_TYPES[o.type].name);
       this.mkBtn(shop,'opinfo','',()=>{});   // (mid:7236) Bestand + Rate immer sichtbar — Info-Zeile, nicht klickbar
-      this.mkBtn(shop,'optempo','',()=>this.upgSammlerGlobal('tempo'));   // §5: globale Sammler-Upgrades (gelten für alle Sammler)
-      this.mkBtn(shop,'opmenge','',()=>this.upgSammlerGlobal('cap'));
+      this.mkBtn(shop,'optempo','',()=>this.upgSammler('tempo'));   // per-Sammler Upgrades (mid:7518)
+      this.mkBtn(shop,'opmenge','',()=>this.upgSammler('cap'));
       this.mkBtn(shop,'opAssignAdd','',()=>this.assignOutpost(1));   // §1: Pawns in den Sammler (mid:7122)
       this.mkBtn(shop,'opAssignRem','',()=>this.assignOutpost(-1));
     } else if(typeof this.panelFor==='string' && this.panelFor.slice(0,2)==='tb'){   // ----- TURM-BAU-MENÜ (mid:6357) -----
@@ -1968,14 +2065,14 @@ const game={
       set('menge',T.res,`Menge Lvl ${b.menge}/${mxL}`, gMax?'Max für diese Stufe — erst aufsteigen':`Mehr Ertrag pro Zyklus (jetzt ${buildRate(s,b).toFixed(2)}/s)`, gMax?'':'⤷ '+costStr(cm), gMax||!canAfford(s,cm));
       if(b.type==='schmiede'){ for(const up of UP_KAMPF){ const el=this.btns[up.id]; if(!el)continue;   // §5: Helden-Kampf-Upgrades (mid:7162) — gleiche Render-Logik wie im Burg-Panel
         if(up.show&&!up.show(s)){ el.style.display='none'; continue; }
-        if(up.lvl){ const atMax=up.lvl(s)>=heroMaxLvl(s), c=up.cost(s);
-          set(up.id,up.icon,`${up.name(s)} (Lvl ${up.lvl(s)}/${heroMaxLvl(s)})`, atMax?'Max für diese Stufe — erst aufsteigen':up.desc(s), atMax?'':'⤷ '+costStr(c), atMax||!canAfford(s,c)); }
+        if(up.lvl){ const mx=upMax(up,s), atMax=up.lvl(s)>=mx, c=up.cost(s);
+          set(up.id,up.icon,`${up.name(s)} (Lvl ${up.lvl(s)}/${mx})`, atMax?'Max für diese Stufe — erst aufsteigen':up.desc(s), atMax?'':'⤷ '+costStr(c), atMax||!canAfford(s,c)); }
         else { const c=up.cost(s); set(up.id,up.icon,up.name(s),up.desc(s),'⤷ '+costStr(c),!canAfford(s,c)); } } }
       return;
     }
     if(typeof this.panelFor==='string' && this.panelFor.slice(0,2)==='op'){   // AUSSENPOSTEN-Panel refresh
       const o=s.outposts&&s.outposts[+this.panelFor.slice(2)]; if(!o) return; const T=OUTPOST_TYPES[o.type], mxL=sammlerGlobalMax(s);
-      const tL=s.sammlerTempoLvl||0, cL=s.sammlerCapLvl||0, ct=sammlerGlobalCost('tempo',tL), cm=sammlerGlobalCost('cap',cL), tMax=tL>=mxL, mMax=cL>=mxL;
+      const tL=o.tempoLvl||0, cL=o.mengeLvl||0, ct=sammlerGlobalCost('tempo',tL), cm=sammlerGlobalCost('cap',cL), tMax=tL>=mxL, mMax=cL>=mxL;
       const cap=outpostCap(o,s), bestand=Math.floor(o.store||0), pawnHeim=(o.workers||0)>0?` · ${o.workers} Pawn liefert heim`:'';   // (mid:7236) Bestand + Rate immer sichtbar
       set('opinfo','@'+T.sprite,`Lager: ${bestand}/${cap} ${NAME[T.res]}`,`Sammelrate ${outpostRate(o,s).toFixed(2)}/s${pawnHeim}`,'',true);
       set('optempo','era1',`Alle Sammler: Tempo ${tL}/${mxL}`, tMax?'Max für diese Stufe — erst aufsteigen':`schneller sammeln (dieser: ${outpostRate(o,s).toFixed(2)}/s)`, tMax?'':'⤷ '+costStr(ct), tMax||!canAfford(s,ct));
@@ -2005,8 +2102,8 @@ const game={
     const list=this.panelFor==='hero'?UP_HELD:UP_DORF;   // Helden-Menü vs Burg/Dorf (mid:7420); Kampf-Upgrades sind in der Schmiede (mid:7162)
     for(const up of list){ const el=this.btns[up.id]; if(!el)continue;
       if(up.show&&!up.show(s)){ el.style.display='none'; continue; }
-      if(up.lvl){ const atMax=up.lvl(s)>=heroMaxLvl(s); const c=up.cost(s);
-        set(up.id,up.icon,`${up.name(s)} (Lvl ${up.lvl(s)}/${heroMaxLvl(s)})`, atMax?'Max für diese Stufe — erst aufsteigen':up.desc(s), atMax?'':'⤷ '+costStr(c), atMax||!canAfford(s,c)); }
+      if(up.lvl){ const mx=upMax(up,s), atMax=up.lvl(s)>=mx; const c=up.cost(s);
+        set(up.id,up.icon,`${up.name(s)} (Lvl ${up.lvl(s)}/${mx})`, atMax?'Max für diese Stufe — erst aufsteigen':up.desc(s), atMax?'':'⤷ '+costStr(c), atMax||!canAfford(s,c)); }
       else { const c=up.cost(s), lk=up.locked&&up.locked(s);
         let ic=up.icon;   // Bau-Einträge zeigen das echte Mini-Gebäude-Sprite statt eines Icons (mid:6782)
         if(up.id==='build'){ const t=nextBuildType(s); if(t) ic='@'+BUILD_TYPES[t].sprite; }
@@ -2030,15 +2127,23 @@ const game={
     if(b[kind]>=buildMaxLvl(s)){ say('Max für diese Stufe erreicht — erst aufsteigen.'); return; }
     const c=buildUpCost(b,kind,s);
     if(!canAfford(s,c)){ say('Dafür fehlen noch Ressourcen.'); return; } pay(s,c); b[kind]++; SFX.buy(); this.updateShop(); saveGame(s); },
-  upgSammlerGlobal(kind){ const s=this.s, lk=kind==='tempo'?'sammlerTempoLvl':'sammlerCapLvl', lvl=s[lk]||0;   // §5: gilt für ALLE Sammler
+  upgSammler(kind){ const s=this.s, o=s.outposts&&s.outposts[+String(this.panelFor).slice(2)]; if(!o)return;   // PER SAMMLER (mid:7518): nur DIESER Sammler levelt
+    const lk=kind==='tempo'?'tempoLvl':'mengeLvl', lvl=o[lk]||0;
     if(lvl>=sammlerGlobalMax(s)){ say('Max für diese Stufe erreicht — erst aufsteigen.'); return; }
-    const c=sammlerGlobalCost(kind,lvl); if(!canAfford(s,c)){ say('Dafür fehlen noch Ressourcen.'); return; } pay(s,c); s[lk]=lvl+1; SFX.buy(); say(kind==='tempo'?'Alle Sammler sammeln schneller!':'Alle Sammler haben mehr Lager!'); this.updateShop(); saveGame(s); },
+    const c=sammlerGlobalCost(kind,lvl); if(!canAfford(s,c)){ say('Dafür fehlen noch Ressourcen.'); return; } pay(s,c); o[lk]=lvl+1; SFX.buy(); this.updateShop(); saveGame(s); },
+  cookSoup(){ const s=this.s; if((s.soup||0)>=soupMax(s)){ say('Dein Suppen-Beutel ist voll.'); return; }   // Kürbis-Suppe in der Burg kochen (mid:7506)
+    const c=soupCost(s); if(!canAfford(s,c)){ say('Dafür fehlt Kürbis.'); return; } pay(s,c); s.soup=(s.soup||0)+1; SFX.buy(); burst(s,BASE.x,BASE.y-20,'#e0892a',8); saveGame(s); },
+  soupHeal(){ const s=this.s; if((s.soup||0)<=0){ say('Keine Kürbis-Suppe dabei — koch welche in der Burg.'); return; }   // blauer Heil-Button: 1 Suppe → Held heilt
+    if(s.player.hp>=s.player.hpmax){ say('Du bist schon voll geheilt.'); return; }
+    s.soup--; s.player.hp=Math.min(s.player.hpmax, s.player.hp+Math.round(s.player.hpmax*0.35)); addFx(s,'heal',s.player.x,s.player.y-18,46); SFX.buy(); saveGame(s); },
+  upgSoupCap(){ const s=this.s; const c=soupCapCost(s); if(!canAfford(s,c)){ say('Dafür fehlen noch Ressourcen.'); return; }   // Heiler erweitert den Vorrat (mid:7506)
+    pay(s,c); s.soupCapLvl=(s.soupCapLvl||0)+1; SFX.buy(); say('Suppen-Vorrat erweitert — jetzt '+soupMax(s)+' Suppen.'); saveGame(s); },
   buildTower(type){ const s=this.s; if(typeof this.panelFor!=='string'||this.panelFor.slice(0,2)!=='tb')return; const seg=+this.panelFor.slice(2);
     if(towerAt(s,seg))return; if(s.era<TOWER_TYPES[type].era){ say(TOWER_TYPES[type].name+' erst ab Stufe '+(TOWER_TYPES[type].era+1)); return; }
     if((s.towers||[]).length>=towerAllowance(s)){ say('Truppen-Limit für diese Stufe erreicht ('+towerAllowance(s)+') — erst aufsteigen für mehr.'); return; }
     const c=TOWER_TYPES[type].cost; if(!canAfford(s,c)){ say('Dafür fehlen noch Ressourcen.'); return; }
     pay(s,c); if(!s.towers)s.towers=[]; const t={seg,type,lvl:0,mode:'wache',downT:0}; spawnTroop(s,t); s.towers.push(t);
-    SFX.build(); say(TOWER_TYPES[type].name+' gebaut! Antippen für Aufrüsten/Modus.'); this.openPanelFor('tw'+seg); saveGame(s); },
+    SFX.build(); say(TOWER_TYPES[type].name+' gebaut! Antippen für Aufrüsten/Modus.'); this.openBubble('tw'+seg); saveGame(s); },   // mid:7514: Truppen-Panel als Bubble
   upgTroopGlobal(stat){ const s=this.s, lk=stat==='atk'?'troopAtkLvl':'troopHpLvl', lvl=s[lk]||0;   // §5: globale Truppen-Verstärkung (Kaserne)
     if(lvl>=troopGlobalMax(s)){ say('Max für diese Stufe erreicht — erst aufsteigen.'); return; }
     const c=troopGlobalCost(stat,lvl); if(!canAfford(s,c)){ say('Dafür fehlen noch Ressourcen.'); return; }
@@ -2127,40 +2232,43 @@ let sayT=null;
 // INTERAKTIVES Basis-Tutorial (mid:6450): jeder Schritt rückt erst weiter, wenn die Aktion ausgeführt ist (nicht-blockierende Karte unten).
 const TUT_STEPS=[
   {t:'🌱 Lauf los',b:'Tippe irgendwo auf die Karte — dein Held läuft dorthin.',done:s=>s.tutMoved},
-  {t:'⛏️ Sammeln',b:'Lauf zu einem leuchtenden Ressourcen-Knoten und bleib kurz daneben stehen. Du sammelst automatisch.',done:s=>s.tutHarvested},
-  {t:'🏰 Abladen',b:'Bring die Beute zur Basis in der Mitte — lauf einfach hinein, dann landet alles im Lager.',done:s=>s.firstDeposit},
-  {t:'⬆️ Aufbauen',b:'Tippe auf deine Burg in der Mitte — da öffnet sich das Aufbau-Menü, um Sammler zu bauen und aufzusteigen. Deine Helden-Upgrades findest du mit einem Tipp auf dein Helden-Portrait unten links. Viel Spaß!',done:s=>s.tutMenu},
+  {t:'⛏️ Sammeln',b:'Lauf zu einem leuchtenden Ressourcen-Knoten und bleib kurz daneben stehen — du sammelst automatisch in deinen Beutel.',done:s=>s.tutHarvested},
+  {t:'🏰 Abladen',b:'Bring die Beute zur Burg in der Mitte — lauf einfach hinein, dann landet alles im Dorf-Lager.',done:s=>s.firstDeposit},
+  {t:'🏠 Deine Burg',b:'Tippe deine Burg in der Mitte an. Es klappt eine Sprechblase auf — von hier baust du Sammler & Gebäude, heuerst Helfer an und steigst auf.',done:s=>s.tutMenu},
+  {t:'👆 Erst prüfen, dann kaufen',b:'Tippe unten links dein Helden-Portrait an → Helden-Upgrades. Kauf eins so: EINMAL antippen = grüne Vorschau (du siehst den neuen Wert oben), NOCHMAL antippen = kaufen. Genau so läuft JEDER Kauf im Spiel.',done:s=>((s.capLvl||0)+(s.speedLvl||0)+(s.gatherLvl||0))>0},
+  {t:'👜 Dein Beutel',b:'Der Beutel rechts neben dem Helden-Portrait zeigt, was du gerade trägst — tipp ihn an. Und jetzt: lass aus dem Nichts ein Dorf wachsen!',done:s=>s.tutBag},
 ];
 // Kontext-Tooltips (mid:6438): je eine kurze Karte beim Freischalten von Neuem. Jede nur 1x (in s.tutShown persistiert).
 // Tutorial-Texte (Redesign 2026-06-24, §3-Reihenfolge). Voller Onboarding-Pass = späterer Go-Live-Block (§11.3).
 const TUT={
-  era1:{t:'🪓 Stufe 2',b:'Neu: der Kürbis-Sammler als Außenposten draußen im Feld. Sammler sammeln von allein — du läufst hin und holst die Ernte ab. Manuell sammeln geht weiter.'},
+  era1:{t:'🪓 Stufe 2',b:'Neu: der Kürbis-Sammler draußen im Feld. Er sammelt von allein — tipp ihn an, dein Held läuft automatisch hin und holt die Ernte ab. Der farbige Balken überm Sammler zeigt den Füllstand: grün = leer, rot = voll. Manuell sammeln geht weiter.'},
   towers:{t:'⚔️ Truppen',b:'Im äußeren Dorf-Ring kannst du jetzt Truppen bauen — tippe einen freien Bauplatz an. Jede Truppe bewacht das Dorf oder folgt dir in den Kampf (umschaltbar).'},
-  night1:{t:'🌙 Die Nacht',b:'Ab Stufe 6 ist jeder Aufstieg eine Nacht: tippe deine Burg an und drücke auf „Aufstieg" — das bezahlt den Aufstieg und startet die Nachtwelle. Überlebst du sie, steigst du auf; verlierst du, bleibst du auf der Stufe (Teil des Preises zurück). Halt die Gegner mit Held + Truppen auf!'},
+  night1:{t:'🌙 Die Nacht',b:'Ab Stufe 6 ist jeder Aufstieg eine Nacht: tippe deine Burg an, dann „Aufstieg" — einmal antippen stellt scharf (grün), nochmal bestätigt. Das bezahlt den Aufstieg und startet die Nachtwelle. Überlebst du sie, steigst du auf; verlierst du, bleibst du auf der Stufe (Teil des Preises zurück). Halt die Gegner mit Held + Truppen auf!'},
   era3:{t:'🔨 Stufe 4',b:'Die Schmiede steht — sie macht dich kampftauglich. Rüste Schaden, Rüstung und Leben auf, bevor draußen die Gegner härter werden.'},
   era4:{t:'⚔️ Stufe 5',b:'Die Kaserne öffnet! Bau deine erste Truppe (Schwert oder Bogen). Sie verteidigt das Dorf oder folgt dir in den Kampf.'},
   era5:{t:'🌙 Stufe 6',b:'Die erste Nacht naht. Ab jetzt brauchst du für jeden weiteren Aufstieg eine frisch überstandene Nacht — deine Truppen tragen das Endspiel.'},
   // Onboarding für die neuen Systeme (Steffen mid:7095): jeweils getriggert wenn das System zum ersten Mal relevant wird.
-  food:{t:'🍲 Heilung',b:'Wichtig: dein Held heilt sich NICHT mehr von allein! Wenn du Schaden hast, koch dir im Held-Menü eine Kürbis-Suppe (später Pilz-Sauce) — die füllt dein Leben wieder auf. Gesund farmen statt warten.'},
+  food:{t:'🍲 Heilung',b:'Wichtig: dein Held heilt sich NICHT mehr von allein! Koch in der Burg Kürbis-Suppe — die trägst du als Vorrat mit dir. Bei Schaden tipp dein Helden-Portrait unten links an und drück den blauen Heil-Button: eine Suppe füllt dein Leben wieder auf. Gesund farmen statt warten.'},
   troopmode:{t:'🎮 Truppen befehligen',b:'Tippe eine Truppe an und schalte ihren Modus durch: 🛡 Wache (verteidigt das Dorf) · 🏃 Folgen (rennt aggressiv mit dir mit) · 📍 Posten (hält defensiv die Stellung). So kommandierst du deine Armee.'},
   markt:{t:'🏪 Marktplatz',b:'Der Marktplatz tauscht deinen Überschuss (Holz+Stein+Gold) in Edelsteine — die Premium-Währung fürs Late-Game. Tippe ihn an und wähl einen Kurs; höhere Markt-Stufen geben mehr Edelsteine pro Tausch.'},
   skills:{t:'⚡ Spezial-Attacke',b:'Du hast eine aktive Fähigkeit freigeschaltet! Unten links sind jetzt Knöpfe: 💥 Wirbelschlag trifft alle Gegner um dich, ⚡ Sturmangriff stürmt auf den nächsten. Beide mit Abklingzeit — im richtigen Moment zünden!'},
   reparatur:{t:'🔧 Reparatur',b:'Mit der Reparatur erholt sich dein Dorf nach einer verlorenen Nacht nur noch auf die Hälfte statt voll — dafür hältst du es gezielt am Leben. Dein Anker in den harten Nächten.'},
-  heiler:{t:'🧪 Heiler',b:'Der Heiler braut starke Consumables: Heiltränke die Held UND alle Truppen auf einmal hochheilen. Dein Joker für die späten Nächte.'},
+  heiler:{t:'🧪 Heiler',b:'Der Heiler erweitert deinen Kürbis-Suppen-Vorrat — mehr Suppen, die du für die langen Nächte mitnehmen kannst. Dein Heil-Puffer fürs späte Spiel.'},
 };
 // Story-Intro vor der Klassenwahl, erzählt vom „Ältesten" (Mönch-Sprite) (mid:6449)
 const INTRO=[
   'Du stehst auf leerem Land. Kein Dorf, kein Lärm — nur Erde, Wind und ein Anfang.',
-  'Ein alter Mönch tritt heran. „Ich bin der Älteste. Lange habe ich auf jemanden wie dich gewartet."',
+  'Unter einem alten Strohdach regt sich ein uralter Wächter. „Ich bin der Älteste. Lange habe ich auf jemanden wie dich gewartet."',
   '„Sammle, was die Wildnis hergibt, und lass aus dem Nichts ein Dorf wachsen — Stück für Stück."',
   '„Doch wenn die Nacht kommt, kommen auch sie. Bau Mauern, stell Truppen — und halt stand. Sag mir nun: wer bist du?"',
 ];
 // Anstößige Kürzel blocken (Substring-Match, Groß-/Kleinschreibung egal) (mid:6449)
 const BADTAGS=['FUCK','SHIT','FICK','FOTZ','HURE','ARSC','ARSH','NIGG','NIGR','FAGG','PISS','COCK','DICK','CUNT','TWAT','WICH','NUTT','PIMM','ANAL','NAZI','HITL','SHIZ','SLUT','RAPE'];
 function isBadName(t){ t=(t||'').toUpperCase(); return BADTAGS.some(w=>t.includes(w)); }
-function say(msg){ const el=document.getElementById('say'); el.style.opacity=0;
-  setTimeout(()=>{ el.innerHTML='<b>'+GUIDE+':</b> '+msg; el.style.opacity=1; },120);
-  if(sayT)clearTimeout(sayT); sayT=setTimeout(()=>{ el.style.opacity=0; },6000); }
+function say(msg){ const el=document.getElementById('say');
+  el.innerHTML='<div class="saytxt">'+msg+'</div><div class="sayport"><img src="ts/u/portrait_aeltester_panda.png"><b>'+GUIDE+'</b></div>';
+  el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');   // Reflow → Roll-Animation neu auslösen (rechts→links unterm Zahnrad raus)
+  if(sayT)clearTimeout(sayT); sayT=setTimeout(()=>{ el.classList.remove('show'); },6500); }
 function worldFromEvent(e){ const r=cv.getBoundingClientRect(), z=game.zoom;
   const cx=(e.touches?e.touches[0].clientX:e.clientX), cy=(e.touches?e.touches[0].clientY:e.clientY);
   return { x:(cx-r.left-game.vw/2)/z+game.s.cam.x, y:(cy-r.top-game.vh/2)/z+game.s.cam.y }; }
@@ -2201,8 +2309,11 @@ function endPointer(){ if(!pDown) return;
     // Tap auf ein Fixture (Hütte/Außenposten/Turm) öffnet direkt sein Panel — kein „Held muss daneben stehen" mehr (mid:6782).
     // Die enge Hitbox auf dem Gebäude-Körper verhindert versehentliches Auslösen beim Tap-to-Move im Feld.
     const P=s.player, heroNear=(x,y)=>dist(P.x,P.y,x,y)<88;
-    if(opIdx>=0){ const k='op'+opIdx; if(game.bubbleFor===k) game.closeBubble(); else game.openBubble(k); }   // B3: Sammler als Sprechblase (Toggle)
-    else if(tsIdx>=0){ game.closeBubble(); game.openPanelFor((towerAt(s,tsIdx)?'tw':'tb')+tsIdx); }
+    game._pendingOp=null;   // jeder neue Tap verwirft ein offenes Sammler-Lauf-Ziel
+    if(opIdx>=0){ const o=s.outposts[opIdx], k='op'+opIdx;   // Sammler (mid:7463): erst hinlaufen (sammelt unterwegs ein), dann Menü — nicht aus der Ferne öffnen
+      if(dist(P.x,P.y,o.x,o.y)<HARVEST_R+34){ if(game.bubbleFor===k) game.closeBubble(); else game.openBubble(k); }   // schon da → direkt toggeln
+      else { game.closeBubble(); game._pendingOp=opIdx; moveTo({x:o.x,y:o.y+24}); } }   // hinlaufen, Menü öffnet bei Ankunft
+    else if(tsIdx>=0){ const k=(towerAt(s,tsIdx)?'tw':'tb')+tsIdx; if(game.bubbleFor===k) game.closeBubble(); else game.openBubble(k); }   // B3: Truppen-Slot als Sprechblase, Toggle (mid:7514)
     else if(hutIdx>=0){ if(game.bubbleFor===hutIdx) game.closeBubble(); else game.openBubble(hutIdx); }   // B3: Hütten als Sprechblase (Toggle)
     else if(tappedBase && heroNear(BASE.x,BASE.y)){ if(game.bubbleFor==='castle') game.closeBubble(); else game.openBubble('castle'); }   // B3: Burg als Sprechblase (Toggle)
     else { game.closeBubble(); moveTo(p); } }
@@ -2245,14 +2356,16 @@ const Bot={
   think(dt){ if(!this.on) return; const s=game.s; if(!s||!s.charChosen) return; this.runTime=(this.runTime||0)+dt; this.steer();   // runTime = aufsummierte Spielzeit (dt×Speed pro Frame, mid:7215)
     this.acc+=dt; if(this.acc<0.8) return; this.acc=0; this.decide(s); this.updateHud(); },
   fmtTime(t){ t=Math.floor(t||0); const hh=Math.floor(t/3600), mm=Math.floor((t%3600)/60), ss=t%60, p=n=>String(n).padStart(2,'0'); return (hh>0?hh+':':'')+p(mm)+':'+p(ss); },
-  aff(s,id){ const u=ALLUP.find(x=>x.id===id); return u && (!u.show||u.show(s)) && !(u.locked&&u.locked(s)) && (!u.lvl||u.lvl(s)<heroMaxLvl(s)) && canAfford(s,u.cost(s)); },   // locked (z.B. Helfer-Pro-Stufe-Cap) respektieren, sonst loopt der Bot
+  aff(s,id){ const u=ALLUP.find(x=>x.id===id); return u && (!u.show||u.show(s)) && !(u.locked&&u.locked(s)) && (!u.lvl||u.lvl(s)<upMax(u,s)) && canAfford(s,u.cost(s)); },   // locked (z.B. Helfer-Pro-Stufe-Cap) respektieren, sonst loopt der Bot
   schmiedeIdx(s){ return (s.builds||[]).findIndex(b=>b.type==='schmiede'); },
   peek(t,tab){ if(tab) game.tab=tab; game.openPanelFor(t); },   // Panel sichtbar öffnen, damit der Zuschauer den Dialog sieht (mid:7189)
   upPanel(s,id){ if(UP_KAMPF.some(u=>u.id===id)){ const i=this.schmiedeIdx(s); return i>=0?[i,null]:null; }   // Kampf-Upgrades → Schmiede-Panel
     return UP_HELD.some(u=>u.id===id)?['hero',null]:['castle',null]; },   // Held-Upgrades → Helden-Menü, Rest (expand etc.) → Burg/Dorf (mid:7420)
   decide(s){
-    // 1) heilen wenn angeschlagen (Heil-Craft sitzt im Burg/Held-Panel)
-    if(s.player.hp < s.player.hpmax*0.42){ for(const h of ['heiltrank','sauce','suppe']){ if(this.aff(s,h)){ this.peek('hero'); game.buy(h); this.note='💚 heilt'; return; } } }
+    // 1) heilen wenn angeschlagen: getragene Kürbis-Suppe nutzen, sonst in der Burg nachkochen (mid:7506)
+    if(s.player.hp < s.player.hpmax*0.42){
+      if((s.soup||0)>0){ this.peek('hero'); game.soupHeal(); this.note='💚 heilt'; return; }
+      if((s.soup||0)<soupMax(s) && canAfford(s,soupCost(s))){ this.peek('castle'); game.cookSoup(); this.note='🍲 kocht Suppe'; return; } }
     // 2) freie Pawns in Sammler zuweisen (M3, mid:7408: Pawns nur noch in Sammlern) — immer sinnvoll
     if(freeWorkers(s)>0){ const o=(s.outposts||[]).find(o=>(o.workers||0)<4); if(o){ o.workers=(o.workers||0)+1; SFX.buy(); this.peek('op'+s.outposts.indexOf(o)); this.note='👷 Pawn→Sammler'; return; } }
     // Aufstiegs-Lage bestimmen (Prep → Save → Go)
