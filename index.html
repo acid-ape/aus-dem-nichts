@@ -1274,9 +1274,9 @@ const CP_HP=1.0, CP_DPS=10.0, CP_HEAL=10.0;   // cP-Gewichte (1 HP=1, 1 Schaden/
 // fixe Code (Architektur-Wechsel, nicht unvalidierte Schwierigkeit). Mitigationen (March-in/Dorf-HP/Respawn/Kiten) senken die
 // EFFEKTIVE Härte → finaler Wert via Playtest. DAS ist der eine Knopf für die ganze Kampf-Schwierigkeit.
 const NACHT_HAERTE=3.0;
-function enemyCP(kind,era){ const T=ETYPES[kind], hp=T.hp+T.hpEra*era, dps=T.atk/ENEMY_ATK_CD; return hp*CP_HP+dps*CP_DPS; }
+function enemyCP(kind,era){ const T=ETYPES[kind], hp=T.hp+T.hpEra*era, dps=(T.atk+(T.atkEra||0)*era)/ENEMY_ATK_CD; return hp*CP_HP+dps*CP_DPS; }   // Schaden absolut+linear (mid:7598)
 function troopCP(t,s){ const TT=TOWER_TYPES[t.type], hp=towerHp(t,s), pw=towerAtk(t,s)/TT.cd; return hp*CP_HP + pw*(TT.role==='heal'?CP_HEAL:CP_DPS); }
-function heroCP(s){ return (s.player.hpmax||100)*CP_HP + (8*(s.atk||1)/HERO_ATK_CD)*CP_DPS; }   // Held: HP + Schaden/s (8×atk pro Treffer / CD)
+function heroCP(s){ return (s.player.hpmax||100)*CP_HP + ((s.atk||10)/HERO_ATK_CD)*CP_DPS; }   // Held: HP + Schaden/s (atk ist jetzt ABSOLUT pro Treffer, mid:7598 — fixt Nacht-Wellen-Skalierung)
 // Erwartetes Spieler-Kampf-cP für die Stufe: Held + voller Truppen-Slot-Pool (Mix verfügbarer Typen, mit globalen Upgrades).
 function playerCombatCP(s){ const slots=towerAllowance(s); let tot=heroCP(s); if(slots<=0) return tot;
   const types=['kaempfer','bogen']; if(s.era>=6)types.push('monk'); if(s.era>=12)types.push('lance'); if(s.era>=17)types.push('panda');
