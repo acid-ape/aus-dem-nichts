@@ -213,6 +213,12 @@ const VIEW = DEVICE === 'desktop'
     game.s.era = 4; game.s.atkLvl = 0;
     for (let i = 0; i < 30; i++) { ALL.forEach(k => game.s.store[k] = 999999); game.buy('angriff'); }
     out.push(['Kampf-Upgrade nicht auf einmal nachholbar (Cap ab Schmiede)', game.s.atkLvl === combatMaxLvl(game.s) && game.s.atkLvl < heroMaxLvl(game.s)]);
+    // Balance-Umbau (mid:7578): absoluter Schaden, lineare Gegner, keine Evo, Sammler-Cap ab Bau-Stufe
+    { const fs = freshState(); out.push(['Held-Schaden absolut (Basis 10)', fs.atk === 10]); }
+    { const s2 = game.s; s2.atk = 10; s2.atkLvl = 0; s2.era = 5; ALL.forEach(k => s2.store[k] = 999999); game.buy('angriff'); out.push(['Angriff-Upgrade +5 absolut', s2.atk === 15]); }
+    out.push(['Keine Einheiten-Evolution mehr (maxEvo 0)', maxEvo(game.s) === 0]);
+    out.push(['Gegner-HP linear pro Stufe (Grunt St5 = 68)', (ETYPES.grunt.hp + ETYPES.grunt.hpEra * 4) === 68]);
+    { const o = { type: 'korn', buildEra: 4 }; game.s.era = 4; out.push(['Sammler-Cap ab Bau-Stufe (frisch gebaut = 1)', sammlerMax(o, game.s) === 1]); game.s.era = 6; out.push(['Sammler-Cap waechst nach Bau (+2 Stufen = 3)', sammlerMax(o, game.s) === 3]); }
     // Kamera: moveTo aktiviert Follow wieder; freier Schwenk bleibt stehen (mid:6040)
     moveTo({ x: game.s.player.x + 200, y: game.s.player.y });
     out.push(['moveTo re-enables camFollow', game.camFollow === true]);
