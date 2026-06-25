@@ -66,6 +66,15 @@
   /* Held-Block unten-links (mid:7354): Portrait in der Ecke, Inventar klappt nach OBEN, drüber später Zauber */
   #herohud{position:absolute;left:calc(env(safe-area-inset-left) + 8px);bottom:calc(env(safe-area-inset-bottom) + 12px);z-index:9}
   #herohud .herorow{display:flex;flex-direction:row;align-items:flex-end;gap:7px}   /* Held-Portrait + Inventar nach rechts (mid:7357) */
+  /* Beutel rechts neben dem Portrait; Inventar schiebt sich ÜBER den Beutel (mid:7411/7418); Portrait selbst = Helden-Upgrades (mid:7412) */
+  #herohud .bagwrap{position:relative;align-self:flex-end}
+  #herohud .bagbtn{width:54px;height:58px;border:0;background:none;border-image:url(ts/ui/frame_blue.png) 16 fill / 13px / 0 stretch;image-rendering:pixelated;filter:brightness(.9);display:flex;align-items:center;justify-content:center;cursor:pointer;pointer-events:auto;padding:0}
+  #herohud .bagbtn img{width:34px;height:34px;image-rendering:pixelated;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+  #herohud .bagbtn.on{filter:brightness(1.06)}
+  #herohud .bagwrap .invpanel.pinv{position:absolute;left:0;bottom:0;z-index:3;padding-right:21px}   /* liegt über dem Beutel + schiebt nach rechts auf */
+  #herohud .invx{position:absolute;right:3px;top:50%;transform:translateY(-50%);width:16px;height:34px;border:0;background:none;padding:0;color:#ffe9c0;opacity:.78;cursor:pointer;pointer-events:auto;display:flex;align-items:center;justify-content:center}   /* minimalistischer Schließpfeil INS Feld (mid:7418) */
+  #herohud .invx:active{opacity:1}
+  #herohud .invx svg{width:13px;height:13px;filter:drop-shadow(0 1px 1px rgba(0,0,0,.6))}
   /* zwischen Resbar (links) und Burger (rechts) gespannt → überlappt die Inventar-Zahl nicht mehr (mid:6063) */
   /* Quest fährt vom Symbol (oben links der Map) nach links aus (mid:7380 / Plan A4) */
   #quest{position:absolute;top:calc(env(safe-area-inset-top) + 12px);right:calc(env(safe-area-inset-right) + 172px);max-width:min(58vw,340px);
@@ -77,6 +86,34 @@
   #quest.qopen{transform:translateX(0);opacity:1;visibility:visible}
   #quest .qt{color:#ffe08a;font-weight:800;margin-right:6px}
   #quest .qp{color:#9fe0b0;font-weight:700;margin-left:6px}
+  /* B1: Sprechblase am Gebäude — Symbol-Upgrades + Live-Stats, KEINE Prosa ("Zustand statt Prosa") */
+  #bubble{position:absolute;pointer-events:auto;transform:translate(-50%,-100%) scale(.9);transform-origin:bottom center;
+    border-image:url(ts/ui/frame_blue.png) 16 fill / 15px / 0 stretch;image-rendering:pixelated;filter:brightness(.97);
+    padding:8px 9px 12px;opacity:0;visibility:hidden;transition:opacity .14s ease,transform .14s ease;z-index:40}
+  #bubble.on{opacity:1;visibility:visible;transform:translate(-50%,-100%) scale(1)}
+  #bubble.heroanchor{transform:translate(0,-100%) scale(.9);transform-origin:bottom left}   /* Held-Bubble linksbündig überm Portrait (sonst läuft sie links aus dem Bild) */
+  #bubble.heroanchor.on{transform:translate(0,-100%) scale(1)}
+  #bubble.heroanchor .btail{left:30px}
+  #bubble .bgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}   /* Held: mehr Upgrades → Grid statt Reihe */
+  #bubble .blvl{position:absolute;top:1px;right:3px;background:rgba(0,0,0,.72);color:#fff;font-size:9px;font-weight:800;border-radius:6px;padding:0 4px;line-height:14px}
+  #bubble .brow.wide{margin-top:6px;flex-wrap:wrap}
+  #bubble .bup.wide{width:auto;flex-direction:row;gap:6px;padding:7px 11px}
+  #bubble .bup.wide .bk{font-size:11px;flex-wrap:wrap;justify-content:center}
+  #bubble .bup.night{filter:brightness(.92) saturate(1.1) sepia(.3) hue-rotate(190deg)}
+  #bubble .bh{display:flex;align-items:center;justify-content:center;gap:6px;font-weight:800;color:#fff;text-shadow:0 1px 2px #000;font-size:12.5px;margin-bottom:5px}
+  #bubble .bh img{width:24px;height:24px;image-rendering:pixelated}
+  #bubble .bstat{display:flex;gap:7px;justify-content:center;background:rgba(0,0,0,.3);border-radius:7px;padding:3px 7px;margin-bottom:7px}
+  #bubble .bstat .si{display:flex;align-items:center;gap:3px;color:#fff;font-weight:800;font-size:12px;text-shadow:0 1px 2px #000}
+  #bubble .bstat .si img{width:17px;height:17px;image-rendering:pixelated}
+  #bubble .brow{display:flex;gap:6px;justify-content:center}
+  #bubble .bup{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;width:56px;padding:6px 3px 5px;border:0;cursor:pointer;background:none;
+    border-image:url(ts/ui/frame_blue.png) 16 fill / 10px / 0 stretch;image-rendering:pixelated;filter:brightness(.84)}
+  #bubble .bup:not(:disabled):active{filter:brightness(1)}
+  #bubble .bup img{width:25px;height:25px;image-rendering:pixelated;filter:drop-shadow(0 1px 1px rgba(0,0,0,.5))}
+  #bubble .bup .bk{font-size:11px;font-weight:800;color:#ffe08a;text-shadow:0 1px 1px #000,0 0 2px #000;line-height:1;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:1px 3px}
+  #bubble .bup .bk img{width:16px;height:16px;image-rendering:pixelated;filter:drop-shadow(0 1px 1px rgba(0,0,0,.6))}
+  #bubble .bup:disabled{opacity:.42;filter:saturate(.5) brightness(.66);cursor:default}
+  #bubble .btail{position:absolute;left:50%;bottom:-7px;transform:translateX(-50%);width:0;height:0;border:7px solid transparent;border-top-color:#c8a44a}
   #questBtn{position:absolute;top:calc(env(safe-area-inset-top) + 16px);right:calc(env(safe-area-inset-right) + 112px);
     width:46px;height:49px;border:0;background:url(ts/ui/frame_round.png) center/100% 100% no-repeat;image-rendering:pixelated;
     filter:brightness(.92) saturate(1.05);pointer-events:auto;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}   /* kleiner (mid:7385) */
@@ -89,9 +126,13 @@
     background:rgba(22,14,43,.72);backdrop-filter:blur(6px);border:1px solid rgba(160,91,255,.4);color:#ece7ff}
   #topbtns button svg{width:23px;height:23px}
   /* Burger = runder Tile-Pack-Rahmen wie die Minimap, nur kleiner (mid:7361) */
-  #topbtns #menuBtn{width:50px;height:53px;border:0!important;border-radius:50%;background:url(ts/ui/frame_round.png) center/100% 100% no-repeat;
-    backdrop-filter:none;image-rendering:pixelated;filter:brightness(.78) saturate(1.1);color:#fff}   /* höhere Spezifität als #topbtns button (mid:7364); kleiner (mid:7386) */
-  #topbtns #menuBtn svg{width:21px;height:21px}
+  #topbtns #menuBtn{width:46px;height:49px;border:0!important;border-radius:50%;background:url(ts/ui/frame_round.png) center/100% 100% no-repeat;
+    backdrop-filter:none;image-rendering:pixelated;filter:brightness(.78) saturate(1.1);color:#fff}   /* höhere Spezifität als #topbtns button (mid:7364); auf Quest-Button-Größe gematcht (mid:7386/7395) */
+  #topbtns #menuBtn svg{width:19px;height:19px}
+  /* Menü-Items teilen den runden Tile-Pack-Rahmen mit dem Burger (mid:7399) */
+  #menuItems button{width:44px;height:47px;border:0!important;border-radius:50%;background:url(ts/ui/frame_round.png) center/100% 100% no-repeat!important;
+    backdrop-filter:none!important;image-rendering:pixelated;filter:brightness(.78) saturate(1.1);color:#fff;font-size:19px}
+  #menuItems button svg{width:18px;height:18px}
   #topbtns button:active{transform:scale(.93)}
   #menuBtn{border-color:rgba(160,91,255,.7)!important}
   /* Minimap: runder Tile-Pack-Rahmen (dunkler wie Burg), Karte rund ausgeschnitten drauf (mid:7361) */
@@ -288,6 +329,7 @@
   </div>
   <div id="minimapWrap"><canvas id="minimap" title="Karte"></canvas></div>
   <button id="questBtn" title="Quest" onclick="game.toggleQuest()"><b>!</b></button>
+  <div id="bubble"></div>
   <div id="achOverlay"><div id="achCard">
     <div id="achHead"><span>🏆 Erfolge</span><button id="achClose" title="Schliessen"></button></div>
     <div id="achList"></div>
@@ -377,7 +419,7 @@ function marktMaxMode(s){ const e=s.era||0; return e<13?1:e<15?2:3; }   // Modus
 function buildConsumes(b){ if(b.type==='juwelier'){ const m=MARKT_MODES[b.marktMode||1], c={}; for(const k in MARKT_COMBO) c[k]=MARKT_COMBO[k]/m.edel; return c; } return BUILD_TYPES[b.type].consumes; }
 // Produktionsrate eines Gebäudes: Basis × Tempo × Menge × Arbeiter-Boost × Dampf-Boost
 function buildRate(s,b){ const T=BUILD_TYPES[b.type]; if(!T||!T.base) return 0;   // Kaserne/Reparatur/Heiler produzieren nichts → 0 statt NaN (Redesign)
-  return T.base*(1+0.25*b.tempo)*(1+0.35*b.menge)*(1+0.5*b.workers)*s.wboost; }
+  return T.base*(1+0.25*b.tempo)*(1+0.35*b.menge)*s.wboost; }   // M3 (mid:7408): Hütten-Output nur Tempo/Menge — Pawns leben nur in Sammlern
 // Netto-Produktion pro Sekunde je Ressource (Produktion minus Konverter-Verbrauch) — macht den Konverter-Engpass sichtbar (Audit-Idee)
 function netRate(s){ const r={}; for(const b of s.builds){ const T=BUILD_TYPES[b.type]; if(!T||!T.res)continue; const out=buildRate(s,b), cons=buildConsumes(b); r[T.res]=(r[T.res]||0)+out; if(cons) for(const k in cons) r[k]=(r[k]||0)-out*cons[k]; } return r; }
 // Ein Produktions-Tick: Konverter (mit consumes) ziehen Input ab und sind durch Input-Mangel gedeckelt; sonst reine Produktion.
@@ -386,7 +428,7 @@ function produce(s,b,dt){ const T=BUILD_TYPES[b.type]; if(!T||!T.res) return 0; 
   if(cons){ for(const k in cons){ out=Math.min(out, (s.store[k]||0)/cons[k]); } out=Math.max(0,out);
     for(const k in cons) s.store[k]-=out*cons[k]; }
   s.store[T.res]+=out; return out; }
-function assignedWorkers(s){ return s.builds.reduce((a,b)=>a+b.workers,0) + ((s.outposts||[]).reduce((a,o)=>a+(o.workers||0),0)); }   // Pawns in Dorf-Gebäuden + Sammlern (§1, mid:7122)
+function assignedWorkers(s){ return (s.outposts||[]).reduce((a,o)=>a+(o.workers||0),0); }   // M3 (mid:7408): Pawns NUR in Sammlern (Hütten-Worker entfernt)
 function freeWorkers(s){ return s.workerPool-assignedWorkers(s); }
 function nextBuildType(s){ return BUILD_ORDER.find(t=>BUILD_TYPES[t].era<=s.era && !s.builds.some(b=>b.type===t)); }
 // ----- Außenposten-Sammler (mid:6246): im passenden Biom knapp außerhalb des Dorfs; sammeln Ressource über Zeit bis Cap; Held holt direkt ins Lager ab; upgradebar (Tempo=Rate, Menge=Cap) -----
@@ -786,7 +828,7 @@ const ERAS=[
 let nodeId=0;
 const rnd=(a,b)=>a+Math.random()*(b-a);
 const dist=(ax,ay,bx,by)=>Math.hypot(ax-bx,ay-by);
-const carryTotal=c=>ALL.reduce((s,k)=>s+c[k],0);
+const carryTotal=c=>ALL.reduce((s,k)=>s+(c[k]||0),0);   // ||0: fehlender Key (z.B. neue Era-Ressource) → kein NaN
 function moveToward(o,tx,ty,sp,dt,st,r){ const d=dist(o.x,o.y,tx,ty); if(d<1)return true;
   let hx=(tx-o.x)/d, hy=(ty-o.y)/d;   // Such-Richtung zum Ziel
   if(st&&st.obstacles){ r=r||0; let rx=0,ry=0, frontal=0, fnx=0, fny=0;   // Hindernis-Ausweichen (Playtester A3): um Felsen herumgleiten statt reinrennen
@@ -813,7 +855,7 @@ function spawnNode(s,type,ringMin){ const R=areaRadius(s), lo=ringMin||(OUTER_R+
     const ns=NODE_SIZE[chosen]||100;   // eigener Knoten-Footprint, damit große Knoten (Holz 210) mehr Abstand halten
     if(s.nodes.every(n=>dist(x,y,n.x,n.y)>82) && !blocked(s,x,y,36) && !onSand(s,x,y) && !s.lakes.some(L=>dist(x,y,L.x,L.y)<L.r+24)
        && (!s.deco || s.deco.every(d=>dist(x,y,d.x,d.y) > d.size*SC*0.35 + ns*SC*0.30))){   // nicht in/hinter Deko buggen (mid:7157) — gleiche Regel wie Outposts (Z.361)
-      const amt=Math.round(rnd(12,18)); s.nodes.push({id:++nodeId,type:chosen,x,y,amount:amt,max:amt,scale:0}); return; }  // langlebiger (mid:6098)
+      const amt=Math.round(rnd(8,12)); s.nodes.push({id:++nodeId,type:chosen,x,y,amount:amt,max:amt,scale:0}); return; }  // Haltbarkeit runter: war rnd(12,18), ~18/Baum zu viel (mid:7396)
   } }
 
 function resolve(o,cx,cy,R){ const d=dist(o.x,o.y,cx,cy); if(d<R){ if(d<0.01){o.x=cx+R;return;} o.x=cx+(o.x-cx)/d*R; o.y=cy+(o.y-cy)/d*R; } }
@@ -1054,7 +1096,7 @@ function stateFromSave(d){ const s=freshState();  // frische Welt, dann Fortschr
   if(typeof d.lifetime==='number') s.lifetime=d.lifetime;
   if(typeof d.stageStartLifetime==='number') s.stageStartLifetime=d.stageStartLifetime;
   if(typeof d.playSec==='number') s.playSec=d.playSec;
-  if(Array.isArray(d.builds)) s.builds=d.builds.filter(b=>BUILD_TYPES[b.type]).map(b=>({type:b.type,seg:b.seg,tempo:b.tempo||0,menge:b.menge||0,workers:b.workers||0,marktMode:b.marktMode||1}));   // unbekannte/entfernte Typen droppen; marktMode (Marktplatz §9) erhalten
+  if(Array.isArray(d.builds)) s.builds=d.builds.filter(b=>BUILD_TYPES[b.type]).map(b=>({type:b.type,seg:b.seg,tempo:b.tempo||0,menge:b.menge||0,workers:0,marktMode:b.marktMode||1}));   // M3 (mid:7408): Hütten-Worker auf 0 migrieren → Pawns zurück in den freien Pool
   if(Array.isArray(d.outposts)) s.outposts=d.outposts.filter(o=>OUTPOST_TYPES[o.type]).map(o=>({type:o.type,x:o.x,y:o.y,store:o.store||0,tempoLvl:o.tempoLvl||0,mengeLvl:o.mengeLvl||0,workers:o.workers||0}));   // Pawns im Sammler (mid:7122)
   setRing(s);
   s.nodes=[]; const n=24+s.areas*16; for(let i=0;i<n;i++) spawnNode(s);  // weniger Sammel-Knoten (mid:6513)
@@ -1100,7 +1142,7 @@ const UP_HELD=[
 const EXPAND_REQ={1:1, 2:3, 3:5};   // Gebiet-Erschliessen-Gate je aktueller Gebietszahl → era (Stufe-1): Gebiet2 ab Stufe2, Gebiet3 ab Stufe4, Gebiet4 ab Stufe6 (mid:6618)
 const UP_DORF=[
   {id:'hire',icon:'worker',name:s=>'Helfer anheuern',
-   desc:s=> s.workerPool>=s.era+1 ? 'Nur 1 Helfer pro Stufe — der nächste ab der nächsten Stufe.' : `1 Helfer für Sammler/Hütten (${freeWorkers(s)} frei von ${s.workerPool})`,
+   desc:s=> s.workerPool>=s.era+1 ? 'Nur 1 Helfer pro Stufe — der nächste ab der nächsten Stufe.' : `1 Helfer für die Sammler (${freeWorkers(s)} frei von ${s.workerPool})`,
    locked:s=> s.workerPool>=s.era+1,   // §2.3 Pacing: genau 1 Arbeiter pro Stufe rekrutierbar, Pool-Cap = era+1 (mid:7246)
    cost:s=>{ const c={korn:scaled(22,1.55,s.workerPool)}; if(s.era>=5)c.pilze=scaled(12,1.55,s.workerPool); return c; },  // Nahrung füttert Helfer; ab Stufe 6 Pilze dazu
    apply:s=>{s.workerPool++;}},
@@ -1108,7 +1150,7 @@ const UP_DORF=[
    desc:s=>{const t=nextBuildType(s);return t?`Stellt eine ${BUILD_TYPES[t].name}-Hütte in ein freies Kuchenstück (tippe sie an zum Verwalten)`:'';},
    show:s=>!!nextBuildType(s), cost:s=>{const t=nextBuildType(s);return t?BUILD_TYPES[t].cost:{holz:1e9};},
    apply:s=>{const t=nextBuildType(s); if(!t)return; const used=s.builds.map(b=>b.seg); let seg=[0,1,2,3,4,5].find(i=>!used.includes(i)); if(seg==null)seg=s.builds.length%6;
-     s.builds.push({type:t,seg,tempo:0,menge:0,workers:0,marktMode:1}); say(BUILD_TYPES[t].name+' gebaut! Tippe die Hütte an, um Arbeiter zuzuweisen + sie aufzurüsten.'); }},
+     s.builds.push({type:t,seg,tempo:0,menge:0,workers:0,marktMode:1}); say(BUILD_TYPES[t].name+' gebaut! Tippe die Hütte an, um Tempo + Menge aufzurüsten.'); }},
   {id:'expand',icon:'up_expand',name:s=>'Gebiet erschliessen',
    desc:s=> s.areas>=4 ? 'Alle Gebiete erschlossen' : ((s.era<(EXPAND_REQ[s.areas]||99)) ? `Nächstes Gebiet ab Stufe ${(EXPAND_REQ[s.areas]||99)+1}` : `Dorf vergrössern (Gebiet ${s.areas}/4) — mehr Platz & Ressourcen`),
    show:s=>s.areas<4, locked:s=>s.era<(EXPAND_REQ[s.areas]||99),   // an den Stufen-Rhythmus gekoppelt (mid:6618): Gebiet 2 ab Stufe 2, 3 ab Stufe 4, 4 ab Stufe 6
@@ -1218,7 +1260,7 @@ const QUESTS=[
   {t:'Erreiche Stufe 2',               g:s=>s.era,            n:1,   rew:s=>s.store.holz+=18,  r:'+18 Holz'},
   {t:'Baue den Holz-Sammler',          g:s=>(s.outposts||[]).some(o=>o.type==='holz')?1:0, n:1, rew:s=>s.store.stein+=18, r:'+18 Stein'},
   {t:'Heuere deinen ersten Helfer an', g:s=>s.workerPool,     n:1,   rew:s=>s.store.korn+=12,  r:'+12 Kürbis'},
-  {t:'Weise einem Gebäude einen Helfer zu', g:s=>assignedWorkers(s), n:1, rew:s=>s.store.holz+=22, r:'+22 Holz'},
+  {t:'Weise einem Sammler einen Helfer zu', g:s=>assignedWorkers(s), n:1, rew:s=>s.store.holz+=22, r:'+22 Holz'},
   {t:'Erschliesse ein neues Gebiet',   g:s=>s.areas,          n:2,   rew:s=>s.store.korn+=28,  r:'+28 Kürbis'},
   {t:'Erreiche Stufe 3',               g:s=>s.era,            n:2,   rew:s=>s.store.stein+=30, r:'+30 Stein'},
   {t:'Baue den Stein-Sammler',         g:s=>(s.outposts||[]).some(o=>o.type==='stein')?1:0, n:1, rew:s=>s.store.holz+=35, r:'+35 Holz'},
@@ -1554,6 +1596,7 @@ const game={
     if(this.s.playSec>3){ this._ft=(this._ft||16.7)*0.9+(dt*1000)*0.1;   // adaptive Perf-Degradierung, STUFENWEISE (mid:7271/7287)
       if(this._ft>30 && PERF>0 && this.s.playSec>(this._lastDrop||0)+1.6){ PERF--; this._lastDrop=this.s.playSec; this._ft=16.7; try{ say(PERF<=0?'⚙️ Schatten aus für mehr Tempo.':'⚙️ Sparmodus: einfachere Schatten für flüssigeres Spiel.'); }catch(_){} } }
     this._mmAcc=(this._mmAcc||0)+1; if(this._mmAcc%4===0) this.drawMinimap();   // Minimap throttled (~15fps)
+    if(this.bubbleFor!=null) this.positionBubble();   // B1: Sprechblase am Gebäude halten (Kamera folgt)
     this.uiAcc+=dt; if(this.uiAcc>0.2){ this.uiAcc=0; checkQuests(this.s); checkAchievements(this.s); this.checkTut(); this.renderRes(); this.updateShop(); this.renderQuest(); }
     this.saveAcc=(this.saveAcc||0)+dt; if(this.saveAcc>5){ this.saveAcc=0; saveGame(this.s); }  // Auto-Save alle 5s
     requestAnimationFrame(this.loop); },
@@ -1747,19 +1790,21 @@ const game={
   },
   // A1 Portrait-Hub (mid:7285/7292/7299): zwei Portraits (Spieler + Dorf) mit je HP; Klick klappt das jeweilige Inventar aus (Tasche / Dorf-Lager). Ersetzt die alte Seitenleiste.
   toggleInv(which){ if(which==='player') this.invP=!this.invP; else this.invV=!this.invV; this.renderRes(); },   // beide unabhängig auf/zu — können gleichzeitig offen sein (mid:7348)
+  openHeroUpgrades(){ if(this.bubbleFor==='hero') this.closeBubble(); else this.openBubble('hero'); },   // Helden-Portrait → Helden-Sprechblase (mid:7426), Toggle
   renderRes(){ const s=this.s; const el=document.getElementById('resbar'), hh=document.getElementById('herohud'); if(!s.charChosen){ el.innerHTML=''; if(hh)hh.innerHTML=''; return; }
     const hpBar=(hp,max)=>{ const f=Math.max(0,Math.min(1,(hp||0)/(max||1))), c=f>0.5?'#5fd06a':f>0.25?'#e0a93a':'#e0573a'; return `<div class="chp"><div class="chpfill" style="width:${(f*100).toFixed(0)}%;background:${c}"></div><span class="chpv">${Math.ceil(hp||0)}/${Math.round(max||0)}</span></div>`; };
     if(this.invP===undefined){ this.invP=false; this.invV=true; }   // Default: Dorf-Lager offen, Tasche zu — beide unabhängig (mid:7348)
     const oP=this.invP, oV=this.invV, item=(k,v)=>`<span class="ri"><img src="ts/icons/${k}.png"><b>${v}</b></span>`;   // Symbol+Wert auf EINEM Panel (mid:7327)
     const justP=(oP&&!this._lastP), justV=(oV&&!this._lastV); this._lastP=oP; this._lastV=oV;   // Slide-Animation nur beim echten Aufklappen
-    const pPort=`<button class="portrait player${oP?' on':''}" onclick="game.toggleInv('player')"><img class="cportrait" src="ts/u/portrait_${CHARS[s.char]?s.char:'krieger'}.png">${hpBar(s.player.hp,s.player.hpmax)}</button>`;
+    const pPort=`<button class="portrait player" onclick="game.openHeroUpgrades()" title="Helden-Upgrades"><img class="cportrait" src="ts/u/portrait_${CHARS[s.char]?s.char:'krieger'}.png">${hpBar(s.player.hp,s.player.hpmax)}</button>`;
+    const bagBtn=`<button class="bagbtn${oP?' on':''}" onclick="game.toggleInv('player')" title="Tasche"><img src="ts/icons/up_bag.png"></button>`;   // Beutel öffnet das Inventar (mid:7411)
     const vPort=`<button class="portrait village${oV?' on':''}" onclick="game.toggleInv('village')"><img class="cportrait" src="ts/era${Math.min(6,s.era||0)}.png">${hpBar(s.baseHP,s.baseHPmax)}</button>`;   // ts/ root (era0..6 vorhanden; ts/icons/ hat nur 0..4 → 404)
     let pInv='', vInv='';   // BEIDE können gleichzeitig offen sein (mid:7348). Spieler-Tasche = 3×2 rechts; Dorf-Lager = Spalte unter dem Portrait
     if(oP){ const c=s.player.carry, keys=activeKeys(s.era).filter(k=>k!=='edelstein'), tf=carryTotal(c)>=s.cap*0.999;   // Held: 5 Ressourcen (Edelstein=Markt-only, mid:7331) + Taschen-Gesamt-Zelle
-      pInv=`<div class="invpanel pgrid${justP?' anim':''}">${keys.map(k=>item(k,Math.floor(c[k]||0))).join('')}<span class="ri bagtot${tf?' full':''}"><span class="bagi">👝</span><b>${Math.floor(carryTotal(c))}/${s.cap}</b></span></div>`; }
-    if(oV){ vInv=`<div class="invpanel vcol${justV?' anim':''}">${activeKeys(s.era).map(k=>item(k,Math.floor(s.store[k]))).join('')+item('worker',`${freeWorkers(s)}/${s.workerPool}`)}</div>`; }
+      pInv=`<div class="invpanel pgrid pinv${justP?' anim':''}">${keys.map(k=>item(k,Math.floor(c[k]||0))).join('')}<span class="ri bagtot${tf?' full':''}"><span class="bagi">👝</span><b>${Math.floor(carryTotal(c))}/${s.cap}</b></span><button class="invx" onclick="game.toggleInv('player')" title="Tasche schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg></button></div>`; }   // Mini-Pfeil INS Feld schiebt zurück (mid:7418)
+    if(oV){ vInv=`<div class="invpanel vcol${justV?' anim':''}">${activeKeys(s.era).map(k=>item(k,Math.floor(s.store[k]))).join('')+item('pawn',`${freeWorkers(s)}/${s.workerPool}`)}</div>`; }
     el.innerHTML=`<div class="hub"><div class="leftcol">${vPort}${vInv}</div></div>`;   // OBEN-LINKS: Burg + Inventar nach unten (mid:7354)
-    if(hh) hh.innerHTML=`<div class="herorow">${pPort}${pInv}</div>`; },   // UNTEN-LINKS: Held in der Ecke, Inventar klappt nach RECHTS aus der rechten Seite (mid:7357); Zauber später drüber
+    if(hh) hh.innerHTML=`<div class="herorow">${pPort}<div class="bagwrap">${bagBtn}${pInv}</div></div>`; },   // UNTEN-LINKS: Held + Beutel; Inventar schiebt sich ÜBER den Beutel (mid:7418); Zauber später drüber
   toggleQuest(){ const el=document.getElementById('quest'), b=document.getElementById('questBtn');
     const open=el.classList.toggle('qopen'); if(open&&b)b.classList.remove('qnew'); },
   renderQuest(){ const s=this.s, el=document.getElementById('quest'), b=document.getElementById('questBtn');
@@ -1767,7 +1812,96 @@ const game={
     if(s.questIdx>=QUESTS.length){ el.innerHTML='<span class="qt">Ziel</span> Alle Ziele erreicht — bau dein Imperium aus!'; return; }
     const q=QUESTS[s.questIdx], cur=Math.min(Math.floor(q.g(s)),q.n);
     el.innerHTML=`<span class="qt">Ziel</span>${q.t}<span class="qp">${cur}/${q.n}</span>`; },
-  openPanelFor(target){ this.panelFor=target; this.buildShop(); document.getElementById('panel').classList.add('open'); },
+  openPanelFor(target){ this.closeBubble(); this.panelFor=target; this.buildShop(); document.getElementById('panel').classList.add('open'); },
+  // ---- B1/B3: Gebäude-Sprechblase (Symbol-Upgrades + Live-Stats, "Zustand statt Prosa") ----
+  openBubble(idx){ const pn=document.getElementById('panel'); if(pn)pn.classList.remove('open');   // Bubble + Bottom-Panel nie gleichzeitig
+    this.bubbleFor=idx; this.renderBubble(); this.positionBubble(); document.getElementById('bubble').classList.add('on'); },
+  closeBubble(){ this.bubbleFor=null; const el=document.getElementById('bubble'); if(el)el.classList.remove('on'); },
+  renderBubble(){ const s=this.s, idx=this.bubbleFor; if(idx==null)return; const el=document.getElementById('bubble'); if(!el)return;
+    const ico=k=>(k.charAt(0)==='@'?'ts/'+k.slice(1):'ts/icons/'+k)+'.png';
+    const cm=c=>Object.keys(c).map(k=>`<img src="${ico(k)}">${Math.round(c[k])}`).join(' ');   // Kosten als Symbol+Zahl
+    const upGrid=list=>list.filter(up=>!up.show||up.show(s)).map(up=>{ const c=up.cost(s), maxed=up.lvl&&up.lvl(s)>=heroMaxLvl(s), dis=maxed||(up.locked&&up.locked(s))||!canAfford(s,c);   // generischer Symbol-Upgrade-Grid (UP_HELD/UP_KAMPF)
+      const lvl=(up.lvl&&up.lvl(s)>0)?`<span class="blvl">${up.lvl(s)}</span>`:''; return `<button class="bup" ${dis?'disabled':''} onclick="game.bubbleBuy('${up.id}')"><img src="${ico(up.icon)}">${lvl}<span class="bk">${maxed?'MAX':cm(c)}</span></button>`; }).join('');
+    const up=(kind,icon,dis,lbl)=>`<button class="bup" ${dis?'disabled':''} onclick="game.bubbleBuy('${kind}')"><img src="${ico(icon)}"><span class="bk">${lbl}</span></button>`;
+    if(idx==='hero'){                                  // ----- Helden-Sprechblase (UP_HELD, mid:7426) -----
+      const ch=CHARS[s.char]?s.char:'krieger';
+      let h=`<div class="bh"><img src="ts/u/portrait_${ch}.png">Held</div>`;
+      h+=`<div class="bstat"><span class="si"><img src="${ico('up_bag')}">${s.cap}</span><span class="si"><img src="${ico('up_tools')}">${(s.gather||0).toFixed(1)}</span><span class="si"><img src="${ico('up_boots')}">+${Math.round((Math.pow(1.15,s.speedLvl||0)-1)*100)}%</span></div>`;   // HP raus: wird in der Schmiede gelevelt (mid:7433)
+      h+=`<div class="bgrid">${upGrid(UP_HELD)}</div><div class="btail"></div>`; el.innerHTML=h; return;
+    }
+    if(idx==='castle'){                                   // ----- Burg/Dorf-Sprechblase (mid:7426) -----
+      this.s.tutMenu=true; const next=s.era+1;
+      let h=`<div class="bh"><img src="ts/era${Math.min(6,s.era)}.png">Burg · Stufe ${s.era+1}</div>`;
+      h+=`<div class="bstat"><span class="si"><img src="${ico('pawn')}">${freeWorkers(s)}/${s.workerPool}</span><span class="si"><img src="${ico('up_expand')}">Gebiet ${s.areas}/4</span></div>`;
+      const dorfCell=up=>{ if(up.show&&!up.show(s))return ''; const c=up.cost(s), lk=up.locked&&up.locked(s), dis=lk||!canAfford(s,c);
+        let icon=up.icon; if(up.id==='build'){ const t=nextBuildType(s); if(t)icon='@'+BUILD_TYPES[t].sprite; } else if(up.id==='buildpost'){ const t=nextOutpostType(s); if(t)icon='@'+OUTPOST_TYPES[t].sprite; }
+        return `<button class="bup" ${dis?'disabled':''} onclick="game.bubbleBuy('${up.id}')"><img src="${ico(icon)}"><span class="bk">${lk?'🔒':cm(c)}</span></button>`; };
+      h+=`<div class="bgrid">${UP_DORF.map(dorfCell).join('')}</div>`;
+      let row='';
+      if(next<ERAS.length){ const ec=eraCost(next), gate=nightGated(next), dis=!canAfford(s,ec)||nightActive(s);
+        row+=`<button class="bup wide${gate?' night':''}" ${dis?'disabled':''} onclick="game.bubbleBuy('era')"><img src="${ico('@era'+Math.min(6,next))}"><span class="bk">${gate?'🌙 ':''}Stufe ${next+1} · ${cm(ec)}</span></button>`; }
+      else if(s.endless) row+=`<button class="bup wide night" ${nightActive(s)?'disabled':''} onclick="game.bubbleBuy('era')"><img src="${ico('@era6')}"><span class="bk">🌟 Endlos-Nacht</span></button>`;
+      if(s.era>=3){ const hc=healCost(s), need=(s.baseHP||0)<(s.baseHPmax||100); row+=`<button class="bup" ${(!need||(s.store.pilze||0)<hc)?'disabled':''} onclick="game.bubbleBuy('heal')"><img src="${ico('pilze')}"><span class="bk">Heilen ${hc}</span></button>`; }
+      if(row) h+=`<div class="brow wide">${row}</div>`;
+      h+=`<div class="btail"></div>`; el.innerHTML=h; return;
+    }
+    if(typeof idx==='string' && idx.slice(0,2)==='op'){   // ----- Sammler-Sprechblase (Tempo/Lager global + Pawns) -----
+      const o=s.outposts&&s.outposts[+idx.slice(2)]; if(!o){ this.closeBubble(); return; }
+      const T=OUTPOST_TYPES[o.type], tL=s.sammlerTempoLvl||0, cL=s.sammlerCapLvl||0, mxL=sammlerGlobalMax(s);
+      const ct=sammlerGlobalCost('tempo',tL), cc=sammlerGlobalCost('cap',cL), tMax=tL>=mxL, cMax=cL>=mxL;
+      const ow=o.workers||0, free=freeWorkers(s);
+      let h=`<div class="bh"><img src="ts/${T.sprite}.png">${T.name}</div>`;
+      h+=`<div class="bstat"><span class="si"><img src="${ico(T.res)}">${Math.floor(o.store||0)}/${outpostCap(o,s)}</span><span class="si"><img src="${ico('up_gear')}">${outpostRate(o,s).toFixed(2)}/s</span><span class="si"><img src="${ico('pawn')}">${ow}/4</span></div>`;
+      h+=`<div class="brow">`+up('optempo','up_gear', tMax||!canAfford(s,ct), tMax?'MAX':cm(ct))+up('opcap',T.res, cMax||!canAfford(s,cc), cMax?'MAX':cm(cc))+up('opadd','pawn', ow>=4||free<=0, ow>=4?'VOLL':'+1')+`</div><div class="btail"></div>`;
+      el.innerHTML=h; return;
+    }
+    const b=s.builds&&s.builds[idx]; if(!b){ this.closeBubble(); return; }
+    const T=BUILD_TYPES[b.type];
+    let html=`<div class="bh"><img src="ts/${T.sprite}.png">${T.name}</div>`;
+    if(b.type==='schmiede'){                           // Schmiede = Helden-Angriffs-Upgrades (mid:7405)
+      html+=`<div class="bstat"><span class="si"><img src="${ico('up_attack')}">×${(s.atk||1).toFixed(2)}</span><span class="si"><img src="${ico('up_armor')}">${s.def||0}</span><span class="si"><img src="${ico('up_vita')}">${s.player.hpmax}</span></div>`;
+      html+=`<div class="bgrid">${upGrid(UP_KAMPF)}</div>`;
+    } else if(b.type==='waffenkammer'){                // Kaserne = globale Truppen-Upgrades
+      const mx=troopGlobalMax(s), aL=s.troopAtkLvl||0, hL=s.troopHpLvl||0;
+      html+=`<div class="bstat"><span class="si"><img src="${ico('up_attack')}">${aL}/${mx}</span><span class="si"><img src="${ico('up_vita')}">${hL}/${mx}</span></div>`;
+      const tg=(key,stat,lvl)=>{ const atMx=lvl>=mx, c=troopGlobalCost(stat,lvl); return up(key, stat==='atk'?'up_attack':'up_vita', atMx||!canAfford(s,c), atMx?'MAX':cm(c)); };
+      html+=`<div class="brow">${tg('tg_atk','atk',aL)}${tg('tg_hp','hp',hL)}</div>`;
+    } else if(b.type==='reparatur'||b.type==='heiler'){ // produziert nichts → Info
+      html+=`<div class="bstat"><span class="si">${b.type==='reparatur'?'Repariert das Dorf nach Nächten':'Braut Heil-Tränke'}</span></div>`;
+    } else if(T.res){                                  // Produzent (Goldmine / Marktplatz) — Tempo/Menge (M3: keine Pawns)
+      const mxL=buildMaxLvl(s), ct=buildUpCost(b,'tempo',s), cg=buildUpCost(b,'menge',s);
+      const tMax=b.tempo>=mxL, gMax=b.menge>=mxL, rate=buildRate(s,b).toFixed(2);
+      html+=`<div class="bstat"><span class="si"><img src="${ico('up_gear')}">${b.tempo}/${mxL}</span><span class="si"><img src="${ico(T.res)}">${rate}/s</span></div>`;
+      let row='';
+      if(b.type==='juwelier'){ const mm=b.marktMode||1, mmx=marktMaxMode(s); row+=`<button class="bup" onclick="game.bubbleBuy('marktmode')"><img src="${ico('edelstein')}"><span class="bk">Kurs ${mm}/${mmx}</span></button>`; }
+      row+=up('tempo','up_gear', tMax||!canAfford(s,ct), tMax?'MAX':cm(ct))+up('menge',T.res, gMax||!canAfford(s,cg), gMax?'MAX':cm(cg));
+      html+=`<div class="brow">${row}</div>`;
+    } else { html+=`<div class="bstat"><span class="si">${T.name}</span></div>`; }
+    html+=`<div class="btail"></div>`; el.innerHTML=html; },
+  positionBubble(){ const s=this.s, idx=this.bubbleFor; if(idx==null)return; const el=document.getElementById('bubble'); if(!el)return;
+    if(idx==='hero'){ el.classList.add('heroanchor'); const port=document.querySelector('#herohud .portrait.player'); if(!port)return; const r=port.getBoundingClientRect();
+      el.style.left=r.left.toFixed(1)+'px'; el.style.top=(r.top-6).toFixed(1)+'px'; return; }
+    el.classList.remove('heroanchor');
+    let wx, wy;
+    if(idx==='castle'){ wx=BASE.x; wy=BASE.y-BASE_SOLID-10; }   // Burg: über der Basis
+    else if(typeof idx==='string' && idx.slice(0,2)==='op'){ const o=s.outposts&&s.outposts[+idx.slice(2)]; if(!o)return; wx=o.x; wy=o.y-31; }   // Sammler: Gebäude-Mitte
+    else { const b=s.builds&&s.builds[idx]; if(!b)return; const p=buildPos(b); wx=p.x; wy=p.y; }
+    const sx=(wx-s.cam.x)*this.zoom+this.vw/2, sy=(wy-s.cam.y)*this.zoom+this.vh/2-62*this.zoom;
+    el.style.left=sx.toFixed(1)+'px'; el.style.top=sy.toFixed(1)+'px'; },
+  bubbleBuy(key){ if(this.bubbleFor==null)return;
+    if(this.bubbleFor==='hero'){ this.buy(key); this.renderBubble(); return; }   // Held-Upgrades
+    const save=this.panelFor; this.panelFor=this.bubbleFor;   // upgBuild/upgTroopGlobal/toggleMarktMode lesen panelFor
+    if(key==='tempo'||key==='menge') this.upgBuild(key);
+    else if(key==='tg_atk') this.upgTroopGlobal('atk');
+    else if(key==='tg_hp') this.upgTroopGlobal('hp');
+    else if(key==='marktmode') this.toggleMarktMode();
+    else if(key==='optempo') this.upgSammlerGlobal('tempo');
+    else if(key==='opcap') this.upgSammlerGlobal('cap');
+    else if(key==='opadd') this.assignOutpost(1);
+    else if(key==='era') this.buyEra();
+    else if(key==='heal') this.healVillage();
+    else this.buy(key);   // UP_KAMPF / UP_DORF-IDs (angriff/ruestung/vita/hire/build/buildpost/expand)
+    this.panelFor=save; this.renderBubble(); },
   mkBtn(shop,id,cls,onclick){ const b=document.createElement('button'); b.className='up'+(cls?' '+cls:'');
     b.innerHTML='<img><span class="tx"><span class="t"></span><span class="c d"></span><span class="c k"></span></span>';
     b.onclick=onclick; shop.appendChild(b); this.btns[id]=b;
@@ -1786,9 +1920,7 @@ const game={
         if(b.type==='waffenkammer'){ this.mkBtn(shop,'tg_atk','',()=>this.upgTroopGlobal('atk')); this.mkBtn(shop,'tg_hp','',()=>this.upgTroopGlobal('hp')); } }   // §5: globale Truppen-Upgrades in der Kaserne
       else { if(b.type==='juwelier') this.mkBtn(shop,'marktmode','',()=>this.toggleMarktMode());   // §9: Markt-Kurs umschalten
       this.mkBtn(shop,'tempo','',()=>this.upgBuild('tempo'));
-      this.mkBtn(shop,'menge','',()=>this.upgBuild('menge'));
-      this.mkBtn(shop,'assignAdd','',()=>this.assign(1));
-      this.mkBtn(shop,'assignRem','',()=>this.assign(-1)); }
+      this.mkBtn(shop,'menge','',()=>this.upgBuild('menge')); }   // M3 (mid:7408): Hütten-Arbeiter-Buttons raus — Pawns nur in Sammlern
       if(b.type==='schmiede'){ for(const up of UP_KAMPF) this.mkBtn(shop,up.id,'',()=>this.buy(up.id)); }   // §5: Helden-Kampf-Upgrades in der Schmiede (mid:7162/7165)
     } else if(typeof this.panelFor==='string' && this.panelFor.slice(0,2)==='op'){   // ----- AUSSENPOSTEN-Panel -----
       const o=this.s.outposts&&this.s.outposts[+this.panelFor.slice(2)]; if(!o){ this.panelFor='castle'; return this.buildShop(); }
@@ -1806,12 +1938,15 @@ const game={
       tabsEl.style.display='none'; setHead('tr_'+tw.type, TOWER_TYPES[tw.type].name);
       this.mkBtn(shop,'tw_info','',()=>{});   // §5: Aufrüsten ist global in der Kaserne — hier nur Info + Modus
       this.mkBtn(shop,'tw_mode','',()=>this.toggleTowerMode());
-    } else {                                        // ----- BURG-Panel (Held/Dorf) -----
-      tabsEl.style.display='flex'; setHead('@era'+Math.min(6,this.s.era), this.s.playerName?('Burg — '+this.s.playerName):'Burg — Aufbau & Upgrades');
-      const list=this.tab==='held'?UP_HELD:UP_DORF;   // Kampf-Upgrades sind in der Schmiede (mid:7162)
-      for(const up of list) this.mkBtn(shop,up.id,'',()=>this.buy(up.id));
-      if(this.tab==='dorf'){ const nr=document.createElement('div'); nr.id='netrate'; nr.className='netrate'; shop.insertBefore(nr,shop.firstChild);   // Dorf-Produktion/Sek oben (Audit-Idee)
-        this.mkBtn(shop,'nacht','era',()=>this.startNight()); if(this.s.era>=3) this.mkBtn(shop,'heal','',()=>this.healVillage()); this.mkBtn(shop,'era','era',()=>this.buyEra()); }
+    } else if(this.panelFor==='hero'){              // ----- HELDEN-Upgrade-Menü (mid:7420: aus der Burg ausgelagert, per Portrait-Tap) -----
+      tabsEl.style.display='none'; setHead('@u/portrait_'+(CHARS[this.s.char]?this.s.char:'krieger'), this.s.playerName?('Held — '+this.s.playerName):'Held — Upgrades');
+      for(const up of UP_HELD) this.mkBtn(shop,up.id,'',()=>this.buy(up.id));   // Kampf-Upgrades sind in der Schmiede (mid:7162)
+    } else {                                        // ----- BURG-Panel: nur noch Dorf (eben, keine Tabs) (mid:7420) -----
+      this.s.tutMenu=true;   // Tutorial-Schritt 4 (mid:6450) — früher von setTab('dorf'), jetzt beim Burg-Öffnen (Tabs entfernt)
+      tabsEl.style.display='none'; setHead('@era'+Math.min(6,this.s.era), 'Burg — Dorf & Aufstieg');
+      for(const up of UP_DORF) this.mkBtn(shop,up.id,'',()=>this.buy(up.id));
+      const nr=document.createElement('div'); nr.id='netrate'; nr.className='netrate'; shop.insertBefore(nr,shop.firstChild);   // Dorf-Produktion/Sek oben (Audit-Idee)
+      this.mkBtn(shop,'nacht','era',()=>this.startNight()); if(this.s.era>=3) this.mkBtn(shop,'heal','',()=>this.healVillage()); this.mkBtn(shop,'era','era',()=>this.buyEra());
     }
     this.updateShop(); },
   updateShop(){ const s=this.s; if(!this.btns)return;
@@ -1823,16 +1958,14 @@ const game={
         if(b.type==='waffenkammer'){ const mx=troopGlobalMax(s), setTg=(id,stat,nm,lk)=>{ const lvl=s[lk]||0, atMx=lvl>=mx, c=troopGlobalCost(stat,lvl); set(id,'up_attack',`${nm} (Rang ${lvl}/${mx})`, atMx?'Max für diese Stufe — erst aufsteigen':'Gilt für ALLE Truppen gleichzeitig', atMx?'':'⤷ '+costStr(c), atMx||!canAfford(s,c)); };
           setTg('tg_atk','atk','Alle Truppen +Schaden','troopAtkLvl'); setTg('tg_hp','hp','Alle Truppen +HP','troopHpLvl'); }
         return; }
-      const mxL=buildMaxLvl(s), mxW=buildMaxWorkers(s), ct=buildUpCost(b,'tempo',s), cm=buildUpCost(b,'menge',s);
-      const tMax=b.tempo>=mxL, gMax=b.menge>=mxL, wMax=b.workers>=mxW;
+      const mxL=buildMaxLvl(s), ct=buildUpCost(b,'tempo',s), cm=buildUpCost(b,'menge',s);
+      const tMax=b.tempo>=mxL, gMax=b.menge>=mxL;
       if(b.type==='juwelier'){ const mm=b.marktMode||1, M=MARKT_MODES[mm], maxM=marktMaxMode(s); const combo=Object.keys(MARKT_COMBO).map(k=>MARKT_COMBO[k]+' '+NAME[k]).join('+');
         set('marktmode','edelstein',`Kurs: Modus ${mm}/3 — ${M.name}`, `${combo} → ${M.edel} ${NAME.edelstein}`+(mm<maxM?'':(maxM<3?` (Modus ${maxM+1} ab höherer Stufe)`:'')), mm<maxM?'Tippen: besserer Kurs →':'Bester verfügbarer Kurs', false); }
       const cons=buildConsumes(b);
       const flow=cons ? `wandelt ${Object.keys(cons).map(k=>NAME[k]).join('+')} → ${NAME[T.res]}` : `produziert ${NAME[T.res]}`;
       set('tempo','up_gear',`Tempo Lvl ${b.tempo}/${mxL}`, tMax?'Max für diese Stufe — erst aufsteigen':`${flow} (jetzt ${buildRate(s,b).toFixed(2)}/s)`, tMax?'':'⤷ '+costStr(ct), tMax||!canAfford(s,ct));
       set('menge',T.res,`Menge Lvl ${b.menge}/${mxL}`, gMax?'Max für diese Stufe — erst aufsteigen':`Mehr Ertrag pro Zyklus (jetzt ${buildRate(s,b).toFixed(2)}/s)`, gMax?'':'⤷ '+costStr(cm), gMax||!canAfford(s,cm));
-      set('assignAdd','worker',`Arbeiter zuweisen (${b.workers}/${mxW})`, wMax?'Hütte voll für diese Stufe':`+50% Output je Arbeiter`, wMax?'':'Frei im Pool: '+freeWorkers(s), wMax||freeWorkers(s)<=0);
-      set('assignRem','worker','Arbeiter abziehen','zurück in den Pool der Burg','',b.workers<=0);
       if(b.type==='schmiede'){ for(const up of UP_KAMPF){ const el=this.btns[up.id]; if(!el)continue;   // §5: Helden-Kampf-Upgrades (mid:7162) — gleiche Render-Logik wie im Burg-Panel
         if(up.show&&!up.show(s)){ el.style.display='none'; continue; }
         if(up.lvl){ const atMax=up.lvl(s)>=heroMaxLvl(s), c=up.cost(s);
@@ -1869,7 +2002,7 @@ const game={
         set('tw_mode','worker', ml[m], dl[m], 'Tippen: nächster Modus →', false); }
       return;
     }
-    const list=this.tab==='held'?UP_HELD:UP_DORF;   // Kampf-Upgrades sind in der Schmiede (mid:7162)
+    const list=this.panelFor==='hero'?UP_HELD:UP_DORF;   // Helden-Menü vs Burg/Dorf (mid:7420); Kampf-Upgrades sind in der Schmiede (mid:7162)
     for(const up of list){ const el=this.btns[up.id]; if(!el)continue;
       if(up.show&&!up.show(s)){ el.style.display='none'; continue; }
       if(up.lvl){ const atMax=up.lvl(s)>=heroMaxLvl(s); const c=up.cost(s);
@@ -1887,9 +2020,9 @@ const game={
       set('heal','pilze','Dorf heilen',need?('Lebensleiste auf 100% (jetzt '+pct+'%)'):'Dorf ist voll',  '⤷ '+hc+' Pilze', !need||(s.store.pilze||0)<hc); }
     const eb=this.btns.era; if(!eb) return; const next=s.era+1;
     if(next<ERAS.length){ const ec=eraCost(next); const gate=nightGated(next);   // §4: gated = Aufstieg startet eine Nacht (Button bleibt aktiv, zahlt + spawnt Welle)
-      set('era','era'+Math.min(6,next),(gate?'🌙 ':'')+'Aufstieg → '+ERAS[next].name,gate?'Bezahlen → Nacht überstehen → Aufstieg':'',(canAfford(s,ec)?'⤷ ':'⤷ fehlt: ')+costStr(ec),!canAfford(s,ec)||nightActive(s)); }
-    else if(s.endless) set('era','era6','🌟 Endlos-Nacht '+((s.endlessNights||0)+1)+' starten','Überlebe so lange du kannst — je weiter, desto höher auf der Bestenliste',`Bisher: ${s.endlessNights||0} Nächte`,nightActive(s));   // §12 Endless
-    else set('era','era6','Stufe 20 erreicht','','Maximum erreicht.',true);
+      set('era','@era'+Math.min(6,next),(gate?'🌙 ':'')+'Aufstieg → '+ERAS[next].name,gate?'Bezahlen → Nacht überstehen → Aufstieg':'',(canAfford(s,ec)?'⤷ ':'⤷ fehlt: ')+costStr(ec),!canAfford(s,ec)||nightActive(s)); }   // @era → ts/era*.png (ts/icons/ hat nur era0-4)
+    else if(s.endless) set('era','@era6','🌟 Endlos-Nacht '+((s.endlessNights||0)+1)+' starten','Überlebe so lange du kannst — je weiter, desto höher auf der Bestenliste',`Bisher: ${s.endlessNights||0} Nächte`,nightActive(s));   // §12 Endless
+    else set('era','@era6','Stufe 20 erreicht','','Maximum erreicht.',true);
     const nrEl=document.getElementById('netrate');   // Dorf-Produktion/Sek anzeigen (Audit-Idee)
     if(nrEl){ const rt=netRate(s), parts=ALL.filter(k=>Math.abs(rt[k]||0)>=0.05).map(k=>{ const rv=Math.round((rt[k]||0)*10)/10, txt=(rv===0)?'±0':((rv>0?'+':'')+rv.toFixed(1)), col=rv<0?'#ff8a6a':(rv>0?'#9fe0a0':'#b9aee0'); return `<span style="color:${col}">${txt} ${NAME[k]}</span>`; });
       nrEl.innerHTML='<b>Dorf-Produktion /s:</b> '+(parts.length?parts.join('  ·  '):'baue Produktionsgebäude'); } },
@@ -1914,11 +2047,6 @@ const game={
     SFX.buy(); burst(s,BASE.x,BASE.y-20,'#bfe9ff',10); say(stat==='atk'?'Alle Truppen schlagen härter!':'Alle Truppen sind zäher!'); this.updateShop(); saveGame(s); },
   toggleTowerMode(){ const s=this.s, tw=towerAt(s,+this.panelFor.slice(2)); if(!tw)return; const cyc={wache:'folgen',folgen:'posten',posten:'wache'}; tw.mode=cyc[tw.mode||'wache']; SFX.buy(); this.updateShop(); saveGame(s); },   // 3-Modus-Cycle §5b
   toggleMarktMode(){ const s=this.s, b=s.builds[this.panelFor]; if(!b||b.type!=='juwelier')return; const mx=marktMaxMode(s); b.marktMode=(((b.marktMode||1)%mx)+1); SFX.buy(); this.updateShop(); saveGame(s); },   // Markt-Kurs §9 (gedeckelt durch Stufe)
-  assign(d){ const s=this.s,b=s.builds[this.panelFor]; if(!b)return;
-    if(d>0){ if(b.workers>=buildMaxWorkers(s)){ say('Hütte voll für diese Stufe — erst aufsteigen.'); return; }
-      if(freeWorkers(s)<=0){ say('Keine freien Helfer — heuere in der Burg welche an.'); return; } b.workers++; }
-    else { if(b.workers<=0) return; b.workers--; }
-    SFX.buy(); this.updateShop(); saveGame(s); },
   assignOutpost(d){ const s=this.s, o=s.outposts&&s.outposts[+this.panelFor.slice(2)]; if(!o)return;   // §1: Pawns in den Sammler (mid:7122) — max 4, je +50% Sammelrate
     if(d>0){ if((o.workers||0)>=4){ say('Sammler voll — max 4 Arbeiter.'); return; }
       if(freeWorkers(s)<=0){ say('Keine freien Helfer — heuere in der Burg welche an.'); return; } o.workers=(o.workers||0)+1; }
@@ -2001,14 +2129,14 @@ const TUT_STEPS=[
   {t:'🌱 Lauf los',b:'Tippe irgendwo auf die Karte — dein Held läuft dorthin.',done:s=>s.tutMoved},
   {t:'⛏️ Sammeln',b:'Lauf zu einem leuchtenden Ressourcen-Knoten und bleib kurz daneben stehen. Du sammelst automatisch.',done:s=>s.tutHarvested},
   {t:'🏰 Abladen',b:'Bring die Beute zur Basis in der Mitte — lauf einfach hinein, dann landet alles im Lager.',done:s=>s.firstDeposit},
-  {t:'⬆️ Aufbauen',b:'Tippe auf deine Burg in der Mitte — da öffnet sich das Aufbau-Menü. Wechsle dort auf den Reiter „Dorf", um Sammler zu bauen und aufzusteigen. Viel Spaß!',done:s=>s.tutMenu},
+  {t:'⬆️ Aufbauen',b:'Tippe auf deine Burg in der Mitte — da öffnet sich das Aufbau-Menü, um Sammler zu bauen und aufzusteigen. Deine Helden-Upgrades findest du mit einem Tipp auf dein Helden-Portrait unten links. Viel Spaß!',done:s=>s.tutMenu},
 ];
 // Kontext-Tooltips (mid:6438): je eine kurze Karte beim Freischalten von Neuem. Jede nur 1x (in s.tutShown persistiert).
 // Tutorial-Texte (Redesign 2026-06-24, §3-Reihenfolge). Voller Onboarding-Pass = späterer Go-Live-Block (§11.3).
 const TUT={
   era1:{t:'🪓 Stufe 2',b:'Neu: der Kürbis-Sammler als Außenposten draußen im Feld. Sammler sammeln von allein — du läufst hin und holst die Ernte ab. Manuell sammeln geht weiter.'},
   towers:{t:'⚔️ Truppen',b:'Im äußeren Dorf-Ring kannst du jetzt Truppen bauen — tippe einen freien Bauplatz an. Jede Truppe bewacht das Dorf oder folgt dir in den Kampf (umschaltbar).'},
-  night1:{t:'🌙 Die Nacht',b:'Ab Stufe 6 ist jeder Aufstieg eine Nacht: tippe deine Burg an und drücke im Reiter „Dorf" auf „Aufstieg" — das bezahlt den Aufstieg und startet die Nachtwelle. Überlebst du sie, steigst du auf; verlierst du, bleibst du auf der Stufe (Teil des Preises zurück). Halt die Gegner mit Held + Truppen auf!'},
+  night1:{t:'🌙 Die Nacht',b:'Ab Stufe 6 ist jeder Aufstieg eine Nacht: tippe deine Burg an und drücke auf „Aufstieg" — das bezahlt den Aufstieg und startet die Nachtwelle. Überlebst du sie, steigst du auf; verlierst du, bleibst du auf der Stufe (Teil des Preises zurück). Halt die Gegner mit Held + Truppen auf!'},
   era3:{t:'🔨 Stufe 4',b:'Die Schmiede steht — sie macht dich kampftauglich. Rüste Schaden, Rüstung und Leben auf, bevor draußen die Gegner härter werden.'},
   era4:{t:'⚔️ Stufe 5',b:'Die Kaserne öffnet! Bau deine erste Truppe (Schwert oder Bogen). Sie verteidigt das Dorf oder folgt dir in den Kampf.'},
   era5:{t:'🌙 Stufe 6',b:'Die erste Nacht naht. Ab jetzt brauchst du für jeden weiteren Aufstieg eine frisch überstandene Nacht — deine Truppen tragen das Endspiel.'},
@@ -2073,11 +2201,11 @@ function endPointer(){ if(!pDown) return;
     // Tap auf ein Fixture (Hütte/Außenposten/Turm) öffnet direkt sein Panel — kein „Held muss daneben stehen" mehr (mid:6782).
     // Die enge Hitbox auf dem Gebäude-Körper verhindert versehentliches Auslösen beim Tap-to-Move im Feld.
     const P=s.player, heroNear=(x,y)=>dist(P.x,P.y,x,y)<88;
-    if(opIdx>=0){ game.openPanelFor('op'+opIdx); }
-    else if(tsIdx>=0){ game.openPanelFor((towerAt(s,tsIdx)?'tw':'tb')+tsIdx); }
-    else if(hutIdx>=0){ game.openPanelFor(hutIdx); }
-    else if(tappedBase && heroNear(BASE.x,BASE.y)){ if(panel.classList.contains('open')&&game.panelFor==='castle') panel.classList.remove('open'); else game.openPanelFor('castle'); }
-    else moveTo(p); }
+    if(opIdx>=0){ const k='op'+opIdx; if(game.bubbleFor===k) game.closeBubble(); else game.openBubble(k); }   // B3: Sammler als Sprechblase (Toggle)
+    else if(tsIdx>=0){ game.closeBubble(); game.openPanelFor((towerAt(s,tsIdx)?'tw':'tb')+tsIdx); }
+    else if(hutIdx>=0){ if(game.bubbleFor===hutIdx) game.closeBubble(); else game.openBubble(hutIdx); }   // B3: Hütten als Sprechblase (Toggle)
+    else if(tappedBase && heroNear(BASE.x,BASE.y)){ if(game.bubbleFor==='castle') game.closeBubble(); else game.openBubble('castle'); }   // B3: Burg als Sprechblase (Toggle)
+    else { game.closeBubble(); moveTo(p); } }
   pDown=null; game.dragging=false; }
 function upPointer(e){ pointers.delete(e.pointerId);
   if(pointers.size===0){ if(!pinched) endPointer(); else { pDown=null; game.dragging=false; } pinched=false; pinchPrev=0; } }   // Tap/Schwenk nur wenn in dieser Geste nicht gepincht wurde
@@ -2121,13 +2249,12 @@ const Bot={
   schmiedeIdx(s){ return (s.builds||[]).findIndex(b=>b.type==='schmiede'); },
   peek(t,tab){ if(tab) game.tab=tab; game.openPanelFor(t); },   // Panel sichtbar öffnen, damit der Zuschauer den Dialog sieht (mid:7189)
   upPanel(s,id){ if(UP_KAMPF.some(u=>u.id===id)){ const i=this.schmiedeIdx(s); return i>=0?[i,null]:null; }   // Kampf-Upgrades → Schmiede-Panel
-    return UP_HELD.some(u=>u.id===id)?['castle','held']:['castle','dorf']; },   // Farm → Burg/Held, Rest (expand) → Burg/Dorf
+    return UP_HELD.some(u=>u.id===id)?['hero',null]:['castle',null]; },   // Held-Upgrades → Helden-Menü, Rest (expand etc.) → Burg/Dorf (mid:7420)
   decide(s){
     // 1) heilen wenn angeschlagen (Heil-Craft sitzt im Burg/Held-Panel)
-    if(s.player.hp < s.player.hpmax*0.42){ for(const h of ['heiltrank','sauce','suppe']){ if(this.aff(s,h)){ this.peek('castle','held'); game.buy(h); this.note='💚 heilt'; return; } } }
-    // 2) freie Pawns zuweisen (Hütten zuerst, dann Sammler) — immer sinnvoll
-    if(freeWorkers(s)>0){ const b=(s.builds||[]).find(b=>b.workers<buildMaxWorkers(s)); if(b){ b.workers++; SFX.buy(); this.peek(s.builds.indexOf(b)); this.note='👷 Pawn→Hütte'; return; }
-      const o=(s.outposts||[]).find(o=>(o.workers||0)<4); if(o){ o.workers=(o.workers||0)+1; SFX.buy(); this.peek('op'+s.outposts.indexOf(o)); this.note='👷 Pawn→Sammler'; return; } }
+    if(s.player.hp < s.player.hpmax*0.42){ for(const h of ['heiltrank','sauce','suppe']){ if(this.aff(s,h)){ this.peek('hero'); game.buy(h); this.note='💚 heilt'; return; } } }
+    // 2) freie Pawns in Sammler zuweisen (M3, mid:7408: Pawns nur noch in Sammlern) — immer sinnvoll
+    if(freeWorkers(s)>0){ const o=(s.outposts||[]).find(o=>(o.workers||0)<4); if(o){ o.workers=(o.workers||0)+1; SFX.buy(); this.peek('op'+s.outposts.indexOf(o)); this.note='👷 Pawn→Sammler'; return; } }
     // Aufstiegs-Lage bestimmen (Prep → Save → Go)
     const next=s.era+1, ec=(next<ERAS.length)?eraCost(next):null;
     const frac=ec?Math.min(...Object.keys(ec).map(k=>(s.store[k]||0)/ec[k])):1;   // schwächste Komponente
@@ -2145,8 +2272,8 @@ const Bot={
     if(nextBuildType(s) && this.aff(s,'build') && !saving){ this.peek('castle','dorf'); game.buy('build'); this.note='🏚 baut Hütte'; return; }
     // 6) Truppe bauen bis zum Stufen-Limit — Prep für nacht-gated Aufstieg (baut auch im Spar-Fall solange noch nötig)
     if((s.towers||[]).length < towerAllowance(s) && (!saving || (willFight && !haveTroops))){ if(this.buildTroop(s)){ this.note='🛡 baut Truppe'; return; } }
-    // 7) Helfer anheuern — nur wenn Hütten/Sammler sie aufnehmen können + nicht im Spar-Modus
-    const cap=(s.outposts||[]).reduce((a,o)=>a+(4-(o.workers||0)),0)+(s.builds||[]).reduce((a,b)=>a+(buildMaxWorkers(s)-b.workers),0);
+    // 7) Helfer anheuern — nur wenn Sammler sie aufnehmen können + nicht im Spar-Modus (M3: nur Sammler)
+    const cap=(s.outposts||[]).reduce((a,o)=>a+(4-(o.workers||0)),0);
     const wTarget=Math.min(2+s.era*2, 14); if(!saving && cap>0 && s.workerPool<wTarget && this.aff(s,'hire')){ this.peek('castle','dorf'); game.buy('hire'); this.note='🧑 heuert an'; return; }
     // 8) ein leistbares Upgrade (rotierend, leicht ineffizient = menschlich) — nur wenn flüssig; Kampf-Upgrades NUR wenn Schmiede steht
     if(!saving){ const ups=['gather','cap','vita','angriff','ruestung','speed','steam','expand','wirbel','sturm'];
