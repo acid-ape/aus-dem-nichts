@@ -101,7 +101,9 @@
   #bubble.heroanchor{transform:translate(0,-100%) scale(.9);transform-origin:bottom left}   /* Held-Bubble linksbündig überm Portrait (sonst läuft sie links aus dem Bild) */
   #bubble.heroanchor.on{transform:translate(0,-100%) scale(1)}
   #bubble.heroanchor .btail{left:30px}
-  #bubble .bgrid{display:flex;flex-wrap:wrap;justify-content:center;gap:9px;max-width:330px}   /* flex, keine leeren Zellen (mid:7458); großzügiger (mid:7506) */
+  #bubble .bgrid{display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-start;gap:9px;max-width:360px}   /* flex, keine leeren Zellen (mid:7458); align-start = Buttons nicht vertikal gestreckt (mid:7562) */
+  #bubble .bx{position:absolute;top:1px;right:2px;width:22px;height:22px;border:0;background:rgba(0,0,0,.4);border-radius:50%;color:#fff;font-size:16px;font-weight:800;line-height:20px;cursor:pointer;pointer-events:auto;padding:0;z-index:3;text-shadow:0 1px 1px #000}   /* Schließen ohne Laufen (mid:7564) */
+  #bubble .bx:active{background:rgba(0,0,0,.65)}
   #bubble .blvl{position:absolute;top:3px;right:4px;background:rgba(0,0,0,.72);color:#fff;font-size:9px;font-weight:800;border-radius:6px;padding:0 4px;line-height:14px}
   #bubble .brow.wide{margin-top:6px;flex-wrap:wrap}
   #bubble .bup.wide{width:auto;flex-direction:row;gap:6px;padding:7px 11px}
@@ -321,7 +323,7 @@
   #nameWarn{font-size:12.5px;color:#ff8a8a;min-height:16px;margin-top:9px}
   /* Der Älteste spricht: Pergament-Rolle, rollt oben rechts unterm Zahnrad rechts→links raus (mid:7513) */
   #say{position:absolute;top:calc(env(safe-area-inset-top) + 158px);right:calc(env(safe-area-inset-right) + 9px);
-    max-width:min(82vw,338px);display:flex;align-items:center;gap:9px;text-align:left;
+    max-width:min(70vw,286px);display:flex;align-items:center;gap:9px;text-align:left;   /* schmaler → ragt nicht ins Burg-Inventar links (mid:7569) */
     color:#46341f;font-family:'Cinzel',serif;font-size:12.5px;
     border-image:url(ts/ui/scroll9.png) 68 84 111 100 fill / 22px 28px 36px 32px stretch;
     padding:13px 15px 19px;opacity:0;pointer-events:none;
@@ -495,7 +497,7 @@ function placeOutpost(s,type){ const T=OUTPOST_TYPES[type], r0=OUTER_R+70, r1=Ma
 // Panda = 5. Truppe (Late-Game), interim warrior_black-Sprite (P8 → echtes Panda aus Tileset).
 const TOWER_TYPES={   // role: melee | ranged | heal. atkR = Wirk-/Heil-Reichweite.
   kaempfer:{name:'Kämpfer',      unit:'warrior_dblue',role:'melee',  era:4,  range:240, atkR:44,  atk:7,  hp:100, speed:74, cd:0.7,  cost:{holz:160,stein:100}},                    // Stufe 5 — dunkelblau (Nahkampf-Team, mid:7548)
-  bogen:   {name:'Bogenschütze', unit:'archer_lblue', role:'ranged', era:4,  range:340, atkR:340, atk:5,  hp:60,  speed:64, cd:1.0,  cost:{holz:150,stein:80}},                     // Stufe 5 — hellblau (Fernkampf-Team)
+  bogen:   {name:'Bogenschütze', unit:'archer_lblue', role:'ranged', era:4,  range:240, atkR:215, atk:5,  hp:60,  speed:64, cd:1.0,  cost:{holz:150,stein:80}},                     // Stufe 5 — hellblau; Reichweite 340→215 (war ultra-weit, mid:7566), tunebar
   monk:    {name:'Mönch',        unit:'monk_lblue',   role:'heal',   era:6,  range:300, atkR:300, heal:9, hp:75,  speed:66, cd:1.3,  cost:{holz:200,stein:120,gold:40}},             // Stufe 7 — hellblau (Heiler/Support-Team)
   lance:   {name:'Lanze',        unit:'lance_blue',   role:'melee',  era:12, range:260, atkR:80,  atk:11, hp:110, speed:70, cd:0.95, cost:{holz:260,stein:170,gold:80}},            // Stufe 13 — Reichweiten-Nahkampf
   panda:   {name:'Kampf-Panda',  unit:'panda',        role:'melee',  era:17, range:280, atkR:90,  atk:16, hp:150, speed:72, cd:0.9,  cost:{holz:400,stein:280,gold:160,edelstein:30}}, // Stufe 18 — echtes Panda-Sprite (Enemy-Pack)
@@ -1633,8 +1635,8 @@ const game={
     if(this.s.playSec>3){ this._ft=(this._ft||16.7)*0.9+(dt*1000)*0.1;   // adaptive Perf-Degradierung, STUFENWEISE (mid:7271/7287)
       if(this._ft>30 && PERF>0 && this.s.playSec>(this._lastDrop||0)+1.6){ PERF--; this._lastDrop=this.s.playSec; this._ft=16.7; try{ say(PERF<=0?'⚙️ Schatten aus für mehr Tempo.':'⚙️ Sparmodus: einfachere Schatten für flüssigeres Spiel.'); }catch(_){} } }
     this._mmAcc=(this._mmAcc||0)+1; if(this._mmAcc%4===0) this.drawMinimap();   // Minimap throttled (~15fps)
-    if(this._pendingOp!=null){ const o=this.s.outposts&&this.s.outposts[this._pendingOp];   // mid:7463: bei Ankunft am Sammler das Menü öffnen
-      if(!o) this._pendingOp=null; else if(dist(this.s.player.x,this.s.player.y,o.x,o.y)<HARVEST_R+34){ this.openBubble('op'+this._pendingOp); this._pendingOp=null; } }
+    if(this._pendingOpen){ const po=this._pendingOpen;   // bei Ankunft am Ziel das Menü öffnen (mid:7463/7563: Sammler/Hütte/Truppen-Platz)
+      if(dist(this.s.player.x,this.s.player.y,po.x,po.y)<po.r){ this.openBubble(po.key); this._pendingOpen=null; } }
     if(this.bubbleFor!=null) this.positionBubble();   // B1: Sprechblase am Gebäude halten (Kamera folgt)
     this.uiAcc+=dt; if(this.uiAcc>0.2){ this.uiAcc=0; checkQuests(this.s); checkAchievements(this.s); this.checkTut(); this.renderRes(); this.updateShop(); this.renderQuest(); }
     this.saveAcc=(this.saveAcc||0)+dt; if(this.saveAcc>5){ this.saveAcc=0; saveGame(this.s); }  // Auto-Save alle 5s
@@ -1871,6 +1873,7 @@ const game={
     const ico=k=>(k.charAt(0)==='@'?'ts/'+k.slice(1):'ts/icons/'+k)+'.png';
     const cm=c=>Object.keys(c).map(k=>`<img src="${ico(k)}">${Math.round(c[k])}`).join(' ');   // Kosten als Symbol+Zahl
     const pv=this.bubblePreview;   // mid:7442: scharf gestelltes Wert-Upgrade (Grün-Vorschau)
+    const closeX='<button class="bx" onclick="game.closeBubble()" aria-label="Schließen">×</button>';   // ×-Schließen oben rechts (mid:7564)
     const nm=k=>UP_SHORT[k]?`<span class="bn">${UP_SHORT[k]}</span>`:'';
     // Stat-Streifen mit Grün-Vorschau: cells=[{k,icon,cur}], proj={upgradeId:{k,v}} (welche Zelle wird worauf)
     const stat=(cells,proj)=>`<div class="bstat">${cells.map(c=>{ const p=pv&&proj&&proj[pv]; const g=p&&p.k===c.k; return `<span class="si${g?' pv':''}"><img src="${ico(c.icon)}">${g?p.v:c.cur}</span>`; }).join('')}</div>`;
@@ -1884,7 +1887,7 @@ const game={
       const proj={cap:{k:'cap',v:s.cap+4},gather:{k:'gat',v:(g0+2).toFixed(1)},speed:{k:'spd',v:spd(s.speed+BAL.speedStep)}};
       let h=`<div class="bh"><img src="ts/u/portrait_${ch}.png">Held</div>`;
       h+=stat([{k:'cap',icon:'up_bag',cur:s.cap},{k:'gat',icon:'up_tools',cur:g0.toFixed(1)},{k:'spd',icon:'ic_boots',cur:spd(s.speed)},{k:'soup',icon:'soup',cur:(s.soup||0)+'/'+soupMax(s)}], proj);
-      h+=`<div class="bgrid">${upGrid(UP_HELD)}</div><div class="btail"></div>`; el.innerHTML=h; return;   // Heil-Button lebt jetzt im HUD (Consumebar, mid:7538)
+      h+=`<div class="bgrid">${upGrid(UP_HELD)}</div><div class="btail"></div>`; el.innerHTML=closeX+h; return;   // Heil-Button lebt jetzt im HUD (Consumebar, mid:7538)
     }
     if(idx==='castle'){                                   // ----- Burg/Dorf-Sprechblase (mid:7426) -----
       this.s.tutMenu=true; const next=s.era+1;
@@ -1894,11 +1897,11 @@ const game={
       // alle Aktionen als VIERECKIGE Grid-Buttons (mid:7517: kein querer Aufstieg-Button, kein Burg-Bild drauf)
       let cells=upGrid(UP_DORF, up=>up.id==='build'?(nextBuildType(s)&&'@'+BUILD_TYPES[nextBuildType(s)].sprite):up.id==='buildpost'?(nextOutpostType(s)&&'@'+OUTPOST_TYPES[nextOutpostType(s)].sprite):null);
       { const sc=soupMax(s), full=(s.soup||0)>=sc, sCost=soupCost(s); cells+=`<button class="bup" ${full||!canAfford(s,sCost)?'disabled':''} onclick="game.bubbleBuy('cooksoup')"><img src="${ico('soup')}"><span class="bn">Suppe ${s.soup||0}/${sc}</span><span class="bk">${full?'VOLL':cm(sCost)}</span></button>`; }   // Kürbis-Suppe kochen ab Stufe 1 (mid:7506)
-      if(s.era>=3){ const hc=healCost(s), need=(s.baseHP||0)<(s.baseHPmax||100); cells+=`<button class="bup" ${(!need||(s.store.pilze||0)<hc)?'disabled':''} onclick="game.bubbleBuy('heal')"><img src="${ico('pilze')}"><span class="bn">Dorf heilen</span><span class="bk"><img src="${ico('pilze')}">${hc}</span></button>`; }
+      // Dorf-Heilung via Pilze RAUS (mid:7567): Dorf-Heilung kommt später über den Handwerker, nicht hier.
       if(next<ERAS.length){ const ec=eraCost(next), gate=nightGated(next), dis=!canAfford(s,ec)||nightActive(s), armed=pv==='era';
         cells+=`<button class="bup${gate?' night':''}${armed?' armed':''}" ${dis?'disabled':''} onclick="game.bubbleBuy('era')"><img src="${ico('ic_ascend')}"><span class="bn">${armed?'Bestätigen?':(gate?'🌙 Aufstieg':'Aufstieg')}</span><span class="bk">${armed?'✓ nochmal':cm(ec)}</span></button>`; }   // 2-Klick (mid:7480), Icon statt Burg-Bild (mid:7517)
       else if(s.endless){ cells+=`<button class="bup night" ${nightActive(s)?'disabled':''} onclick="game.bubbleBuy('era')"><img src="${ico('ic_ascend')}"><span class="bn">🌟 Endlos</span></button>`; }
-      h+=`<div class="bgrid">${cells}</div><div class="btail"></div>`; el.innerHTML=h; return;
+      h+=`<div class="bgrid" style="width:324px">${cells}</div><div class="btail"></div>`; el.innerHTML=closeX+h; return;   // breite Reihe statt schmaler Säule (mid:7562): 4 Spalten
     }
     if(typeof idx==='string' && idx.slice(0,2)==='op'){   // ----- Sammler-Sprechblase (Tempo/Lager global + Pawns) -----
       const o=s.outposts&&s.outposts[+idx.slice(2)]; if(!o){ this.closeBubble(); return; }
@@ -1911,15 +1914,15 @@ const game={
       h+=stat([{k:'st',icon:T.res,cur:Math.floor(o.store||0)+'/'+outpostCap(o,s)},{k:'r',icon:'up_gear',cur:outpostRate(o,s).toFixed(2)+'/s'},{k:'pw',icon:'pawn',cur:ow+'/4'}], proj);
       h+=`<div class="bgrid">`+up('optempo','up_gear', tMax||!canAfford(s,ct), tMax?'MAX':cm(ct))+up('opcap',T.res, cMax||!canAfford(s,cc), cMax?'MAX':cm(cc))
         +up('opadd','pawn', ow>=4||free<=0, ow>=4?'VOLL':'+1')+up('oprem','pawn', ow<=0, '−1')+`</div><div class="btail"></div>`;   // Pawn rausnehmen (mid:7518)
-      el.innerHTML=h; return;
+      el.innerHTML=closeX+h; return;
     }
     if(typeof idx==='string' && idx.slice(0,2)==='tb'){   // ----- TRUPPE-BAUEN-Sprechblase (mid:7514) -----
       const full=(s.towers||[]).length>=towerAllowance(s);
       let cells='';
-      for(const tt of TOWER_ORDER){ const T=TOWER_TYPES[tt], locked=s.era<T.era, c=T.cost, dis=locked||full||!canAfford(s,c);
-        const lbl=locked?('Stufe '+(T.era+1)):(full?'VOLL':cm(c));
+      for(const tt of TOWER_ORDER){ const T=TOWER_TYPES[tt]; if(s.era<T.era) continue;   // noch gesperrte Truppen ausblenden — kein Spoiler (mid:7570)
+        const c=T.cost, dis=full||!canAfford(s,c), lbl=full?'VOLL':cm(c);
         cells+=`<button class="bup" ${dis?'disabled':''} onclick="game.bubbleBuy('tb_${tt}')"><img src="${ico('tr_'+tt)}"><span class="bn">${T.name}</span><span class="bk">${lbl}</span></button>`; }
-      let h=`<div class="bh"><img src="${ico('up_attack')}">Truppe bauen</div><div class="bgrid" style="width:232px">${cells}</div><div class="btail"></div>`; el.innerHTML=h; return;   // feste Breite → 3 Spalten (ohne stat-Streifen würde das Grid sonst auf 1 Spalte kollabieren)
+      let h=`<div class="bh"><img src="${ico('up_attack')}">Truppe bauen</div><div class="bgrid" style="width:232px">${cells}</div><div class="btail"></div>`; el.innerHTML=closeX+h; return;   // feste Breite → 3 Spalten (ohne stat-Streifen würde das Grid sonst auf 1 Spalte kollabieren)
     }
     if(typeof idx==='string' && idx.slice(0,2)==='tw'){   // ----- TRUPPE-Panel-Sprechblase (mid:7514) -----
       const tw=towerAt(s,+idx.slice(2)); if(!tw){ this.closeBubble(); return; }
@@ -1928,7 +1931,7 @@ const game={
       h+=stat([{k:'hp',icon:'up_vita',cur:towerHp(tw,s)},{k:'dmg',icon:'up_attack',cur:towerAtk(tw,s).toFixed(0)}], null);
       h+=`<div class="bgrid"><button class="bup" onclick="game.bubbleBuy('tw_mode')"><img src="${ico('worker')}"><span class="bn">${ml[m]}</span><span class="bk">Modus →</span></button></div>`;
       h+=`<div class="bstat"><span class="si">Aufrüsten: global in der Kaserne</span></div><div class="btail"></div>`;
-      el.innerHTML=h; return;
+      el.innerHTML=closeX+h; return;
     }
     const b=s.builds&&s.builds[idx]; if(!b){ this.closeBubble(); return; }
     const T=BUILD_TYPES[b.type];
@@ -1960,7 +1963,7 @@ const game={
       row+=up('tempo','up_gear', tMax||!canAfford(s,ct), tMax?'MAX':cm(ct))+up('menge',T.res, gMax||!canAfford(s,cg), gMax?'MAX':cm(cg));
       html+=`<div class="brow">${row}</div>`;
     } else { html+=`<div class="bstat"><span class="si">${T.name}</span></div>`; }
-    html+=`<div class="btail"></div>`; el.innerHTML=html; },
+    html+=`<div class="btail"></div>`; el.innerHTML=closeX+html; },
   positionBubble(){ const s=this.s, idx=this.bubbleFor; if(idx==null)return; const el=document.getElementById('bubble'); if(!el)return;
     if(idx==='hero'){ el.classList.add('heroanchor'); const port=document.querySelector('#herohud .portrait.player'); if(port){ const r=port.getBoundingClientRect(); el.style.left=r.left.toFixed(1)+'px'; el.style.top=(r.top-6).toFixed(1)+'px'; } }
     else { el.classList.remove('heroanchor');
@@ -2309,12 +2312,12 @@ function endPointer(){ if(!pDown) return;
     // Tap auf ein Fixture (Hütte/Außenposten/Turm) öffnet direkt sein Panel — kein „Held muss daneben stehen" mehr (mid:6782).
     // Die enge Hitbox auf dem Gebäude-Körper verhindert versehentliches Auslösen beim Tap-to-Move im Feld.
     const P=s.player, heroNear=(x,y)=>dist(P.x,P.y,x,y)<88;
-    game._pendingOp=null;   // jeder neue Tap verwirft ein offenes Sammler-Lauf-Ziel
-    if(opIdx>=0){ const o=s.outposts[opIdx], k='op'+opIdx;   // Sammler (mid:7463): erst hinlaufen (sammelt unterwegs ein), dann Menü — nicht aus der Ferne öffnen
-      if(dist(P.x,P.y,o.x,o.y)<HARVEST_R+34){ if(game.bubbleFor===k) game.closeBubble(); else game.openBubble(k); }   // schon da → direkt toggeln
-      else { game.closeBubble(); game._pendingOp=opIdx; moveTo({x:o.x,y:o.y+24}); } }   // hinlaufen, Menü öffnet bei Ankunft
-    else if(tsIdx>=0){ const k=(towerAt(s,tsIdx)?'tw':'tb')+tsIdx; if(game.bubbleFor===k) game.closeBubble(); else game.openBubble(k); }   // B3: Truppen-Slot als Sprechblase, Toggle (mid:7514)
-    else if(hutIdx>=0){ if(game.bubbleFor===hutIdx) game.closeBubble(); else game.openBubble(hutIdx); }   // B3: Hütten als Sprechblase (Toggle)
+    game._pendingOpen=null;   // jeder neue Tap verwirft ein offenes Hinlauf-Ziel
+    // erst hinlaufen, dann Menü — Sammler/Hütte/Truppen-Platz NICHT aus der Ferne öffnen (mid:7563)
+    const walkOpen=(k,tx,ty,nearR,goY)=>{ if(dist(P.x,P.y,tx,ty)<nearR){ if(game.bubbleFor===k) game.closeBubble(); else game.openBubble(k); } else { game.closeBubble(); game._pendingOpen={key:k,x:tx,y:ty,r:nearR}; moveTo({x:tx,y:ty+goY}); } };
+    if(opIdx>=0){ const o=s.outposts[opIdx]; walkOpen('op'+opIdx, o.x, o.y, HARVEST_R+34, 24); }   // Sammler (sammelt unterwegs ein, mid:7463)
+    else if(tsIdx>=0){ const ts=s.towerSlots[tsIdx], k=(towerAt(s,tsIdx)?'tw':'tb')+tsIdx; walkOpen(k, ts.x, ts.y, 80, 20); }   // Truppen-Platz: erst hinlaufen (mid:7563)
+    else if(hutIdx>=0){ const sl=buildPos(s.builds[hutIdx]); walkOpen(hutIdx, sl.x, sl.y, 82, 18); }   // Hütte/Gebäude: erst hinlaufen (mid:7563)
     else if(tappedBase && heroNear(BASE.x,BASE.y)){ if(game.bubbleFor==='castle') game.closeBubble(); else game.openBubble('castle'); }   // B3: Burg als Sprechblase (Toggle)
     else { game.closeBubble(); moveTo(p); } }
   pDown=null; game.dragging=false; }
