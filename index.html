@@ -2327,6 +2327,36 @@ function upPointer(e){ pointers.delete(e.pointerId);
 cv.addEventListener('pointerup',e=>{ e.preventDefault(); upPointer(e); },{passive:false});
 cv.addEventListener('pointercancel',e=>{ upPointer(e); },{passive:false});
 
+// ---------- Desktop-Tastatur (mid:7803): WASD/Pfeile schwenken, +/- Zoom, ESC zu, Space auf Held zentrieren ----------
+const keysDown=new Set();
+function typingInField(){ const a=document.activeElement; return a && (a.tagName==='INPUT'||a.tagName==='TEXTAREA'); }
+addEventListener('keydown',e=>{
+  if(typingInField()) return;
+  const k=e.key.toLowerCase();
+  if(k==='escape'){ if(game&&game.closeBubble) game.closeBubble(); return; }
+  if(k===' '||k==='spacebar'){ if(game&&game.s){ game.camFollow=true; } e.preventDefault(); return; }
+  if(k==='+'||k==='='){ if(game) game.zoom=clampZoom(game.zoom*1.1); e.preventDefault(); return; }
+  if(k==='-'||k==='_'){ if(game) game.zoom=clampZoom(game.zoom/1.1); e.preventDefault(); return; }
+  if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(k)){ keysDown.add(k); e.preventDefault(); }
+});
+addEventListener('keyup',e=>{ keysDown.delete(e.key.toLowerCase()); });
+addEventListener('blur',()=>keysDown.clear());
+function kbCamLoop(){
+  if(keysDown.size && game && game.s && game.s.cam && game.camGoal){
+    const sp=13/Math.max(0.2,game.zoom); let dx=0,dy=0;
+    if(keysDown.has('w')||keysDown.has('arrowup')) dy-=sp;
+    if(keysDown.has('s')||keysDown.has('arrowdown')) dy+=sp;
+    if(keysDown.has('a')||keysDown.has('arrowleft')) dx-=sp;
+    if(keysDown.has('d')||keysDown.has('arrowright')) dx+=sp;
+    if(dx||dy){ game.camFollow=false;
+      game.camGoal.x=Math.max(0,Math.min(WORLD,game.camGoal.x+dx));
+      game.camGoal.y=Math.max(0,Math.min(WORLD,game.camGoal.y+dy));
+      game.s.cam.x=game.camGoal.x; game.s.cam.y=game.camGoal.y; }
+  }
+  requestAnimationFrame(kbCamLoop);
+}
+requestAnimationFrame(kbCamLoop);
+
 // ===== AUTO-PLAY-BOT (Zuschau-Modus ?autoplay) — spielt "einigermaßen normal" (mid:7137) =====
 // Regel-Policy: heuert an, baut Hütten/Sammler, weist Pawns zu, kauft Upgrades, baut Truppen,
 // steigt nachts auf, heilt, sammelt + kämpft mit dem Helden. Kein Lernen — deterministische Heuristik.
